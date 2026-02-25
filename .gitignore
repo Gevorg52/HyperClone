@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# pytest
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Dataset & outputs (large files — not tracked)
+_dataset/
+*.h5
+*.hdf5
+*.bin
+*.ply
+
+# Project working directories (generated per-run)
+apex_*/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Environment
+.env
+*.log

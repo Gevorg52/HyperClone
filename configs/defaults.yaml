@@ -1,0 +1,49 @@
+# Apex Reality — Default pipeline parameters
+# All stages reference these defaults; GUI sliders override at runtime.
+
+# Stage 1: Image Import & QC
+import_qc:
+  supported_extensions: [".jpg", ".jpeg", ".png", ".tif", ".tiff"]
+  sharpness_threshold: 100.0     # Laplacian variance below this = blurry
+  thumbnail_size: 256            # Gallery thumbnail longest edge
+
+# Stage 2: Feature Extraction
+extraction:
+  extractor: "superpoint"        # superpoint | disk | aliked
+  max_keypoints: 16384           # 24MP images benefit from denser keypoints
+  nms_radius: 3                  # matches SuperPoint paper default; less aggressive
+  resize_max: null               # null = full resolution (no resize)
+  as_half: false                 # false = float32 descriptors for max quality
+  keypoint_threshold: 0.001      # low threshold to maximize candidate pool before top-k
+
+# Stage 3: Feature Matching
+matching:
+  matcher: "lightglue"           # lightglue
+  strategy: "exhaustive"         # exhaustive | retrieval
+  depth_confidence: -1           # -1 = disable adaptive (max quality)
+  width_confidence: -1           # -1 = disable adaptive (max quality)
+  filter_threshold: 0.1          # match confidence threshold
+  retrieval_top_k: 20            # pairs per image when using retrieval
+  retrieval_model: "netvlad"     # retrieval model for pair generation
+
+# Stages 4-5: Reconstruction
+reconstruction:
+  camera_model: "OPENCV"         # OPENCV | SIMPLE_RADIAL | PINHOLE | RADIAL
+  single_camera: true            # all images share one camera model
+  min_num_matches: 15            # minimum matches to consider a pair
+  ba_local_max_num_iterations: 40
+  ba_global_max_num_iterations: 100  # doubled for convergence on harder cases
+  refine_focal_length: true
+  refine_principal_point: true
+  refine_extra_params: true
+
+# Stage 6: Final Bundle Adjustment
+refinement:
+  ba_iterations: 200             # higher for final quality pass
+  refine_focal_length: true
+  refine_principal_point: true
+  refine_extra_params: true
+
+# Stage 7: Export
+export:
+  format: "binary"               # binary | text | both

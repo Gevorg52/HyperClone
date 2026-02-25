@@ -1,0 +1,27 @@
+# Apex Reality — SfM Pipeline MVP dependencies
+
+# HLoc (pulls pycolmap, LightGlue, SuperPoint, etc.)
+hloc @ git+https://github.com/cvg/Hierarchical-Localization.git
+
+# GUI
+gradio>=4.0
+
+# Image processing
+opencv-python>=4.8
+Pillow>=10.0
+
+# EXIF reading
+exifread>=3.0
+
+# HDF5 (feature/match storage)
+h5py>=3.9
+
+# Config
+PyYAML>=6.0
+
+# Visualization
+plotly>=5.0
+matplotlib>=3.7
+
+# PyTorch (CUDA 12.1) — install separately if not already present:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
