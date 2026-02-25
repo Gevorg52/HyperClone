@@ -3,6 +3,7 @@
 Configures pair generation (exhaustive or retrieval-based) and runs LightGlue matching.
 """
 
+import logging
 from pathlib import Path
 
 import gradio as gr
@@ -11,6 +12,8 @@ import numpy as np
 
 from core.matcher_configs import build_matching_config
 from core.pipeline_state import PipelineState
+
+logger = logging.getLogger(__name__)
 
 
 def _count_pairs(pairs_path: str) -> int:
@@ -44,6 +47,7 @@ def run_matching(
     progress=gr.Progress(),
 ):
     """Generate image pairs and run LightGlue matching."""
+    state.discover_outputs()
     if not state.feature_path:
         raise gr.Error("No features extracted. Complete Stage 2 first.")
 
@@ -72,12 +76,34 @@ def run_matching(
 
     progress(0.1, desc="Generating image pairs...")
 
+    # Build image list for pair generation — only include images that have
+    # features in the HDF5 file. If extraction was interrupted, some images
+    # may be on disk but missing from the feature file.
+    all_names = [Path(p).name for p in state.image_list]
+    with h5py.File(str(feature_path), "r") as f:
+        feature_keys = set(f.keys())
+    image_names = [n for n in all_names if n in feature_keys]
+    skipped = len(all_names) - len(image_names)
+    if skipped > 0:
+        logger.warning(
+            f"{skipped} images have no features (extraction may have been "
+            f"interrupted). Matching will use {len(image_names)}/{len(all_names)} images."
+        )
+    if len(image_names) < 2:
+        raise gr.Error(
+            f"Only {len(image_names)} images have features. "
+            f"Re-run Stage 2 to extract features for all images."
+        )
+
     try:
         # Generate pairs
+        # Note: hloc pair generators do NOT return the output path, so we
+        # track the expected path ourselves.
         if strategy == "exhaustive":
-            pairs_path = pairs_from_exhaustive.main(
-                output=project_dir / "pairs-exhaustive.txt",
-                image_list=[Path(p).name for p in state.image_list],
+            pairs_path = project_dir / "pairs-exhaustive.txt"
+            pairs_from_exhaustive.main(
+                output=pairs_path,
+                image_list=image_names,
             )
         else:
             # Retrieval-based matching
@@ -93,18 +119,18 @@ def run_matching(
                 conf=retrieval_conf,
                 image_dir=image_dir,
                 export_dir=project_dir,
-                image_list=[Path(p).name for p in state.image_list],
+                image_list=image_names,
             )
-            pairs_path = pairs_from_retrieval.main(
+            pairs_path = project_dir / "pairs-retrieval.txt"
+            pairs_from_retrieval.main(
                 descriptors=retrieval_path,
-                output=project_dir / "pairs-retrieval.txt",
+                output=pairs_path,
                 num_matched=retrieval_top_k,
             )
 
         progress(0.4, desc="Matching features...")
 
         # Run matching
-        # HLoc requires both features and matches as Paths when features is a Path
         match_output = project_dir / f'{feature_path.stem}_{match_conf["output"]}_{pairs_path.stem}.h5'
         match_path = match_features.main(
             conf=match_conf,

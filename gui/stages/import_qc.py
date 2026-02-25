@@ -291,7 +291,7 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
         state.post_ba_error = saved.post_ba_error
         state.export_dir = saved.export_dir
 
-    # Update state with current stage 1 results
+    # Update state with current stage 1 results (must set project_dir before discover)
     state.image_dir = folder_path
     state.project_dir = str(project_dir)
     state.image_list = [str(p) for p in images]
@@ -300,6 +300,9 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
     state.image_width = img_w
     state.image_height = img_h
     state.focal_length_mm = focal
+
+    # Discover outputs on disk that may not be in the saved state
+    state.discover_outputs()
 
     # Save state to disk
     state.save()
@@ -478,15 +481,11 @@ def wire_stage1(components: dict, state: gr.State):
 
     load_outputs = [c["gallery"], c["image_table"], c["warnings_box"], c["stats_box"], state]
 
-    # Browse sets the path, then auto-triggers load
+    # Browse just sets the path — user clicks "Load Images" when ready
     c["browse_btn"].click(
         fn=_browse_folder,
         inputs=[],
         outputs=[c["folder_input"]],
-    ).then(
-        fn=load_images,
-        inputs=[c["folder_input"], state],
-        outputs=load_outputs,
     )
 
     c["load_btn"].click(

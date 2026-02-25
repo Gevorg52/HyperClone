@@ -91,6 +91,7 @@ def run_refinement(
     progress=gr.Progress(),
 ):
     """Run final bundle adjustment refinement."""
+    state.discover_outputs()
     if not state.sfm_dir:
         raise gr.Error("No reconstruction found. Complete Stages 4-5 first.")
 
@@ -141,6 +142,7 @@ def run_export(
     progress=gr.Progress(),
 ):
     """Export reconstruction in 3DGS-ready directory layout."""
+    state.discover_outputs()
     if not state.sfm_dir:
         raise gr.Error("No reconstruction found. Complete Stages 4-5 first.")
     if not export_path:

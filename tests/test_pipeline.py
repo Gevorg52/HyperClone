@@ -119,7 +119,7 @@ class TestFeatureConfigs:
     def test_superpoint_default(self):
         conf = build_extraction_config("superpoint")
         assert conf["model"]["name"] == "superpoint"
-        assert conf["model"]["max_keypoints"] == 16384
+        assert conf["model"]["max_keypoints"] == 8192
         assert conf["model"]["nms_radius"] == 3
         assert conf["preprocessing"]["grayscale"] is True
         assert "output" in conf
@@ -135,7 +135,7 @@ class TestFeatureConfigs:
     def test_disk_config(self):
         conf = build_extraction_config("disk")
         assert conf["model"]["name"] == "disk"
-        assert conf["model"]["max_keypoints"] == 16384
+        assert conf["model"]["max_keypoints"] == 8192
         assert conf["preprocessing"]["grayscale"] is False
 
     def test_aliked_uses_max_num_keypoints(self):
@@ -583,6 +583,122 @@ class TestImageCache:
 # ============================================================================
 # Browse button test
 # ============================================================================
+
+# ============================================================================
+# File discovery tests
+# ============================================================================
+
+class TestDiscoverExistingOutputs:
+    """Tests for PipelineState.discover_outputs()."""
+
+    def test_discovers_feature_file_and_extractor_name(self, tmp_path):
+        (tmp_path / "feats-superpoint-n16384-r99999.h5").write_bytes(b"fake")
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.discover_outputs()
+
+        assert state.feature_path == str(tmp_path / "feats-superpoint-n16384-r99999.h5")
+        assert state.extractor_name == "superpoint"
+
+    def test_discovers_pairs_file(self, tmp_path):
+        (tmp_path / "pairs-exhaustive.txt").write_bytes(b"img1.jpg img2.jpg\n")
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.discover_outputs()
+
+        assert state.pairs_path == str(tmp_path / "pairs-exhaustive.txt")
+
+    def test_discovers_match_file(self, tmp_path):
+        # Create both feats and matches — only matches should be picked up
+        (tmp_path / "feats-superpoint-n16384-r99999.h5").write_bytes(b"fake")
+        (tmp_path / "feats-superpoint-n16384-r99999_matches-lightglue.h5").write_bytes(b"fake")
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.discover_outputs()
+
+        assert state.match_path is not None
+        assert "matches" in state.match_path
+
+    def test_feats_file_not_mistaken_for_matches(self, tmp_path):
+        # Only a feats file, no matches file — match_path should stay None
+        (tmp_path / "feats-superpoint-n16384-r99999.h5").write_bytes(b"fake")
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.discover_outputs()
+
+        assert state.match_path is None
+
+    def test_discovers_sfm_directory(self, tmp_path):
+        sfm_dir = tmp_path / "sfm"
+        sfm_dir.mkdir()
+        (sfm_dir / "cameras.bin").write_bytes(b"fake")
+        (sfm_dir / "images.bin").write_bytes(b"fake")
+        (sfm_dir / "points3D.bin").write_bytes(b"fake")
+
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.discover_outputs()
+
+        assert state.sfm_dir == str(sfm_dir)
+
+    def test_sfm_dir_ignored_if_no_bin_files(self, tmp_path):
+        sfm_dir = tmp_path / "sfm"
+        sfm_dir.mkdir()
+        # Empty sfm dir — should not be discovered
+
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.discover_outputs()
+
+        assert state.sfm_dir is None
+
+    def test_does_not_overwrite_existing_fields(self, tmp_path):
+        (tmp_path / "feats-superpoint-n16384-r99999.h5").write_bytes(b"fake")
+        (tmp_path / "pairs-exhaustive.txt").write_bytes(b"fake")
+
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.feature_path = "/existing/features.h5"
+        state.extractor_name = "disk"
+        state.pairs_path = "/existing/pairs.txt"
+
+        state.discover_outputs()
+
+        assert state.feature_path == "/existing/features.h5"
+        assert state.extractor_name == "disk"
+        assert state.pairs_path == "/existing/pairs.txt"
+
+    def test_picks_last_sorted_when_multiple_files(self, tmp_path):
+        (tmp_path / "feats-aliked-n4096-r1600.h5").write_bytes(b"fake")
+        (tmp_path / "feats-superpoint-n16384-r99999.h5").write_bytes(b"fake")
+
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.discover_outputs()
+
+        # sorted() puts superpoint after aliked alphabetically
+        assert "superpoint" in state.feature_path
+        assert state.extractor_name == "superpoint"
+
+    def test_no_project_dir_changes_nothing(self):
+        state = PipelineState()
+        state.discover_outputs()
+
+        assert state.feature_path is None
+        assert state.pairs_path is None
+        assert state.match_path is None
+        assert state.sfm_dir is None
+
+    def test_empty_project_dir_changes_nothing(self, tmp_path):
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.discover_outputs()
+
+        assert state.feature_path is None
+        assert state.pairs_path is None
+        assert state.match_path is None
+        assert state.sfm_dir is None
+
 
 class TestBrowseButton:
     """Verify browse button is wired in UI."""

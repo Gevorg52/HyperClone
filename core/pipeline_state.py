@@ -68,6 +68,46 @@ class PipelineState:
     enhanced_model_path: Optional[str] = None
     num_views_enhanced: int = 0
 
+    def discover_outputs(self):
+        """Scan project_dir for existing pipeline outputs and fill missing fields.
+
+        Handles stale/incomplete pipeline_state.json by looking for known output
+        file patterns on disk. Only fills fields that are currently None — never
+        overwrites existing values. Safe to call multiple times.
+        """
+        if not self.project_dir:
+            return
+        project_dir = Path(self.project_dir).resolve()
+        if not project_dir.is_dir():
+            return
+
+        # Feature files: feats-*.h5
+        if not self.feature_path:
+            feats = sorted(project_dir.glob("feats-*.h5"))
+            if feats:
+                self.feature_path = str(feats[-1])
+                parts = feats[-1].stem.split("-")
+                if len(parts) >= 2:
+                    self.extractor_name = parts[1]
+
+        # Pairs files: pairs-*.txt
+        if not self.pairs_path:
+            pairs = sorted(project_dir.glob("pairs-*.txt"))
+            if pairs:
+                self.pairs_path = str(pairs[-1])
+
+        # Match files: *matches*.h5
+        if not self.match_path:
+            matches = [f for f in project_dir.glob("*matches*.h5")]
+            if matches:
+                self.match_path = str(sorted(matches)[-1])
+
+        # SFM directory: sfm/ with reconstruction .bin files
+        if not self.sfm_dir:
+            sfm_dir = project_dir / "sfm"
+            if sfm_dir.is_dir() and any(sfm_dir.glob("*.bin")):
+                self.sfm_dir = str(sfm_dir)
+
     def save(self):
         """Persist state to project_dir/pipeline_state.json."""
         if not self.project_dir:

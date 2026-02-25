@@ -7,7 +7,7 @@ This module centralizes all that mapping so the GUI just passes user-friendly pa
 
 def build_extraction_config(
     extractor: str = "superpoint",
-    max_keypoints: int = 16384,
+    max_keypoints: int = 8192,
     nms_radius: int = 3,
     resize_max: int | None = None,
     as_half: bool = False,

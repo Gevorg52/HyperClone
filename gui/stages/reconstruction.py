@@ -26,6 +26,7 @@ def run_reconstruction(
     progress=gr.Progress(),
 ):
     """Run HLoc incremental reconstruction (verification + mapping)."""
+    state.discover_outputs()
     if not state.match_path or not state.feature_path:
         raise gr.Error("No matches found. Complete Stage 3 first.")
 

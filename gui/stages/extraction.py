@@ -112,7 +112,7 @@ def build_stage2_tab():
                     visible=True,
                 )
                 max_kp_slider = gr.Slider(
-                    minimum=1024, maximum=32768, value=16384, step=512,
+                    minimum=1024, maximum=32768, value=8192, step=512,
                     label="Max Keypoints per Image",
                 )
                 nms_slider = gr.Slider(
