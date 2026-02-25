@@ -104,11 +104,13 @@ def run_matching(
         progress(0.4, desc="Matching features...")
 
         # Run matching
+        # HLoc requires both features and matches as Paths when features is a Path
+        match_output = project_dir / f'{feature_path.stem}_{match_conf["output"]}_{pairs_path.stem}.h5'
         match_path = match_features.main(
             conf=match_conf,
             pairs=pairs_path,
             features=feature_path,
-            export_dir=project_dir,
+            matches=match_output,
         )
     except Exception as e:
         tb = traceback.format_exc()
@@ -141,6 +143,7 @@ def run_matching(
 
     log = f"Matching complete. Output: {match_path}"
 
+    state.save()
     return stats, log, state
 
 

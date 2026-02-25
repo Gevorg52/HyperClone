@@ -130,6 +130,7 @@ def run_refinement(
 
     log = "Final bundle adjustment complete."
 
+    state.save()
     return stats, log, state
 
 
@@ -207,6 +208,7 @@ def run_export(
 
     log = f"Export complete. 3DGS-ready directory: {export_dir}"
 
+    state.save()
     return quality_report, log, state
 
 

@@ -269,7 +269,29 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
     img_h = rep_exif.get("height") or 0
     focal = rep_exif.get("focal_length_mm")
 
-    # Update state
+    # Restore previous pipeline progress if it exists (survives app restarts)
+    saved = PipelineState.load(str(project_dir))
+    if saved.project_dir:
+        # Carry forward progress from completed stages
+        state.feature_path = saved.feature_path
+        state.extractor_name = saved.extractor_name
+        state.max_keypoints_used = saved.max_keypoints_used
+        state.avg_keypoints = saved.avg_keypoints
+        state.match_path = saved.match_path
+        state.pairs_path = saved.pairs_path
+        state.matcher_name = saved.matcher_name
+        state.num_pairs = saved.num_pairs
+        state.avg_matches_per_pair = saved.avg_matches_per_pair
+        state.sfm_dir = saved.sfm_dir
+        state.num_registered = saved.num_registered
+        state.num_points3d = saved.num_points3d
+        state.mean_reprojection_error = saved.mean_reprojection_error
+        state.refined = saved.refined
+        state.pre_ba_error = saved.pre_ba_error
+        state.post_ba_error = saved.post_ba_error
+        state.export_dir = saved.export_dir
+
+    # Update state with current stage 1 results
     state.image_dir = folder_path
     state.project_dir = str(project_dir)
     state.image_list = [str(p) for p in images]
@@ -279,9 +301,26 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
     state.image_height = img_h
     state.focal_length_mm = focal
 
+    # Save state to disk
+    state.save()
+
     cache_msg = ""
     if cache_count > 0:
         cache_msg = f"\n(Cached: {cache_count}, reprocessed: {process_count})"
+
+    # Show what stages are already complete
+    resumed = []
+    if state.feature_path:
+        resumed.append("Stage 2 (features)")
+    if state.match_path:
+        resumed.append("Stage 3 (matches)")
+    if state.sfm_dir:
+        resumed.append("Stages 4-5 (reconstruction)")
+    if state.refined:
+        resumed.append("Stage 6 (refinement)")
+    if state.export_dir:
+        resumed.append("Stage 7 (export)")
+    resume_msg = f"\nResumed: {', '.join(resumed)}" if resumed else ""
 
     stats_text = (
         f"Images: {len(images)}\n"
@@ -290,6 +329,7 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
         f"Camera: {rep_exif.get('camera_make', '?')} {rep_exif.get('camera_model', '?')}\n"
         f"Project dir: {project_dir}"
         f"{cache_msg}"
+        f"{resume_msg}"
     )
 
     return thumbnails, table_rows, warning_text, stats_text, state
@@ -334,6 +374,7 @@ def auto_cull(table_data, threshold: float, state: PipelineState):
     cull_msg = (f"Auto-cull: {culled} images below threshold {threshold}. "
                 f"{len(included_images)} images remaining.")
 
+    state.save()
     return updated_rows, cull_msg, state
 
 
@@ -364,6 +405,7 @@ def apply_table_changes(table_data, state: PipelineState):
     state.num_images = len(included)
 
     status = f"Table changes applied. {len(included)} images included, {len(excluded)} excluded."
+    state.save()
     return status, state
 
 

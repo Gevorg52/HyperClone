@@ -78,6 +78,36 @@ class TestPipelineState:
         assert state.num_images == 42
         assert state.refined is True
 
+    def test_save_and_load(self, tmp_path):
+        """State should persist to disk and restore correctly."""
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.image_dir = "/fake/images"
+        state.feature_path = "/fake/features.h5"
+        state.num_images = 42
+        state.refined = True
+        state.image_list = ["a.jpg", "b.jpg"]
+        state.save()
+
+        restored = PipelineState.load(str(tmp_path))
+        assert restored.image_dir == "/fake/images"
+        assert restored.feature_path == "/fake/features.h5"
+        assert restored.num_images == 42
+        assert restored.refined is True
+        assert restored.image_list == ["a.jpg", "b.jpg"]
+
+    def test_load_missing_file(self, tmp_path):
+        """Loading from dir without state file returns fresh state."""
+        state = PipelineState.load(str(tmp_path))
+        assert state.project_dir is None
+        assert state.num_images == 0
+
+    def test_load_corrupt_file(self, tmp_path):
+        """Loading corrupt JSON returns fresh state."""
+        (tmp_path / "pipeline_state.json").write_text("not json{{{")
+        state = PipelineState.load(str(tmp_path))
+        assert state.project_dir is None
+
 
 # ============================================================================
 # Feature config tests

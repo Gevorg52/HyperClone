@@ -99,6 +99,7 @@ def run_reconstruction(
 
     log = f"Reconstruction complete. Output: {sfm_dir}"
 
+    state.save()
     return stats_text, log, state
 
 

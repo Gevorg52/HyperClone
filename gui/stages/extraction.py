@@ -90,6 +90,7 @@ def run_extraction(
 
     log = f"Feature extraction complete. Output: {feature_path}"
 
+    state.save()
     return stats, log, state
 
 

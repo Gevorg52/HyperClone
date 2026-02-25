@@ -2,10 +2,17 @@
 
 IMPORTANT: Only store serializable types (paths as strings, primitives, lists, dicts).
 Never store pycolmap objects — they cannot survive Gradio's deep copy of gr.State.
+
+State is persisted to disk (pipeline_state.json) in the project directory so that
+progress survives app restarts.
 """
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Optional
+
+STATE_FILENAME = "pipeline_state.json"
 
 
 @dataclass
@@ -60,3 +67,22 @@ class PipelineState:
     difix_output_path: Optional[str] = None
     enhanced_model_path: Optional[str] = None
     num_views_enhanced: int = 0
+
+    def save(self):
+        """Persist state to project_dir/pipeline_state.json."""
+        if not self.project_dir:
+            return
+        path = Path(self.project_dir) / STATE_FILENAME
+        path.write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
+
+    @classmethod
+    def load(cls, project_dir: str) -> "PipelineState":
+        """Restore state from project_dir/pipeline_state.json, or return fresh state."""
+        path = Path(project_dir) / STATE_FILENAME
+        if not path.exists():
+            return cls()
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return cls(**data)
+        except (json.JSONDecodeError, TypeError):
+            return cls()
