@@ -15,6 +15,19 @@ from core.pipeline_state import PipelineState
 from core.utils import create_3dgs_directory, get_reconstruction_stats
 
 
+def _browse_export_folder() -> str:
+    """Open a native folder selection dialog for export path."""
+    import tkinter as tk
+    from tkinter import filedialog
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    folder = filedialog.askdirectory(title="Select Export Folder")
+    root.destroy()
+    return folder or ""
+
+
 def _run_standalone_ba(
     sfm_dir: Path,
     ba_iterations: int,
@@ -194,7 +207,7 @@ def run_export(
     rec = pycolmap.Reconstruction(str(sfm_dir))
     cam_info = ""
     for cam_id, cam in rec.cameras.items():
-        cam_info += f"  Camera {cam_id}: {cam.model_name}, {cam.width}x{cam.height}, params={list(cam.params)}\n"
+        cam_info += f"  Camera {cam_id}: {cam.model.name}, {cam.width}x{cam.height}, params={list(cam.params)}\n"
 
     state.export_dir = str(export_dir)
 
@@ -243,18 +256,20 @@ def build_stage67_tab():
         gr.Markdown("### Stage 7: Export for Gaussian Splatting")
 
         with gr.Row():
-            with gr.Column():
-                export_path_input = gr.Textbox(
-                    label="Export Directory",
-                    placeholder="F:/path/to/export/output",
-                )
-                export_format_dropdown = gr.Dropdown(
-                    choices=["binary", "text", "both"],
-                    value="binary",
-                    label="Export Format",
-                )
-            with gr.Column():
-                export_btn = gr.Button("Export for 3DGS", variant="primary")
+            export_path_input = gr.Textbox(
+                label="Export Directory",
+                placeholder="F:/path/to/export/output",
+                scale=4,
+            )
+            browse_export_btn = gr.Button("Browse...", scale=1)
+
+        with gr.Row():
+            export_format_dropdown = gr.Dropdown(
+                choices=["binary", "text", "both"],
+                value="binary",
+                label="Export Format",
+            )
+            export_btn = gr.Button("Export for 3DGS", variant="primary")
 
         with gr.Row():
             quality_report = gr.Textbox(label="Quality Report", lines=10, interactive=False)
@@ -269,6 +284,7 @@ def build_stage67_tab():
         "refine_stats": refine_stats,
         "refine_log": refine_log,
         "export_path_input": export_path_input,
+        "browse_export_btn": browse_export_btn,
         "export_format_dropdown": export_format_dropdown,
         "export_btn": export_btn,
         "quality_report": quality_report,
@@ -290,6 +306,12 @@ def wire_stage67(components: dict, state: gr.State):
             state,
         ],
         outputs=[c["refine_stats"], c["refine_log"], state],
+    )
+
+    c["browse_export_btn"].click(
+        fn=_browse_export_folder,
+        inputs=[],
+        outputs=[c["export_path_input"]],
     )
 
     c["export_btn"].click(

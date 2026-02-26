@@ -9,10 +9,10 @@ import_qc:
 
 # Stage 2: Feature Extraction
 extraction:
-  extractor: "superpoint"        # superpoint | disk | aliked
-  max_keypoints: 16384           # 24MP images benefit from denser keypoints
+  extractor: "aliked"            # superpoint | disk | aliked
+  max_keypoints: 8192            # balanced density for resize_max=1600
   nms_radius: 3                  # matches SuperPoint paper default; less aggressive
-  resize_max: null               # null = full resolution (no resize)
+  resize_max: 1600               # COLMAP thresholds calibrated for ~1080p; 1600 is optimal
   as_half: false                 # false = float32 descriptors for max quality
   keypoint_threshold: 0.001      # low threshold to maximize candidate pool before top-k
 

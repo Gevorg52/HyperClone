@@ -103,12 +103,12 @@ def build_stage2_tab():
             with gr.Column():
                 extractor_dropdown = gr.Dropdown(
                     choices=["superpoint", "disk", "aliked"],
-                    value="superpoint",
+                    value="aliked",
                     label="Feature Extractor",
                 )
                 license_warning = gr.Markdown(
-                    "**Note:** SuperPoint has a non-commercial license (MagicLeap). "
-                    "DISK and ALIKED are permissive alternatives.",
+                    "**Note:** ALIKED (default) and DISK use permissive BSD-3 licenses. "
+                    "SuperPoint has a non-commercial license (MagicLeap).",
                     visible=True,
                 )
                 max_kp_slider = gr.Slider(
@@ -121,13 +121,13 @@ def build_stage2_tab():
                 )
             with gr.Column():
                 full_res_check = gr.Checkbox(
-                    value=True,
+                    value=False,
                     label="Use Full Resolution (no resize)",
                 )
                 resize_slider = gr.Slider(
                     minimum=800, maximum=6000, value=1600, step=100,
                     label="Max Image Dimension (if resize enabled)",
-                    visible=False,
+                    visible=True,
                 )
                 half_check = gr.Checkbox(
                     value=False,

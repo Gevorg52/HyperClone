@@ -6,10 +6,10 @@ This module centralizes all that mapping so the GUI just passes user-friendly pa
 
 
 def build_extraction_config(
-    extractor: str = "superpoint",
+    extractor: str = "aliked",
     max_keypoints: int = 8192,
     nms_radius: int = 3,
-    resize_max: int | None = None,
+    resize_max: int = 1600,
     as_half: bool = False,
     keypoint_threshold: float = 0.001,
 ) -> dict:

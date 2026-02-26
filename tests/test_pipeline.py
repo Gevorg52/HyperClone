@@ -173,7 +173,7 @@ class TestMatcherConfigs:
     def test_lightglue_default(self):
         conf = build_matching_config()
         assert conf["model"]["name"] == "lightglue"
-        assert conf["model"]["features"] == "superpoint"
+        assert conf["model"]["features"] == "aliked"
         assert conf["model"]["depth_confidence"] == -1
         assert conf["model"]["width_confidence"] == -1
 

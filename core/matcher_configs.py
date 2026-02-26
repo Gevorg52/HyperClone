@@ -6,7 +6,7 @@ Centralizes LightGlue configuration so the GUI passes user-friendly params.
 
 def build_matching_config(
     matcher: str = "lightglue",
-    features: str = "superpoint",
+    features: str = "aliked",
     depth_confidence: float = -1,
     width_confidence: float = -1,
     filter_threshold: float = 0.1,

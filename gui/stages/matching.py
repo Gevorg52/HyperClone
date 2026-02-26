@@ -59,7 +59,7 @@ def run_matching(
     image_dir = Path(state.image_dir)
 
     # Determine feature type from state
-    features = state.extractor_name or "superpoint"
+    features = state.extractor_name or "aliked"
 
     # Adaptive confidence settings
     depth_conf = -1.0 if disable_adaptive else 0.0
