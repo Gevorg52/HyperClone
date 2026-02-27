@@ -25,15 +25,26 @@ def get_image_list(folder: str) -> list[Path]:
 
 
 def compute_sharpness(image_path: str | Path) -> float:
-    """Compute sharpness score using Laplacian variance.
+    """Compute sharpness score using tile-based Laplacian variance (90th percentile).
 
-    Higher = sharper. Typical blurry threshold is ~100.
+    Uses an 8x8 grid of tiles and reports the 90th percentile of their
+    Laplacian variances. Robust to depth-of-field (ignores bokeh tiles),
+    sensitive to motion blur (all tiles score low).
+    Higher = sharper. Typical blurry threshold is ~200.
     """
+    import numpy as np
+
     img = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
     if img is None:
         raise ValueError(f"Cannot read image: {image_path}")
-    laplacian = cv2.Laplacian(img, cv2.CV_64F)
-    return float(laplacian.var())
+    tile_grid = 8
+    th, tw = img.shape[0] // tile_grid, img.shape[1] // tile_grid
+    variances = []
+    for r in range(tile_grid):
+        for c in range(tile_grid):
+            tile = img[r * th:(r + 1) * th, c * tw:(c + 1) * tw]
+            variances.append(float(cv2.Laplacian(tile, cv2.CV_64F).var()))
+    return float(np.percentile(variances, 90))
 
 
 def read_exif(image_path: str | Path) -> dict:

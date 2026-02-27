@@ -458,13 +458,14 @@ class TestImportQCLogic:
             ["blurry.jpg", 50.0, 6000, 4000, "24.0", "Sony", True],
             ["ok.jpg", 100.0, 6000, 4000, "24.0", "Sony", True],
         ]
-        updated_rows, cull_msg, new_state = auto_cull(table, 100.0, state)
+        updated_rows, cull_msg, summary_html, new_state = auto_cull(table, 100.0, state)
 
         assert updated_rows[0][6] is True   # sharp
         assert updated_rows[1][6] is False  # blurry
         assert updated_rows[2][6] is True   # ok (equal to threshold)
         assert "1 images below threshold" in cull_msg
         assert new_state.num_images == 2
+        assert "Blurry" in summary_html
 
     def test_auto_cull_preserves_row_data(self):
         from gui.stages.import_qc import auto_cull
@@ -473,7 +474,7 @@ class TestImportQCLogic:
         state.image_dir = "/fake/dir"
 
         table = [["img.jpg", 150.0, 6000, 4000, "24.0", "Sony", True]]
-        updated_rows, _, _ = auto_cull(table, 100.0, state)
+        updated_rows, _, _, _ = auto_cull(table, 100.0, state)
 
         assert updated_rows[0][0] == "img.jpg"
         assert updated_rows[0][1] == 150.0
@@ -510,7 +511,7 @@ class TestImportQCLogic:
             ["blurry.jpg", 50.0, 6000, 4000, "24.0", "Sony", True],
         ], columns=["Filename", "Sharpness", "Width", "Height", "Focal (mm)", "Camera", "Include"])
 
-        updated_rows, cull_msg, new_state = auto_cull(df, 100.0, state)
+        updated_rows, cull_msg, summary_html, new_state = auto_cull(df, 100.0, state)
         assert updated_rows[0][6] is True
         assert updated_rows[1][6] is False
         assert new_state.num_images == 1

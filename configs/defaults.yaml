@@ -4,7 +4,7 @@
 # Stage 1: Image Import & QC
 import_qc:
   supported_extensions: [".jpg", ".jpeg", ".png", ".tif", ".tiff"]
-  sharpness_threshold: 100.0     # Laplacian variance below this = blurry
+  sharpness_threshold: 200.0     # Tile-based 90th percentile below this = blurry
   thumbnail_size: 256            # Gallery thumbnail longest edge
 
 # Stage 2: Feature Extraction

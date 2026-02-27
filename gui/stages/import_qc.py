@@ -30,7 +30,7 @@ from core.utils import (
 # Cache helpers
 # ---------------------------------------------------------------------------
 
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 CACHE_FILENAME = "image_cache.json"
 
 
@@ -86,9 +86,17 @@ def _process_single_image(img_path: Path, thumb_size: int = 256) -> dict:
     if exif["width"] is None or exif["height"] is None:
         exif["height"], exif["width"] = img.shape[:2]
 
-    # Sharpness: Laplacian variance on grayscale
+    # Sharpness: 90th percentile of 8x8 tile Laplacian variances
+    # Robust to depth-of-field (ignores bokeh tiles), sensitive to motion blur
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    sharpness = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+    tile_grid = 8
+    th, tw = gray.shape[0] // tile_grid, gray.shape[1] // tile_grid
+    variances = []
+    for r in range(tile_grid):
+        for c in range(tile_grid):
+            tile = gray[r * th:(r + 1) * th, c * tw:(c + 1) * tw]
+            variances.append(float(cv2.Laplacian(tile, cv2.CV_64F).var()))
+    sharpness = float(np.percentile(variances, 90))
 
     # Thumbnail: resize from the already-loaded image
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -234,7 +242,7 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
         sharpness = r["sharpness"]
         exif_list.append(exif)
 
-        thumbnails.append((r["thumbnail"], img_path.name))
+        thumbnails.append((r["thumbnail"], f"{img_path.name} — {round(sharpness, 1)}"))
 
         table_rows.append([
             img_path.name,
@@ -254,6 +262,11 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
             "sharpness": round(sharpness, 2),
             "exif": exif,
         }
+
+    # Sort by sharpness ascending (blurriest first for easy identification)
+    sort_indices = sorted(range(len(table_rows)), key=lambda i: table_rows[i][1])
+    thumbnails = [thumbnails[i] for i in sort_indices]
+    table_rows = [table_rows[i] for i in sort_indices]
 
     # Save cache for next time
     _save_cache(project_dir, updated_cache)
@@ -335,7 +348,43 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
         f"{resume_msg}"
     )
 
-    return thumbnails, table_rows, warning_text, stats_text, state
+    # Initial sharpness summary at default threshold (200)
+    sharpness_summary = _build_sharpness_summary(table_rows, 200.0)
+
+    return thumbnails, table_rows, warning_text, stats_text, sharpness_summary, state
+
+
+# ---------------------------------------------------------------------------
+# Sharpness summary helpers
+# ---------------------------------------------------------------------------
+
+def _build_sharpness_summary(table_data, threshold: float) -> str:
+    """Build HTML summary of sharpness distribution relative to threshold."""
+    scores = [float(row[1]) for row in table_data]
+    blurry = sum(1 for s in scores if s < threshold)
+    borderline = sum(1 for s in scores if threshold <= s < threshold * 1.5)
+    sharp = sum(1 for s in scores if s >= threshold * 1.5)
+    total = len(scores)
+
+    return (
+        f'<div style="display:flex;gap:16px;padding:8px 0;font-family:monospace">'
+        f'<span style="color:#e74c3c">Blurry (&lt;{threshold:.0f}): <b>{blurry}</b></span>'
+        f'<span style="color:#f39c12">Borderline ({threshold:.0f}\u2013{threshold*1.5:.0f}): <b>{borderline}</b></span>'
+        f'<span style="color:#27ae60">Sharp (&gt;{threshold*1.5:.0f}): <b>{sharp}</b></span>'
+        f'<span>Total: {total}</span>'
+        f'</div>'
+    )
+
+
+def _update_threshold_preview(table_data, threshold):
+    """Update the sharpness group summary when slider moves."""
+    if isinstance(table_data, pd.DataFrame):
+        if table_data.empty:
+            return "No images loaded."
+        table_data = table_data.values.tolist()
+    elif not table_data:
+        return "No images loaded."
+    return _build_sharpness_summary(table_data, threshold)
 
 
 # ---------------------------------------------------------------------------
@@ -377,8 +426,10 @@ def auto_cull(table_data, threshold: float, state: PipelineState):
     cull_msg = (f"Auto-cull: {culled} images below threshold {threshold}. "
                 f"{len(included_images)} images remaining.")
 
+    summary_html = _build_sharpness_summary(updated_rows, threshold)
+
     state.save()
-    return updated_rows, cull_msg, state
+    return updated_rows, cull_msg, summary_html, state
 
 
 def apply_table_changes(table_data, state: PipelineState):
@@ -442,9 +493,11 @@ def build_stage1_tab():
                 stats_box = gr.Textbox(label="Summary", lines=6, interactive=False)
                 warnings_box = gr.Textbox(label="EXIF Warnings", lines=3, interactive=False)
 
+        sharpness_summary = gr.HTML(value="", label="Sharpness Distribution")
+
         with gr.Row():
             threshold_slider = gr.Slider(
-                minimum=0, maximum=500, value=100, step=5,
+                minimum=0, maximum=500, value=200, step=5,
                 label="Sharpness Threshold",
             )
             cull_btn = gr.Button("Auto-Cull Blurry Images")
@@ -467,6 +520,7 @@ def build_stage1_tab():
         "gallery": gallery,
         "stats_box": stats_box,
         "warnings_box": warnings_box,
+        "sharpness_summary": sharpness_summary,
         "threshold_slider": threshold_slider,
         "cull_btn": cull_btn,
         "apply_btn": apply_btn,
@@ -479,7 +533,10 @@ def wire_stage1(components: dict, state: gr.State):
     """Connect Stage 1 UI events to handler functions."""
     c = components
 
-    load_outputs = [c["gallery"], c["image_table"], c["warnings_box"], c["stats_box"], state]
+    load_outputs = [
+        c["gallery"], c["image_table"], c["warnings_box"], c["stats_box"],
+        c["sharpness_summary"], state,
+    ]
 
     # Browse just sets the path — user clicks "Load Images" when ready
     c["browse_btn"].click(
@@ -497,11 +554,18 @@ def wire_stage1(components: dict, state: gr.State):
     c["cull_btn"].click(
         fn=auto_cull,
         inputs=[c["image_table"], c["threshold_slider"], state],
-        outputs=[c["image_table"], c["cull_info"], state],
+        outputs=[c["image_table"], c["cull_info"], c["sharpness_summary"], state],
     )
 
     c["apply_btn"].click(
         fn=apply_table_changes,
         inputs=[c["image_table"], state],
         outputs=[c["cull_info"], state],
+    )
+
+    # Live threshold preview — update group counts when slider moves
+    c["threshold_slider"].release(
+        fn=_update_threshold_preview,
+        inputs=[c["image_table"], c["threshold_slider"]],
+        outputs=[c["sharpness_summary"]],
     )
