@@ -69,6 +69,26 @@ class TestPipelineState:
         s1.image_list.append("test.jpg")
         assert s2.image_list == [], "Mutable default leaked between instances"
 
+    def test_default_alignment_fields(self):
+        """New alignment fields should have safe defaults."""
+        state = PipelineState()
+        assert state.aligned is False
+        assert state.alignment_method is None
+        assert state.alignment_imu_coverage == 0.0
+        assert state.alignment_rotation_deg == 0.0
+        assert state.alignment_up_axis is None
+        assert state.alignment_centered is False
+
+    def test_default_masking_fields(self):
+        """Masking fields should have safe defaults."""
+        state = PipelineState()
+        assert state.masks_generated is False
+        assert state.mask_dir is None
+        assert state.mask_method is None
+        assert state.num_masks == 0
+        assert state.num_corrected == 0
+        assert state.mask_model_variant is None
+
     def test_field_assignment(self):
         state = PipelineState()
         state.project_dir = "/tmp/test"
@@ -101,6 +121,103 @@ class TestPipelineState:
         state = PipelineState.load(str(tmp_path))
         assert state.project_dir is None
         assert state.num_images == 0
+
+    def test_load_old_state_without_alignment(self, tmp_path):
+        """Old state files missing alignment keys should load with defaults."""
+        old_data = {
+            "project_dir": str(tmp_path),
+            "image_dir": "/fake/images",
+            "image_list": [],
+            "excluded_images": [],
+            "num_images": 10,
+            "image_width": 6000,
+            "image_height": 4000,
+            "focal_length_mm": 24.0,
+            "feature_path": None,
+            "extractor_name": None,
+            "max_keypoints_used": 0,
+            "avg_keypoints": 0.0,
+            "match_path": None,
+            "pairs_path": None,
+            "matcher_name": None,
+            "num_pairs": 0,
+            "avg_matches_per_pair": 0.0,
+            "sfm_dir": None,
+            "num_registered": 0,
+            "num_points3d": 0,
+            "mean_reprojection_error": 0.0,
+            "refined": False,
+            "pre_ba_error": 0.0,
+            "post_ba_error": 0.0,
+            "export_dir": None,
+            "gaussian_model_path": None,
+            "training_iterations": 0,
+            "final_loss": 0.0,
+            "difix_output_path": None,
+            "enhanced_model_path": None,
+            "num_views_enhanced": 0,
+        }
+        import json
+        (tmp_path / "pipeline_state.json").write_text(json.dumps(old_data))
+
+        state = PipelineState.load(str(tmp_path))
+        # Old fields preserved
+        assert state.project_dir == str(tmp_path)
+        assert state.num_images == 10
+        # New alignment fields get defaults
+        assert state.aligned is False
+        assert state.alignment_method is None
+        assert state.alignment_imu_coverage == 0.0
+        assert state.alignment_rotation_deg == 0.0
+        assert state.alignment_up_axis is None
+        assert state.alignment_centered is False
+        # New masking fields get defaults
+        assert state.masks_generated is False
+        assert state.mask_dir is None
+        assert state.mask_method is None
+        assert state.num_masks == 0
+        assert state.num_corrected == 0
+        assert state.mask_model_variant is None
+
+    def test_save_and_load_alignment_fields(self, tmp_path):
+        """Alignment fields should round-trip through save/load."""
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.aligned = True
+        state.alignment_method = "imu"
+        state.alignment_imu_coverage = 0.85
+        state.alignment_rotation_deg = 12.3
+        state.alignment_up_axis = "y"
+        state.alignment_centered = True
+        state.save()
+
+        restored = PipelineState.load(str(tmp_path))
+        assert restored.aligned is True
+        assert restored.alignment_method == "imu"
+        assert restored.alignment_imu_coverage == 0.85
+        assert restored.alignment_rotation_deg == 12.3
+        assert restored.alignment_up_axis == "y"
+        assert restored.alignment_centered is True
+
+    def test_save_and_load_masking_fields(self, tmp_path):
+        """Masking fields should round-trip through save/load."""
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.masks_generated = True
+        state.mask_dir = str(tmp_path / "masks")
+        state.mask_method = "birefnet"
+        state.num_masks = 42
+        state.num_corrected = 3
+        state.mask_model_variant = "ZhengPeng7/BiRefNet-matting"
+        state.save()
+
+        restored = PipelineState.load(str(tmp_path))
+        assert restored.masks_generated is True
+        assert restored.mask_dir == str(tmp_path / "masks")
+        assert restored.mask_method == "birefnet"
+        assert restored.num_masks == 42
+        assert restored.num_corrected == 3
+        assert restored.mask_model_variant == "ZhengPeng7/BiRefNet-matting"
 
     def test_load_corrupt_file(self, tmp_path):
         """Loading corrupt JSON returns fresh state."""
@@ -690,6 +807,32 @@ class TestDiscoverExistingOutputs:
         assert state.match_path is None
         assert state.sfm_dir is None
 
+    def test_discovers_mask_directory(self, tmp_path):
+        mask_dir = tmp_path / "masks"
+        mask_dir.mkdir()
+        (mask_dir / "photo1.png").write_bytes(b"fake")
+        (mask_dir / "photo2.png").write_bytes(b"fake")
+
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.discover_outputs()
+
+        assert state.mask_dir == str(mask_dir)
+        assert state.masks_generated is True
+        assert state.num_masks == 2
+
+    def test_mask_dir_ignored_if_no_pngs(self, tmp_path):
+        mask_dir = tmp_path / "masks"
+        mask_dir.mkdir()
+        # Empty mask dir — should not be discovered
+
+        state = PipelineState()
+        state.project_dir = str(tmp_path)
+        state.discover_outputs()
+
+        assert state.mask_dir is None
+        assert state.masks_generated is False
+
     def test_empty_project_dir_changes_nothing(self, tmp_path):
         state = PipelineState()
         state.project_dir = str(tmp_path)
@@ -735,6 +878,12 @@ class TestImports:
     def test_import_feature_configs(self):
         from core.feature_configs import build_extraction_config
 
+    def test_import_masking(self):
+        from core.masking import (
+            save_mask, load_mask, create_rgba_image, generate_overlay,
+            sam2_available,
+        )
+
     def test_import_matcher_configs(self):
         from core.matcher_configs import build_matching_config
 
@@ -754,6 +903,9 @@ class TestImports:
         from gui.stages.reconstruction import (
             build_stage45_tab, wire_stage45, run_reconstruction,
         )
+
+    def test_import_masking_stage(self):
+        from gui.stages.masking import build_stage8_tab, wire_stage8, run_auto_mask
 
     @pytest.mark.skipif(not HAS_PYCOLMAP, reason="pycolmap not installed")
     def test_import_export(self):

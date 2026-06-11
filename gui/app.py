@@ -8,6 +8,9 @@ from gui.stages.extraction import build_stage2_tab, wire_stage2
 from gui.stages.matching import build_stage3_tab, wire_stage3
 from gui.stages.reconstruction import build_stage45_tab, wire_stage45
 from gui.stages.export import build_stage67_tab, wire_stage67
+from gui.stages.masking import build_stage8_tab, wire_stage8
+from gui.stages.training import build_stage9_tab, wire_stage9
+from gui.stages.enhancement import build_stage10_tab, wire_stage10
 
 
 def create_app() -> gr.Blocks:
@@ -42,6 +45,18 @@ def create_app() -> gr.Blocks:
             # Stages 6-7: Refinement & Export
             _, s67_components = build_stage67_tab()
             wire_stage67(s67_components, state)
+
+            # Stage 8: Object Masking
+            _, s8_components = build_stage8_tab()
+            wire_stage8(s8_components, state)
+
+            # Stage 9: 3DGS Training
+            _, s9_components = build_stage9_tab()
+            wire_stage9(s9_components, state)
+
+            # Stage 10: Enhancement
+            _, s10_components = build_stage10_tab()
+            wire_stage10(s10_components, state)
 
     return app
 

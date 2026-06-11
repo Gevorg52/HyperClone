@@ -47,3 +47,36 @@ refinement:
 # Stage 7: Export
 export:
   format: "binary"               # binary | text | both
+
+# Stage 8: Object Masking
+masking:
+  birefnet_variant: "general"  # general | high-detail (DIS) | high-res SOD | massive | matting | HR matting (2048)
+  threshold: 0.5               # confidence threshold [0-1]: lower = more inclusive, higher = tighter around object
+  erosion_px: 0                # edge erosion in pixels (0 = none, 3-5 removes surface fringe)
+  sam2_checkpoint: "sam2.1_hiera_large"
+
+# Stage 9: 3DGS Training
+training:
+  backend: "gsplat"              # gsplat | (future: 2dgs)
+  max_steps: 30000               # 30K = good quality, 60K = high quality
+  data_factor: 4                 # image downsampling: 1/2/4/8 (4 → 1500x1000 from 6000x4000)
+  test_every: 8                  # hold out every Nth image for evaluation
+  sh_degree: 3                   # max spherical harmonics degree
+  ssim_lambda: 0.2               # loss weight: (1-lambda)*L1 + lambda*SSIM
+  init_type: "sfm"               # initialize from COLMAP points
+  normalize_world_space: true    # normalize scene to unit cube
+  random_bkgd: false             # auto-enabled when masks are present
+  save_ply: true                 # export .ply point cloud at save steps
+
+# Stage 10: Enhancement
+enhancement:
+  backend: "fixer"               # fixer | (future: difix3d+)
+  num_views: 100                 # number of novel views to render & enhance
+  timestep: 250                  # Fixer denoising timestep (250 recommended)
+
+# Alignment (applied during export)
+alignment:
+  enabled: true
+  up_axis: "y"            # "y" for 3DGS/NeRF viewers, "z" for CAD/GIS
+  center: true            # translate camera centroid to origin
+  use_imu: true           # prefer IMU gravity data when available

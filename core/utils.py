@@ -70,11 +70,7 @@ def read_exif(image_path: str | Path) -> dict:
         if "EXIF ExifImageLength" in tags:
             result["height"] = int(str(tags["EXIF ExifImageLength"]))
 
-        # Fall back to reading actual image dimensions if EXIF didn't have them
-        if result["width"] is None or result["height"] is None:
-            img = cv2.imread(str(image_path), cv2.IMREAD_UNCHANGED)
-            if img is not None:
-                result["height"], result["width"] = img.shape[:2]
+        # Dimensions will be filled in by the caller if EXIF missed them
 
         # Focal length
         if "EXIF FocalLength" in tags:
@@ -97,11 +93,8 @@ def read_exif(image_path: str | Path) -> dict:
             result["exposure_time"] = str(tags["EXIF ExposureTime"])
 
     except Exception:
-        # If EXIF reading fails entirely, still try to get dimensions
-        if result["width"] is None or result["height"] is None:
-            img = cv2.imread(str(image_path), cv2.IMREAD_UNCHANGED)
-            if img is not None:
-                result["height"], result["width"] = img.shape[:2]
+        # EXIF reading failed — dimensions will be filled by caller from pixels
+        pass
 
     return result
 

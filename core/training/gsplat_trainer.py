@@ -1,0 +1,675 @@
+"""Minimal gsplat training script for Apex Reality.
+
+Self-contained trainer that uses:
+  - pycolmap.Reconstruction (already installed) for COLMAP data loading
+  - gsplat.rendering.rasterization for Gaussian rendering
+  - gsplat.strategy.DefaultStrategy for densification
+  - Standard PyTorch for everything else (no nerfview, fused_ssim, etc.)
+
+Designed to be invoked as a subprocess from GsplatBackend.train().
+Progress is printed to stdout in a parseable format.
+
+Usage:
+    python -m core.training.gsplat_trainer \
+        --data_dir <path> --result_dir <path> \
+        --data_factor 4 --max_steps 30000
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import os
+import sys
+import time
+from pathlib import Path
+
+import cv2
+import imageio.v2 as imageio
+import numpy as np
+import torch
+import torch.nn.functional as F
+
+from gsplat.rendering import rasterization
+from gsplat.strategy import DefaultStrategy
+
+
+# ---------------------------------------------------------------------------
+# Scene normalization (adapted from gsplat examples)
+# ---------------------------------------------------------------------------
+
+def _similarity_from_cameras(c2w: np.ndarray) -> np.ndarray:
+    """Compute a similarity transform to normalize camera positions."""
+    t = c2w[:, :3, 3]
+    R = c2w[:, :3, :3]
+
+    ups = np.sum(R * np.array([0, -1.0, 0]), axis=-1)
+    world_up = np.mean(ups, axis=0)
+    norm = np.linalg.norm(world_up)
+    if norm < 1e-6:
+        world_up = np.array([0.0, -1.0, 0.0])
+    else:
+        world_up /= norm
+
+    up_camspace = np.array([0.0, -1.0, 0.0])
+    c = (up_camspace * world_up).sum()
+    cross = np.cross(world_up, up_camspace)
+    skew = np.array([
+        [0.0, -cross[2], cross[1]],
+        [cross[2], 0.0, -cross[0]],
+        [-cross[1], cross[0], 0.0],
+    ])
+    if c > -1:
+        R_align = np.eye(3) + skew + (skew @ skew) / (1 + c)
+    else:
+        R_align = np.array([[-1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]])
+
+    fwds = np.sum((R_align @ R.transpose(0, 2, 1)).transpose(0, 2, 1) * np.array([0, 0, 1.0]), axis=-1)
+    t_aligned = (R_align @ t[..., None])[..., 0]
+
+    nearest = t_aligned + (fwds * -t_aligned).sum(-1)[:, None] * fwds
+    translate = -np.median(nearest, axis=0)
+
+    transform = np.eye(4)
+    transform[:3, 3] = translate
+    transform[:3, :3] = R_align
+
+    scale = 1.0 / np.median(np.linalg.norm(t_aligned + translate, axis=-1))
+    transform[:3, :] *= scale
+    return transform
+
+
+def _transform_points(matrix: np.ndarray, points: np.ndarray) -> np.ndarray:
+    return points @ matrix[:3, :3].T + matrix[:3, 3]
+
+
+def _transform_cameras(matrix: np.ndarray, c2w: np.ndarray) -> np.ndarray:
+    c2w = np.einsum("nij, ki -> nkj", c2w, matrix)
+    scaling = np.linalg.norm(c2w[:, 0, :3], axis=1)
+    c2w[:, :3, :3] /= scaling[:, None, None]
+    return c2w
+
+
+# ---------------------------------------------------------------------------
+# COLMAP data loading via pycolmap.Reconstruction
+# ---------------------------------------------------------------------------
+
+def load_colmap_data(
+    data_dir: str,
+    factor: int = 4,
+    test_every: int = 8,
+    normalize: bool = True,
+):
+    """Load COLMAP reconstruction and images.
+
+    Returns dict with keys: camtoworlds, Ks, image_paths, points, points_rgb,
+    train_indices, test_indices, imsize, distortion_params.
+    """
+    import pycolmap
+
+    sparse_dir = os.path.join(data_dir, "sparse", "0")
+    if not os.path.exists(sparse_dir):
+        sparse_dir = os.path.join(data_dir, "sparse")
+
+    rec = pycolmap.Reconstruction(sparse_dir)
+
+    # Collect camera data
+    w2c_mats = []
+    camera_ids = []
+    image_names = []
+    Ks_dict = {}
+    params_dict = {}
+    imsize_dict = {}
+
+    bottom = np.array([0, 0, 0, 1], dtype=np.float64).reshape(1, 4)
+
+    for img_id in sorted(rec.images.keys()):
+        img = rec.images[img_id]
+        R = img.cam_from_world.rotation.matrix()
+        t = img.cam_from_world.translation.reshape(3, 1)
+        w2c = np.concatenate([np.concatenate([R, t], axis=1), bottom], axis=0)
+        w2c_mats.append(w2c)
+        camera_ids.append(img.camera_id)
+        image_names.append(img.name)
+
+        cam = rec.cameras[img.camera_id]
+        params = cam.params
+        model_name = cam.model.name
+
+        # Build intrinsic matrix
+        if model_name in ("SIMPLE_PINHOLE",):
+            fx = fy = params[0]
+            cx, cy = params[1], params[2]
+            dist = np.empty(0, dtype=np.float32)
+        elif model_name in ("PINHOLE",):
+            fx, fy = params[0], params[1]
+            cx, cy = params[2], params[3]
+            dist = np.empty(0, dtype=np.float32)
+        elif model_name in ("SIMPLE_RADIAL",):
+            fx = fy = params[0]
+            cx, cy = params[1], params[2]
+            dist = np.array([params[3], 0, 0, 0], dtype=np.float32)
+        elif model_name in ("RADIAL",):
+            fx = fy = params[0]
+            cx, cy = params[1], params[2]
+            dist = np.array([params[3], params[4], 0, 0], dtype=np.float32)
+        elif model_name in ("OPENCV",):
+            fx, fy = params[0], params[1]
+            cx, cy = params[2], params[3]
+            dist = np.array([params[4], params[5], params[6], params[7]], dtype=np.float32)
+        else:
+            fx, fy = params[0], params[1]
+            cx, cy = params[2], params[3]
+            dist = np.empty(0, dtype=np.float32)
+
+        K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float64)
+        K[:2, :] /= factor
+
+        Ks_dict[img.camera_id] = K
+        params_dict[img.camera_id] = dist
+        imsize_dict[img.camera_id] = (cam.width // factor, cam.height // factor)
+
+    w2c_mats = np.stack(w2c_mats, axis=0)
+    camtoworlds = np.linalg.inv(w2c_mats).astype(np.float32)
+
+    # Sort by image name (consistent with gsplat convention)
+    inds = np.argsort(image_names)
+    image_names = [image_names[i] for i in inds]
+    camtoworlds = camtoworlds[inds]
+    camera_ids = [camera_ids[i] for i in inds]
+
+    # Resolve image paths
+    if factor > 1:
+        image_dir = os.path.join(data_dir, f"images_{factor}")
+    else:
+        image_dir = os.path.join(data_dir, "images")
+
+    colmap_image_dir = os.path.join(data_dir, "images")
+
+    # Map colmap image names to downsampled image names
+    if os.path.isdir(image_dir) and image_dir != colmap_image_dir:
+        colmap_files = sorted(os.listdir(colmap_image_dir))
+        image_files = sorted(os.listdir(image_dir))
+        name_map = dict(zip(colmap_files, image_files))
+        image_paths = [os.path.join(image_dir, name_map.get(n, n)) for n in image_names]
+    else:
+        image_paths = [os.path.join(colmap_image_dir, n) for n in image_names]
+
+    # Verify first image exists and adjust intrinsics if needed
+    first_img = imageio.imread(image_paths[0])[..., :3]
+    actual_h, actual_w = first_img.shape[:2]
+    colmap_w, colmap_h = imsize_dict[camera_ids[0]]
+    s_w, s_h = actual_w / colmap_w, actual_h / colmap_h
+    for cid, K in Ks_dict.items():
+        K[0, :] *= s_w
+        K[1, :] *= s_h
+        w, h = imsize_dict[cid]
+        imsize_dict[cid] = (int(w * s_w), int(h * s_h))
+
+    # Undistortion maps
+    mapx_dict = {}
+    mapy_dict = {}
+    roi_dict = {}
+    for cid, dist in params_dict.items():
+        if len(dist) == 0:
+            continue
+        K = Ks_dict[cid]
+        w, h = imsize_dict[cid]
+        K_undist, roi = cv2.getOptimalNewCameraMatrix(K.astype(np.float64), dist, (w, h), 0)
+        mapx, mapy = cv2.initUndistortRectifyMap(
+            K.astype(np.float64), dist, None, K_undist, (w, h), cv2.CV_32FC1,
+        )
+        mapx_dict[cid] = mapx
+        mapy_dict[cid] = mapy
+        roi_dict[cid] = roi
+        Ks_dict[cid] = K_undist
+        if roi[2] > 0 and roi[3] > 0:
+            imsize_dict[cid] = (roi[2], roi[3])
+
+    # 3D points
+    pts = rec.points3D
+    points = np.array([pts[pid].xyz for pid in sorted(pts.keys())], dtype=np.float32)
+    points_rgb = np.array([pts[pid].color for pid in sorted(pts.keys())], dtype=np.uint8)
+
+    # Normalize
+    if normalize:
+        T = _similarity_from_cameras(camtoworlds)
+        camtoworlds = _transform_cameras(T, camtoworlds)
+        points = _transform_points(T, points)
+
+    # Train/test split
+    indices = np.arange(len(image_names))
+    test_indices = indices[indices % test_every == 0]
+    train_indices = indices[indices % test_every != 0]
+
+    # Scene scale
+    cam_locs = camtoworlds[:, :3, 3]
+    scene_scale = float(np.max(np.linalg.norm(cam_locs - cam_locs.mean(0), axis=1)))
+
+    print(f"[Data] {len(image_names)} images ({len(train_indices)} train, {len(test_indices)} test)")
+    print(f"[Data] {len(points)} SfM points, scene_scale={scene_scale:.3f}")
+
+    return {
+        "camtoworlds": camtoworlds,
+        "Ks_dict": Ks_dict,
+        "camera_ids": camera_ids,
+        "image_paths": image_paths,
+        "image_names": image_names,
+        "imsize_dict": imsize_dict,
+        "params_dict": params_dict,
+        "mapx_dict": mapx_dict,
+        "mapy_dict": mapy_dict,
+        "roi_dict": roi_dict,
+        "points": points,
+        "points_rgb": points_rgb,
+        "train_indices": train_indices,
+        "test_indices": test_indices,
+        "scene_scale": scene_scale,
+    }
+
+
+def load_image(data: dict, index: int) -> dict:
+    """Load a single training image with undistortion."""
+    image = imageio.imread(data["image_paths"][index])[..., :3]
+    cid = data["camera_ids"][index]
+    K = data["Ks_dict"][cid].copy()
+    dist = data["params_dict"][cid]
+    c2w = data["camtoworlds"][index]
+
+    if len(dist) > 0 and cid in data["mapx_dict"]:
+        image = cv2.remap(image, data["mapx_dict"][cid], data["mapy_dict"][cid], cv2.INTER_LINEAR)
+        if cid in data["roi_dict"]:
+            x, y, w, h = data["roi_dict"][cid]
+            if w > 0 and h > 0:
+                image = image[y:y+h, x:x+w]
+
+    return {
+        "image": torch.from_numpy(image).float() / 255.0,
+        "K": torch.from_numpy(K).float(),
+        "c2w": torch.from_numpy(c2w).float(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Gaussian initialization
+# ---------------------------------------------------------------------------
+
+def init_gaussians_from_sfm(
+    points: np.ndarray,
+    points_rgb: np.ndarray,
+    scene_scale: float,
+    device: torch.device,
+    sh_degree: int = 3,
+) -> dict:
+    """Initialize Gaussian parameters from SfM points."""
+    N = len(points)
+    print(f"[Init] {N} Gaussians from SfM points")
+
+    means = torch.from_numpy(points).float().to(device)
+
+    # RGB to SH (degree 0 coefficient)
+    C0 = 0.28209479177387814  # 1 / (2 * sqrt(pi))
+    rgbs = torch.from_numpy(points_rgb).float().to(device) / 255.0
+    sh0 = (rgbs - 0.5) / C0
+    sh0 = sh0.unsqueeze(1)  # (N, 1, 3)
+    num_sh_coeffs = (sh_degree + 1) ** 2 - 1
+    shN = torch.zeros(N, num_sh_coeffs, 3, device=device)
+
+    # Initial scales from KNN distances (pure PyTorch, no sklearn)
+    pts_gpu = means  # already on device
+    # Compute pairwise distances in batches to avoid OOM on large point clouds
+    k = 4
+    batch_size = min(4096, N)
+    avg_dists = torch.zeros(N, device=device)
+    for i in range(0, N, batch_size):
+        end = min(i + batch_size, N)
+        dists = torch.cdist(pts_gpu[i:end], pts_gpu)  # (batch, N)
+        topk = dists.topk(k, dim=1, largest=False)  # k smallest (includes self=0)
+        avg_dists[i:end] = topk.values[:, 1:].mean(dim=1)  # skip self
+    scales = torch.log((avg_dists * 0.5).clamp(min=1e-8))
+    scales = scales.unsqueeze(-1).expand(-1, 3)  # (N, 3)
+
+    # Initial opacities (logit space, ~0.1 opacity)
+    opacities = torch.logit(torch.full((N,), 0.1, device=device))
+
+    # Identity quaternions
+    quats = torch.zeros(N, 4, device=device)
+    quats[:, 0] = 1.0
+
+    return {
+        "means": torch.nn.Parameter(means),
+        "scales": torch.nn.Parameter(scales),
+        "quats": torch.nn.Parameter(quats),
+        "opacities": torch.nn.Parameter(opacities),
+        "sh0": torch.nn.Parameter(sh0),
+        "shN": torch.nn.Parameter(shN),
+    }
+
+
+# ---------------------------------------------------------------------------
+# SSIM (standard PyTorch, no fused_ssim dependency)
+# ---------------------------------------------------------------------------
+
+def _fspecial_gauss(size: int, sigma: float, device: torch.device) -> torch.Tensor:
+    coords = torch.arange(size, dtype=torch.float32, device=device) - size // 2
+    g = torch.exp(-(coords ** 2) / (2 * sigma ** 2))
+    g = torch.outer(g, g)
+    return g / g.sum()
+
+
+def ssim(
+    img1: torch.Tensor,
+    img2: torch.Tensor,
+    window_size: int = 11,
+    C1: float = 0.01 ** 2,
+    C2: float = 0.03 ** 2,
+) -> torch.Tensor:
+    """Compute SSIM between two images. Input: (B, C, H, W) in [0, 1]."""
+    window = _fspecial_gauss(window_size, 1.5, img1.device)
+    window = window.unsqueeze(0).unsqueeze(0).expand(3, 1, -1, -1)
+    pad = window_size // 2
+
+    mu1 = F.conv2d(img1, window, padding=pad, groups=3)
+    mu2 = F.conv2d(img2, window, padding=pad, groups=3)
+
+    mu1_sq = mu1 ** 2
+    mu2_sq = mu2 ** 2
+    mu1_mu2 = mu1 * mu2
+
+    sigma1_sq = F.conv2d(img1 * img1, window, padding=pad, groups=3) - mu1_sq
+    sigma2_sq = F.conv2d(img2 * img2, window, padding=pad, groups=3) - mu2_sq
+    sigma12 = F.conv2d(img1 * img2, window, padding=pad, groups=3) - mu1_mu2
+
+    ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / (
+        (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2)
+    )
+    return ssim_map.mean()
+
+
+# ---------------------------------------------------------------------------
+# Training loop
+# ---------------------------------------------------------------------------
+
+def train(args):
+    device = torch.device("cuda:0")
+    torch.cuda.set_device(device)
+
+    # Load data
+    data = load_colmap_data(
+        args.data_dir,
+        factor=args.data_factor,
+        test_every=args.test_every,
+        normalize=args.normalize_world_space,
+    )
+
+    # Init Gaussians
+    splats = init_gaussians_from_sfm(
+        data["points"], data["points_rgb"], data["scene_scale"],
+        device, sh_degree=args.sh_degree,
+    )
+
+    # Optimizers (same LR as gsplat defaults)
+    optimizers = {
+        "means": torch.optim.Adam([splats["means"]], lr=1.6e-4, eps=1e-15),
+        "scales": torch.optim.Adam([splats["scales"]], lr=5e-3, eps=1e-15),
+        "quats": torch.optim.Adam([splats["quats"]], lr=1e-3, eps=1e-15),
+        "opacities": torch.optim.Adam([splats["opacities"]], lr=5e-2, eps=1e-15),
+        "sh0": torch.optim.Adam([splats["sh0"]], lr=2.5e-3, eps=1e-15),
+        "shN": torch.optim.Adam([splats["shN"]], lr=1.25e-4, eps=1e-15),
+    }
+
+    # Means LR scheduler (exponential decay from 1.6e-4 to 1.6e-6)
+    means_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+        optimizers["means"], gamma=(1e-2) ** (1.0 / max(args.max_steps, 1)),
+    )
+
+    # Densification strategy
+    strategy = DefaultStrategy(verbose=False)
+    strategy_state = strategy.initialize_state()
+
+    # Output dirs
+    result_dir = Path(args.result_dir)
+    ckpt_dir = result_dir / "ckpts"
+    ply_dir = result_dir / "ply"
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    ply_dir.mkdir(parents=True, exist_ok=True)
+
+    # Parse save/eval steps
+    save_steps = set(args.save_steps) if args.save_steps else {args.max_steps}
+    save_steps.add(args.max_steps)  # always save final
+
+    # Training
+    train_indices = data["train_indices"]
+    num_train = len(train_indices)
+    ssim_lambda = args.ssim_lambda
+
+    print(f"[Train] Starting {args.max_steps} steps, {num_train} train images")
+    print(f"[Train] ssim_lambda={ssim_lambda}, sh_degree={args.sh_degree}")
+    sys.stdout.flush()
+
+    running_loss = 0.0
+    running_psnr = 0.0
+    t0 = time.time()
+
+    for step in range(1, args.max_steps + 1):
+        # Random training image
+        idx = train_indices[np.random.randint(num_train)]
+        batch = load_image(data, idx)
+        gt_image = batch["image"].to(device)  # (H, W, 3)
+        K = batch["K"].to(device)  # (3, 3)
+        c2w = batch["c2w"].to(device)  # (4, 4)
+
+        H, W = gt_image.shape[:2]
+        w2c = torch.linalg.inv(c2w)  # (4, 4)
+
+        # Build camera matrices for gsplat
+        viewmat = w2c[None]  # (1, 4, 4)
+        Ks = K[None]  # (1, 3, 3)
+
+        # Random background for masked scenes
+        if args.random_bkgd:
+            bkgd = torch.rand(3, device=device)
+        else:
+            bkgd = torch.zeros(3, device=device)
+
+        # Rasterize
+        renders, alphas, info = rasterization(
+            means=splats["means"],
+            quats=splats["quats"] / (splats["quats"].norm(dim=-1, keepdim=True) + 1e-12),
+            scales=torch.exp(splats["scales"]),
+            opacities=torch.sigmoid(splats["opacities"]),
+            colors=torch.cat([splats["sh0"], splats["shN"]], dim=1),
+            viewmats=viewmat,
+            Ks=Ks,
+            width=W,
+            height=H,
+            sh_degree=args.sh_degree,
+            near_plane=0.01,
+            far_plane=1e10,
+            backgrounds=bkgd[None],
+        )
+
+        rendered = renders[0]  # (H, W, 3)
+
+        # Clamp to valid range
+        rendered = rendered.clamp(0.0, 1.0)
+
+        # L1 + SSIM loss
+        l1_loss = F.l1_loss(rendered, gt_image)
+
+        if ssim_lambda > 0:
+            rendered_bchw = rendered.permute(2, 0, 1).unsqueeze(0)
+            gt_bchw = gt_image.permute(2, 0, 1).unsqueeze(0)
+            ssim_val = ssim(rendered_bchw, gt_bchw)
+            loss = (1.0 - ssim_lambda) * l1_loss + ssim_lambda * (1.0 - ssim_val)
+        else:
+            loss = l1_loss
+
+        # PSNR for logging
+        with torch.no_grad():
+            mse = F.mse_loss(rendered, gt_image)
+            psnr = 10.0 * math.log10(1.0 / (mse.item() + 1e-10))
+            running_loss = 0.95 * running_loss + 0.05 * loss.item()
+            running_psnr = 0.95 * running_psnr + 0.05 * psnr
+
+        # Backward
+        loss.backward()
+
+        # Densification
+        if step < 15000:
+            strategy.step_pre_backward(
+                params=splats,
+                optimizers=optimizers,
+                state=strategy_state,
+                step=step,
+                info=info,
+            )
+
+        # Optimizer step
+        for opt in optimizers.values():
+            opt.step()
+            opt.zero_grad(set_to_none=True)
+        means_scheduler.step()
+
+        if step < 15000:
+            strategy.step_post_backward(
+                params=splats,
+                optimizers=optimizers,
+                state=strategy_state,
+                step=step,
+                info=info,
+            )
+
+        # Progress logging (every 100 steps)
+        if step % 100 == 0:
+            elapsed = time.time() - t0
+            steps_per_sec = step / elapsed
+            eta = (args.max_steps - step) / steps_per_sec if steps_per_sec > 0 else 0
+            n_gs = splats["means"].shape[0]
+            mem = torch.cuda.max_memory_allocated() / 1024**2
+            print(
+                f"step={step} | loss={running_loss:.6f} | psnr={running_psnr:.2f} "
+                f"| #GS={n_gs} | mem={mem:.0f}MB | {steps_per_sec:.1f} it/s | eta={eta:.0f}s"
+            )
+            sys.stdout.flush()
+
+        # Save checkpoint
+        if step in save_steps:
+            ckpt_path = ckpt_dir / f"ckpt_{step-1}_rank0.pt"
+            torch.save({
+                "step": step,
+                "splats": {k: v.data for k, v in splats.items()},
+            }, str(ckpt_path))
+            print(f"[Checkpoint] Saved {ckpt_path.name}")
+
+            # Export PLY
+            try:
+                from gsplat import export_splats
+                ply_path = ply_dir / f"point_cloud_{step-1}.ply"
+                export_splats(
+                    means=splats["means"].detach(),
+                    scales=torch.exp(splats["scales"].detach()),
+                    quats=splats["quats"].detach(),
+                    opacities=torch.sigmoid(splats["opacities"].detach()),
+                    sh0=splats["sh0"].detach(),
+                    shN=splats["shN"].detach(),
+                    format="ply",
+                    save_to=str(ply_path),
+                )
+                print(f"[PLY] Saved {ply_path.name}")
+            except Exception as e:
+                print(f"[PLY] Export failed: {e}")
+
+            sys.stdout.flush()
+
+    # Final eval on test set
+    test_indices = data["test_indices"]
+    if len(test_indices) > 0:
+        print(f"\n[Eval] Running on {len(test_indices)} test images...")
+        sys.stdout.flush()
+        test_psnrs = []
+        test_ssims = []
+
+        with torch.no_grad():
+            for idx in test_indices:
+                batch = load_image(data, idx)
+                gt_image = batch["image"].to(device)
+                K = batch["K"].to(device)
+                c2w = batch["c2w"].to(device)
+                H, W = gt_image.shape[:2]
+                w2c = torch.linalg.inv(c2w)
+
+                bkgd = torch.zeros(3, device=device)
+                renders, _, _ = rasterization(
+                    means=splats["means"],
+                    quats=splats["quats"] / (splats["quats"].norm(dim=-1, keepdim=True) + 1e-12),
+                    scales=torch.exp(splats["scales"]),
+                    opacities=torch.sigmoid(splats["opacities"]),
+                    colors=torch.cat([splats["sh0"], splats["shN"]], dim=1),
+                    viewmats=w2c[None],
+                    Ks=K[None],
+                    width=W,
+                    height=H,
+                    sh_degree=args.sh_degree,
+                    near_plane=0.01,
+                    far_plane=1e10,
+                    backgrounds=bkgd[None],
+                )
+                rendered = renders[0].clamp(0, 1)
+
+                mse = F.mse_loss(rendered, gt_image)
+                test_psnr = 10.0 * math.log10(1.0 / (mse.item() + 1e-10))
+                test_psnrs.append(test_psnr)
+
+                r_bchw = rendered.permute(2, 0, 1).unsqueeze(0)
+                g_bchw = gt_image.permute(2, 0, 1).unsqueeze(0)
+                test_ssim = ssim(r_bchw, g_bchw).item()
+                test_ssims.append(test_ssim)
+
+        avg_psnr = np.mean(test_psnrs)
+        avg_ssim = np.mean(test_ssims)
+        print(f"[Eval] PSNR={avg_psnr:.2f} SSIM={avg_ssim:.4f}")
+
+        # Write results JSON
+        results = {
+            "psnr": float(avg_psnr),
+            "ssim": float(avg_ssim),
+            "num_gaussians": int(splats["means"].shape[0]),
+            "steps": args.max_steps,
+        }
+        stats_dir = result_dir / "stats"
+        stats_dir.mkdir(exist_ok=True)
+        (stats_dir / "results.json").write_text(json.dumps(results, indent=2))
+        print(f"[Stats] Written to {stats_dir / 'results.json'}")
+    else:
+        print("[Eval] No test images (test_every may be larger than dataset)")
+
+    total_time = time.time() - t0
+    print(f"\n[Done] Training complete in {total_time:.1f}s")
+    sys.stdout.flush()
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(description="Minimal gsplat trainer for Apex Reality")
+    parser.add_argument("--data_dir", type=str, required=True)
+    parser.add_argument("--result_dir", type=str, required=True)
+    parser.add_argument("--data_factor", type=int, default=4)
+    parser.add_argument("--max_steps", type=int, default=30000)
+    parser.add_argument("--test_every", type=int, default=8)
+    parser.add_argument("--sh_degree", type=int, default=3)
+    parser.add_argument("--ssim_lambda", type=float, default=0.2)
+    parser.add_argument("--normalize_world_space", action="store_true", default=True)
+    parser.add_argument("--random_bkgd", action="store_true", default=False)
+    parser.add_argument("--save_steps", type=int, nargs="*", default=None)
+    args = parser.parse_args()
+
+    train(args)
+
+
+if __name__ == "__main__":
+    main()

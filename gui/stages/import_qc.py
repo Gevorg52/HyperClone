@@ -30,7 +30,7 @@ from core.utils import (
 # Cache helpers
 # ---------------------------------------------------------------------------
 
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 CACHE_FILENAME = "image_cache.json"
 
 
@@ -65,7 +65,28 @@ def _save_cache(project_dir: Path, cache: dict):
 # Single-image processing (one read, three results)
 # ---------------------------------------------------------------------------
 
-def _process_single_image(img_path: Path, thumb_size: int = 256) -> dict:
+def _save_thumbnail(thumb_rgb: np.ndarray, thumbs_dir: Path, name: str):
+    """Save an RGB thumbnail to the thumbs directory as JPEG."""
+    thumbs_dir.mkdir(parents=True, exist_ok=True)
+    thumb_bgr = cv2.cvtColor(thumb_rgb, cv2.COLOR_RGB2BGR)
+    cv2.imwrite(str(thumbs_dir / f"{name}.jpg"), thumb_bgr,
+                [cv2.IMWRITE_JPEG_QUALITY, 90])
+
+
+def _load_thumbnail(thumbs_dir: Path, name: str) -> np.ndarray | None:
+    """Load a cached thumbnail from disk. Returns RGB array or None."""
+    thumb_path = thumbs_dir / f"{name}.jpg"
+    if not thumb_path.exists():
+        return None
+    img = cv2.imread(str(thumb_path))
+    if img is None:
+        return None
+    return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+
+def _process_single_image(
+    img_path: Path, thumb_size: int = 256, thumbs_dir: Path | None = None,
+) -> dict:
     """Process one image: read EXIF, load pixels once, compute sharpness + thumbnail.
 
     Returns dict with keys: sharpness, exif, thumbnail.
@@ -105,24 +126,42 @@ def _process_single_image(img_path: Path, thumb_size: int = 256) -> dict:
     new_w, new_h = int(w * scale), int(h * scale)
     thumbnail = cv2.resize(img_rgb, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
+    # Save thumbnail to disk cache
+    if thumbs_dir is not None:
+        _save_thumbnail(thumbnail, thumbs_dir, img_path.stem)
+
     return {"sharpness": sharpness, "exif": exif, "thumbnail": thumbnail}
 
 
-def _process_cached_image(img_path: Path, cached: dict, thumb_size: int = 256) -> dict:
-    """Use cached sharpness/exif — only generate thumbnail (fast at 256px)."""
+def _process_cached_image(
+    img_path: Path, cached: dict, thumb_size: int = 256,
+    thumbs_dir: Path | None = None,
+) -> dict:
+    """Use cached sharpness/exif and load thumbnail from disk cache.
+
+    Falls back to full-image read only if the cached thumbnail is missing.
+    """
     exif = cached["exif"]
 
-    # Thumbnail still needs pixel data but we can read at reduced scale
-    # OpenCV doesn't support direct reduced-read for JPEG, so read full + resize
-    img = cv2.imread(str(img_path))
-    if img is None:
-        thumb = np.zeros((thumb_size, thumb_size, 3), dtype=np.uint8)
-    else:
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        h, w = img_rgb.shape[:2]
-        scale = thumb_size / max(h, w)
-        thumb = cv2.resize(img_rgb, (int(w * scale), int(h * scale)),
-                           interpolation=cv2.INTER_AREA)
+    # Try loading the small cached thumbnail first (~2ms vs ~200ms)
+    thumb = None
+    if thumbs_dir is not None:
+        thumb = _load_thumbnail(thumbs_dir, img_path.stem)
+
+    if thumb is None:
+        # Fallback: read full image (first run after CACHE_VERSION bump)
+        img = cv2.imread(str(img_path))
+        if img is None:
+            thumb = np.zeros((thumb_size, thumb_size, 3), dtype=np.uint8)
+        else:
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            h, w = img_rgb.shape[:2]
+            scale = thumb_size / max(h, w)
+            thumb = cv2.resize(img_rgb, (int(w * scale), int(h * scale)),
+                               interpolation=cv2.INTER_AREA)
+            # Save so next load is fast
+            if thumbs_dir is not None:
+                _save_thumbnail(thumb, thumbs_dir, img_path.stem)
 
     return {"sharpness": cached["sharpness"], "exif": exif, "thumbnail": thumb}
 
@@ -132,15 +171,22 @@ def _process_cached_image(img_path: Path, cached: dict, thumb_size: int = 256) -
 # ---------------------------------------------------------------------------
 
 def _browse_folder() -> str:
-    """Open a native folder selection dialog. Returns path or empty string."""
+    """Open a native folder selection dialog. Returns path or empty string.
+
+    Creates a fresh Tk root each call and destroys it afterwards to avoid
+    cross-thread issues (Gradio runs handlers in worker threads, but
+    Tkinter objects can only be accessed from the thread that created them).
+    """
     import tkinter as tk
     from tkinter import filedialog
 
     root = tk.Tk()
     root.withdraw()
     root.attributes("-topmost", True)
-    folder = filedialog.askdirectory(title="Select Image Folder")
-    root.destroy()
+    try:
+        folder = filedialog.askdirectory(title="Select Image Folder")
+    finally:
+        root.destroy()
     return folder or ""
 
 
@@ -150,7 +196,7 @@ def _browse_folder() -> str:
 
 # Number of threads for parallel image processing.
 # OpenCV JPEG decode releases the GIL, so threads are effective.
-_NUM_WORKERS = min(8, (os.cpu_count() or 4))
+_NUM_WORKERS = min(16, (os.cpu_count() or 4))
 
 
 def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
@@ -166,8 +212,9 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
     # Create project directory alongside the image folder
     project_dir = create_project_dir(str(Path(folder_path).parent), Path(folder_path).name)
 
-    # Load cache
+    # Load cache and set up thumbnails directory
     cache = _load_cache(project_dir)
+    thumbs_dir = project_dir / "thumbs"
 
     # Classify images: cache-hit vs. needs-processing
     to_process = []  # (index, img_path) — need full processing
@@ -200,11 +247,11 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
 
     def _do_cached(item):
         idx, img_path, cached_data = item
-        return idx, _process_cached_image(img_path, cached_data)
+        return idx, _process_cached_image(img_path, cached_data, thumbs_dir=thumbs_dir)
 
     def _do_full(item):
         idx, img_path = item
-        return idx, _process_single_image(img_path)
+        return idx, _process_single_image(img_path, thumbs_dir=thumbs_dir)
 
     # Run all work in parallel: cached (thumbnail-only) + full processing
     all_tasks = (
@@ -303,6 +350,18 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
         state.pre_ba_error = saved.pre_ba_error
         state.post_ba_error = saved.post_ba_error
         state.export_dir = saved.export_dir
+        state.aligned = saved.aligned
+        state.alignment_method = saved.alignment_method
+        state.alignment_imu_coverage = saved.alignment_imu_coverage
+        state.alignment_rotation_deg = saved.alignment_rotation_deg
+        state.alignment_up_axis = saved.alignment_up_axis
+        state.alignment_centered = saved.alignment_centered
+        state.masks_generated = saved.masks_generated
+        state.mask_dir = saved.mask_dir
+        state.mask_method = saved.mask_method
+        state.num_masks = saved.num_masks
+        state.num_corrected = saved.num_corrected
+        state.mask_model_variant = saved.mask_model_variant
 
     # Update state with current stage 1 results (must set project_dir before discover)
     state.image_dir = folder_path
@@ -336,6 +395,8 @@ def load_images(folder_path: str, state: PipelineState, progress=gr.Progress()):
         resumed.append("Stage 6 (refinement)")
     if state.export_dir:
         resumed.append("Stage 7 (export)")
+    if state.masks_generated:
+        resumed.append("Stage 8 (masking)")
     resume_msg = f"\nResumed: {', '.join(resumed)}" if resumed else ""
 
     stats_text = (

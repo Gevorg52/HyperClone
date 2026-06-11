@@ -1,0 +1,504 @@
+"""gsplat training backend.
+
+Drives our bundled ``gsplat_trainer.py`` as a subprocess so that:
+  - VRAM is fully freed when training finishes (separate process)
+  - Progress is streamed via stdout line parsing
+  - Stop is implemented via process termination + latest checkpoint recovery
+
+The trainer uses gsplat's rasterization API + pycolmap for data loading
+(both already installed), so no extra dependencies are needed.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Optional
+
+import numpy as np
+from PIL import Image
+
+from core.training import (
+    ProgressCallback,
+    TrainingBackend,
+    TrainingConfig,
+    TrainingInterrupted,
+    TrainingResult,
+)
+
+# Path to our bundled trainer script
+_TRAINER_SCRIPT = str(Path(__file__).resolve().parent / "gsplat_trainer.py")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _apply_masks_to_images(
+    src_image_dir: str,
+    mask_dir: str,
+    dst_image_dir: str,
+    progress_cb: Optional[ProgressCallback] = None,
+) -> int:
+    """Pre-multiply images with masks (black background).
+
+    For each image, composites it with its mask:
+      - Masked-out pixels (mask == 0) become black.
+      - Foreground pixels are preserved.
+
+    Saves results as JPEG to *dst_image_dir*. Returns count of images processed.
+    """
+    src_dir = Path(src_image_dir)
+    mask_path = Path(mask_dir)
+    dst_dir = Path(dst_image_dir)
+    dst_dir.mkdir(parents=True, exist_ok=True)
+
+    image_files = sorted(
+        p for p in src_dir.iterdir()
+        if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+    )
+
+    def _process_one(idx_path: tuple[int, Path]) -> None:
+        idx, img_path = idx_path
+        # Find matching mask (same stem, .png)
+        mask_file = mask_path / (img_path.stem + ".png")
+        img = Image.open(img_path).convert("RGB")
+
+        if mask_file.is_file():
+            mask = Image.open(mask_file).convert("L")
+            if mask.size != img.size:
+                mask = mask.resize(img.size, Image.BILINEAR)
+            # Apply mask: foreground kept, background → black
+            img_arr = np.array(img, dtype=np.float32)
+            mask_arr = np.array(mask, dtype=np.float32) / 255.0
+            img_arr *= mask_arr[:, :, np.newaxis]
+            img = Image.fromarray(img_arr.astype(np.uint8))
+
+        # Save as JPEG (gsplat reads any common format)
+        out_path = dst_dir / (img_path.stem + ".jpg")
+        img.save(out_path, quality=95)
+
+    n = len(image_files)
+    workers = min(8, os.cpu_count() or 4)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for i, _ in enumerate(pool.map(_process_one, enumerate(image_files))):
+            if progress_cb and (i + 1) % 5 == 0:
+                progress_cb(i + 1, n, 0.0, 0.0)
+
+    return n
+
+
+def _downsample_images(src_dir: str, dst_dir: str, factor: int) -> int:
+    """Create downsampled copies of images using bicubic interpolation.
+
+    Returns number of images processed.
+    """
+    src = Path(src_dir)
+    dst = Path(dst_dir)
+    dst.mkdir(parents=True, exist_ok=True)
+
+    image_files = sorted(
+        p for p in src.iterdir()
+        if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+    )
+
+    def _resize_one(path: Path) -> None:
+        img = Image.open(path).convert("RGB")
+        new_w = round(img.width / factor)
+        new_h = round(img.height / factor)
+        img = img.resize((new_w, new_h), Image.BICUBIC)
+        out = dst / (path.stem + ".png")
+        img.save(out)
+
+    workers = min(8, os.cpu_count() or 4)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        list(pool.map(_resize_one, image_files))
+
+    return len(image_files)
+
+
+# ---------------------------------------------------------------------------
+# Progress line parsing
+# ---------------------------------------------------------------------------
+
+# Our trainer prints lines like:
+#   step=100 | loss=0.1234 | psnr=23.45 | #GS=12345 | mem=1234.5MB
+# Eval lines:
+#   [Eval] PSNR=25.12 SSIM=0.8901
+
+_STEP_RE = re.compile(r"step[=:\s]+(\d+)", re.IGNORECASE)
+_LOSS_RE = re.compile(r"loss[=:\s]+([\d.eE+-]+)", re.IGNORECASE)
+_PSNR_RE = re.compile(r"psnr[=:\s]+([\d.eE+-]+)", re.IGNORECASE)
+_SSIM_RE = re.compile(r"ssim[=:\s]+([\d.eE+-]+)", re.IGNORECASE)
+
+
+def _parse_progress_line(line: str) -> Optional[dict]:
+    """Try to extract training metrics from a single log line."""
+    step_m = _STEP_RE.search(line)
+    if not step_m:
+        return None
+    result = {"step": int(step_m.group(1))}
+
+    loss_m = _LOSS_RE.search(line)
+    if loss_m:
+        result["loss"] = float(loss_m.group(1))
+
+    psnr_m = _PSNR_RE.search(line)
+    if psnr_m:
+        result["psnr"] = float(psnr_m.group(1))
+
+    ssim_m = _SSIM_RE.search(line)
+    if ssim_m:
+        result["ssim"] = float(ssim_m.group(1))
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# GsplatBackend
+# ---------------------------------------------------------------------------
+
+class GsplatBackend(TrainingBackend):
+    """3D Gaussian Splatting backend using gsplat."""
+
+    name = "gsplat"
+
+    def __init__(self):
+        self._process: Optional[subprocess.Popen] = None
+        self._stop_event = threading.Event()
+
+    # -----------------------------------------------------------------------
+    # Environment validation
+    # -----------------------------------------------------------------------
+
+    def validate_environment(self) -> tuple[bool, str]:
+        """Check gsplat is importable and dependencies are available."""
+        try:
+            import gsplat
+            version = getattr(gsplat, "__version__", "unknown")
+        except ImportError:
+            return False, (
+                "gsplat is not installed.  Install with:\n"
+                "  pip install gsplat"
+            )
+
+        # Verify core API works
+        try:
+            from gsplat.rendering import rasterization  # noqa: F401
+            from gsplat.strategy import DefaultStrategy  # noqa: F401
+        except ImportError as e:
+            return False, f"gsplat {version} installed but core API import failed: {e}"
+
+        # Verify our trainer script exists
+        if not Path(_TRAINER_SCRIPT).is_file():
+            return False, f"Bundled trainer not found at: {_TRAINER_SCRIPT}"
+
+        return True, f"gsplat {version} ready.  Trainer: {_TRAINER_SCRIPT}"
+
+    # -----------------------------------------------------------------------
+    # Default config
+    # -----------------------------------------------------------------------
+
+    def get_default_config(self) -> dict:
+        return {
+            "max_steps": 30_000,
+            "data_factor": 4,
+            "test_every": 8,
+            "save_steps": [7_000, 30_000],
+            "sh_degree": 3,
+            "ssim_lambda": 0.2,
+            "random_bkgd": False,
+            "normalize_world_space": True,
+        }
+
+    # -----------------------------------------------------------------------
+    # Data preparation
+    # -----------------------------------------------------------------------
+
+    def prepare_data(
+        self,
+        export_dir: str,
+        mask_dir: Optional[str],
+        output_dir: str,
+        config: TrainingConfig,
+        progress_cb: Optional[ProgressCallback] = None,
+    ) -> str:
+        """Prepare a gsplat-compatible data directory.
+
+        - Copies sparse reconstruction from export_dir
+        - If masks exist, pre-multiplies images (black background)
+        - Creates downsampled image directories for the configured data_factor
+        """
+        export = Path(export_dir)
+        data_dir = Path(output_dir) / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+
+        # --- Copy sparse reconstruction ---
+        sparse_src = export / "sparse" / "0"
+        if not sparse_src.is_dir():
+            sparse_src = export / "sparse"
+        sparse_dst = data_dir / "sparse" / "0"
+        sparse_dst.mkdir(parents=True, exist_ok=True)
+
+        for bin_file in sparse_src.glob("*.bin"):
+            shutil.copy2(str(bin_file), str(sparse_dst / bin_file.name))
+
+        # --- Prepare images ---
+        src_images = export / "images"
+        if not src_images.is_dir():
+            raise FileNotFoundError(f"No images/ directory in {export_dir}")
+
+        images_dir = data_dir / "images"
+
+        if mask_dir and Path(mask_dir).is_dir():
+            # Pre-multiply images with masks → black background
+            _apply_masks_to_images(
+                str(src_images), mask_dir, str(images_dir), progress_cb,
+            )
+        else:
+            # Copy images directly
+            images_dir.mkdir(parents=True, exist_ok=True)
+            for img in src_images.iterdir():
+                if img.suffix.lower() in {".jpg", ".jpeg", ".png"}:
+                    shutil.copy2(str(img), str(images_dir / img.name))
+
+        # --- Create downsampled directories ---
+        factor = config.data_factor
+        if factor > 1:
+            ds_dir = data_dir / f"images_{factor}"
+            if not ds_dir.is_dir():
+                _downsample_images(str(images_dir), str(ds_dir), factor)
+
+        return str(data_dir)
+
+    # -----------------------------------------------------------------------
+    # Training
+    # -----------------------------------------------------------------------
+
+    def train(
+        self,
+        data_dir: str,
+        output_dir: str,
+        config: TrainingConfig,
+        progress_cb: Optional[ProgressCallback] = None,
+    ) -> TrainingResult:
+        """Run gsplat training as a subprocess.
+
+        Streams progress by parsing stdout.  Supports early stop via
+        ``request_stop()``.
+        """
+        self._stop_event.clear()
+
+        # Build CLI args for our bundled trainer
+        result_dir = str(Path(output_dir) / "output")
+        args = [
+            sys.executable, _TRAINER_SCRIPT,
+            "--data_dir", data_dir,
+            "--result_dir", result_dir,
+            "--data_factor", str(config.data_factor),
+            "--max_steps", str(config.max_steps),
+            "--test_every", str(config.test_every),
+            "--sh_degree", str(config.extra.get("sh_degree", 3)),
+            "--ssim_lambda", str(config.extra.get("ssim_lambda", 0.2)),
+        ]
+
+        if config.extra.get("normalize_world_space", True):
+            args.append("--normalize_world_space")
+
+        if config.extra.get("random_bkgd", False):
+            args.append("--random_bkgd")
+
+        # save_steps
+        save_steps = config.save_steps or [7_000, config.max_steps]
+        for s in save_steps:
+            args.extend(["--save_steps", str(s)])
+
+        # Launch subprocess
+        env = os.environ.copy()
+        env["CUDA_VISIBLE_DEVICES"] = env.get("CUDA_VISIBLE_DEVICES", "0")
+
+        self._process = subprocess.Popen(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env=env,
+        )
+
+        # Stream output and parse progress
+        last_step = 0
+        last_loss = 0.0
+        last_psnr = 0.0
+        last_ssim = 0.0
+        log_lines: list[str] = []
+
+        try:
+            for line in self._process.stdout:
+                line = line.rstrip()
+                log_lines.append(line)
+
+                # Check stop
+                if self._stop_event.is_set():
+                    self._process.terminate()
+                    try:
+                        self._process.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        self._process.kill()
+                    raise TrainingInterrupted("Training stopped by user")
+
+                # Parse progress
+                parsed = _parse_progress_line(line)
+                if parsed:
+                    last_step = parsed["step"]
+                    last_loss = parsed.get("loss", last_loss)
+                    last_psnr = parsed.get("psnr", last_psnr)
+                    last_ssim = parsed.get("ssim", last_ssim)
+
+                    if progress_cb and last_step % 100 == 0:
+                        progress_cb(last_step, config.max_steps, last_loss, last_psnr)
+
+            self._process.wait()
+
+        except TrainingInterrupted:
+            raise
+        except Exception:
+            if self._process and self._process.poll() is None:
+                self._process.kill()
+            raise
+        finally:
+            self._process = None
+            # Save full log
+            log_path = Path(output_dir) / "training_log.txt"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text("\n".join(log_lines), encoding="utf-8")
+
+        # Collect results
+        result = TrainingResult(
+            steps_completed=last_step,
+            final_loss=last_loss,
+            psnr=last_psnr,
+            ssim=last_ssim,
+        )
+
+        # Find checkpoint and PLY
+        ckpt_dir = Path(result_dir) / "ckpts"
+        if ckpt_dir.is_dir():
+            ckpts = sorted(ckpt_dir.glob("ckpt_*_rank0.pt"))
+            if ckpts:
+                result.checkpoint_dir = str(ckpt_dir)
+
+        ply_dir = Path(result_dir) / "ply"
+        if ply_dir.is_dir():
+            plys = sorted(ply_dir.glob("point_cloud_*.ply"))
+            if plys:
+                result.ply_path = str(plys[-1])
+
+        # Read eval metrics from stats JSON
+        stats_dir = Path(result_dir) / "stats"
+        if stats_dir.is_dir():
+            for stats_file in sorted(stats_dir.glob("*.json")):
+                try:
+                    stats_data = json.loads(stats_file.read_text(encoding="utf-8"))
+                    if "psnr" in stats_data:
+                        result.psnr = float(stats_data["psnr"])
+                    if "ssim" in stats_data:
+                        result.ssim = float(stats_data["ssim"])
+                except (json.JSONDecodeError, KeyError):
+                    pass
+
+        return result
+
+    # -----------------------------------------------------------------------
+    # Stop
+    # -----------------------------------------------------------------------
+
+    def request_stop(self):
+        """Signal the training subprocess to stop."""
+        self._stop_event.set()
+        if self._process and self._process.poll() is None:
+            self._process.terminate()
+
+    # -----------------------------------------------------------------------
+    # Render views
+    # -----------------------------------------------------------------------
+
+    def render_views(
+        self,
+        checkpoint_dir: str,
+        data_dir: str,
+        output_dir: str,
+        max_images: int = 0,
+    ) -> list[str]:
+        """Render test-set views from a trained checkpoint.
+
+        Loads the checkpoint in-process and renders using gsplat rasterization.
+        Returns paths to saved PNG images.
+        """
+        import torch
+        from gsplat.rendering import rasterization as gsplat_raster
+
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        # Find latest checkpoint
+        ckpt_dir = Path(checkpoint_dir)
+        ckpts = sorted(ckpt_dir.glob("ckpt_*_rank0.pt"))
+        if not ckpts:
+            raise FileNotFoundError(f"No checkpoints found in {checkpoint_dir}")
+
+        # Load checkpoint
+        ckpt = torch.load(str(ckpts[-1]), map_location=device, weights_only=True)
+        splats = {k: v.to(device) for k, v in ckpt["splats"].items()}
+
+        # Load scene data
+        from core.training.gsplat_trainer import load_colmap_data, load_image
+        data = load_colmap_data(data_dir, factor=4, test_every=8, normalize=True)
+
+        render_dir = Path(output_dir)
+        render_dir.mkdir(parents=True, exist_ok=True)
+
+        test_indices = data["test_indices"]
+        if max_images > 0:
+            test_indices = test_indices[:max_images]
+
+        rendered_paths = []
+        sh_degree = int((-1 + (1 + 4 * (1 + splats["shN"].shape[1])) ** 0.5) / 2)
+
+        with torch.no_grad():
+            for idx in test_indices:
+                batch = load_image(data, idx)
+                K = batch["K"].to(device)
+                c2w = batch["c2w"].to(device)
+                H, W = batch["image"].shape[:2]
+                w2c = torch.linalg.inv(c2w)
+
+                bkgd = torch.zeros(3, device=device)
+                renders, _, _ = gsplat_raster(
+                    means=splats["means"],
+                    quats=splats["quats"] / (splats["quats"].norm(dim=-1, keepdim=True) + 1e-12),
+                    scales=torch.exp(splats["scales"]),
+                    opacities=torch.sigmoid(splats["opacities"]),
+                    colors=torch.cat([splats["sh0"], splats["shN"]], dim=1),
+                    viewmats=w2c[None],
+                    Ks=K[None],
+                    width=W,
+                    height=H,
+                    sh_degree=sh_degree,
+                    near_plane=0.01,
+                    far_plane=1e10,
+                    backgrounds=bkgd[None],
+                )
+
+                img = (renders[0].clamp(0, 1) * 255).byte().cpu().numpy()
+                out_path = render_dir / f"render_{data['image_names'][idx]}.png"
+                Image.fromarray(img).save(str(out_path))
+                rendered_paths.append(str(out_path))
+
+        return rendered_paths

@@ -8,7 +8,7 @@ progress survives app restarts.
 """
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Optional
 
@@ -55,17 +55,40 @@ class PipelineState:
     pre_ba_error: float = 0.0
     post_ba_error: float = 0.0
 
+    # --- Alignment (applied during export) ---
+    aligned: bool = False
+    alignment_method: Optional[str] = None       # "imu" | "estimated" | None
+    alignment_imu_coverage: float = 0.0
+    alignment_rotation_deg: float = 0.0
+    alignment_up_axis: Optional[str] = None      # "y" or "z"
+    alignment_centered: bool = False
+
+    # --- Masking (applied during export) ---
+    masks_generated: bool = False
+    mask_dir: Optional[str] = None           # <project_dir>/masks/
+    mask_method: Optional[str] = None        # "birefnet" | "sam2" | "manual"
+    num_masks: int = 0
+    num_corrected: int = 0                   # masks manually corrected via SAM
+    mask_model_variant: Optional[str] = None # e.g. "BiRefNet_HR-matting"
+
     # --- Stage 7: Export ---
     export_dir: Optional[str] = None  # Final 3DGS-ready directory
 
-    # --- Stage 8 (future): 3DGS Training ---
-    gaussian_model_path: Optional[str] = None
-    training_iterations: int = 0
-    final_loss: float = 0.0
+    # --- Stage 9: 3DGS Training ---
+    training_backend: Optional[str] = None         # "gsplat", "2dgs", etc.
+    training_dir: Optional[str] = None             # <project_dir>/training/<backend>/
+    training_data_dir: Optional[str] = None        # Prepared data directory
+    training_checkpoint: Optional[str] = None      # Path to checkpoint directory
+    training_ply: Optional[str] = None             # Path to exported PLY
+    training_iterations: int = 0                   # Steps completed
+    training_psnr: float = 0.0                     # Final PSNR on test set
+    training_ssim: float = 0.0                     # Final SSIM
+    training_loss: float = 0.0                     # Final training loss
+    training_status: Optional[str] = None          # "prepared", "running", "completed", "failed", "stopped"
 
-    # --- Stage 9 (future): DiFix3D+ Enhancement ---
-    difix_output_path: Optional[str] = None
-    enhanced_model_path: Optional[str] = None
+    # --- Stage 10: Enhancement ---
+    enhancement_backend: Optional[str] = None      # "fixer", "difix3d+", etc.
+    enhancement_dir: Optional[str] = None          # Output directory
     num_views_enhanced: int = 0
 
     def discover_outputs(self):
@@ -108,6 +131,37 @@ class PipelineState:
             if sfm_dir.is_dir() and any(sfm_dir.glob("*.bin")):
                 self.sfm_dir = str(sfm_dir)
 
+        # Masks directory: masks/ with .png files
+        if not self.mask_dir:
+            mask_dir = project_dir / "masks"
+            if mask_dir.is_dir():
+                mask_files = list(mask_dir.glob("*.png"))
+                if mask_files:
+                    self.mask_dir = str(mask_dir)
+                    self.masks_generated = True
+                    self.num_masks = len(mask_files)
+
+        # Training directory: training/<backend>/output/ckpts/
+        if not self.training_checkpoint:
+            training_dir = project_dir / "training"
+            if training_dir.is_dir():
+                for backend_dir in training_dir.iterdir():
+                    if not backend_dir.is_dir():
+                        continue
+                    ckpt_dir = backend_dir / "output" / "ckpts"
+                    if ckpt_dir.is_dir() and any(ckpt_dir.glob("*.pt")):
+                        self.training_backend = backend_dir.name
+                        self.training_dir = str(backend_dir)
+                        self.training_checkpoint = str(ckpt_dir)
+                        self.training_status = "completed"
+                        # Look for PLY
+                        ply_dir = backend_dir / "output" / "ply"
+                        if ply_dir.is_dir():
+                            plys = sorted(ply_dir.glob("*.ply"))
+                            if plys:
+                                self.training_ply = str(plys[-1])
+                        break
+
     def save(self):
         """Persist state to project_dir/pipeline_state.json."""
         if not self.project_dir:
@@ -117,12 +171,18 @@ class PipelineState:
 
     @classmethod
     def load(cls, project_dir: str) -> "PipelineState":
-        """Restore state from project_dir/pipeline_state.json, or return fresh state."""
+        """Restore state from project_dir/pipeline_state.json, or return fresh state.
+
+        Filters out unknown keys so old state files with removed/renamed fields
+        don't cause TypeError. New fields get their defaults.
+        """
         path = Path(project_dir) / STATE_FILENAME
         if not path.exists():
             return cls()
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            return cls(**data)
+            valid_keys = {f.name for f in fields(cls)}
+            filtered = {k: v for k, v in data.items() if k in valid_keys}
+            return cls(**filtered)
         except (json.JSONDecodeError, TypeError):
             return cls()

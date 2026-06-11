@@ -11,20 +11,28 @@ from pathlib import Path
 import gradio as gr
 import pycolmap
 
+from core.masking import create_rgba_image
 from core.pipeline_state import PipelineState
-from core.utils import create_3dgs_directory, get_reconstruction_stats
+from core.utils import SUPPORTED_EXTENSIONS, create_3dgs_directory, get_reconstruction_stats
 
 
 def _browse_export_folder() -> str:
-    """Open a native folder selection dialog for export path."""
+    """Open a native folder selection dialog for export path.
+
+    Creates a fresh Tk root each call and destroys it afterwards to avoid
+    cross-thread issues (Gradio runs handlers in worker threads, but
+    Tkinter objects can only be accessed from the thread that created them).
+    """
     import tkinter as tk
     from tkinter import filedialog
 
     root = tk.Tk()
     root.withdraw()
     root.attributes("-topmost", True)
-    folder = filedialog.askdirectory(title="Select Export Folder")
-    root.destroy()
+    try:
+        folder = filedialog.askdirectory(title="Select Export Folder")
+    finally:
+        root.destroy()
     return folder or ""
 
 
@@ -129,6 +137,7 @@ def run_refinement(
 
     # Update state
     state.refined = True
+    state.aligned = False  # BA rewrites .bin files, reset alignment
     state.pre_ba_error = pre_error
     state.post_ba_error = post_error
     state.mean_reprojection_error = post_error
@@ -151,6 +160,12 @@ def run_refinement(
 def run_export(
     export_path: str,
     export_format: str,
+    enable_alignment: bool,
+    up_axis: str,
+    enable_centering: bool,
+    use_imu: bool,
+    include_masks: bool,
+    mask_format: str,
     state: PipelineState,
     progress=gr.Progress(),
 ):
@@ -163,19 +178,60 @@ def run_export(
 
     sfm_dir = Path(state.sfm_dir)
     image_dir = Path(state.image_dir)
+    project_dir = Path(state.project_dir)
     out_dir = Path(export_path)
 
-    progress(0.1, desc="Creating export directory...")
+    progress(0.1, desc="Loading reconstruction...")
+
+    # Load reconstruction once — reuse for alignment, text export, and report
+    rec = pycolmap.Reconstruction(str(sfm_dir))
+
+    # --- Alignment ---
+    alignment_info_str = ""
+    if enable_alignment and not state.aligned:
+        progress(0.15, desc="Aligning to gravity...")
+        try:
+            from core.alignment import align_reconstruction
+            info = align_reconstruction(
+                rec, str(image_dir), str(project_dir),
+                up_axis, enable_centering, use_imu,
+            )
+            rec.write(str(sfm_dir))  # persist aligned reconstruction
+            state.aligned = True
+            state.alignment_method = info["method"]
+            state.alignment_imu_coverage = info["imu_coverage"]
+            state.alignment_rotation_deg = info["rotation_angle_deg"]
+            state.alignment_up_axis = info["up_axis"]
+            state.alignment_centered = info["centered"]
+            alignment_info_str = (
+                f"Alignment: {info['method']} "
+                f"(rotation {info['rotation_angle_deg']:.1f}°, "
+                f"up={info['up_axis']}, "
+                f"centered={info['centered']}"
+            )
+            if info["method"] == "imu":
+                alignment_info_str += f", IMU coverage={info['imu_coverage']:.0%}"
+            alignment_info_str += ")\n"
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Alignment failed: %s", e)
+            alignment_info_str = f"Alignment: skipped (error: {e})\n"
+    elif state.aligned:
+        alignment_info_str = (
+            f"Alignment: already applied ({state.alignment_method}, "
+            f"{state.alignment_rotation_deg:.1f}°, up={state.alignment_up_axis})\n"
+        )
+
+    progress(0.3, desc="Creating export directory...")
 
     try:
-        # If text format requested, write text versions first
+        # If text format requested, write text versions
         if export_format in ("text", "both"):
             text_dir = sfm_dir / "text"
             text_dir.mkdir(exist_ok=True)
-            rec = pycolmap.Reconstruction(str(sfm_dir))
             rec.write_text(str(text_dir))
 
-        progress(0.3, desc="Creating 3DGS directory layout...")
+        progress(0.5, desc="Creating 3DGS directory layout...")
 
         # Create standard 3DGS directory
         export_dir = create_3dgs_directory(
@@ -197,14 +253,46 @@ def run_export(
         tb = traceback.format_exc()
         raise gr.Error(f"Export failed: {e}\n\n{tb}")
 
+    # --- Mask export ---
+    mask_info_str = ""
+    if include_masks:
+        if not state.masks_generated or not state.mask_dir:
+            raise gr.Error("No masks found. Run Stage 8 (Object Masking) first.")
+
+        progress(0.7, desc="Exporting masks...")
+        mask_src = Path(state.mask_dir)
+
+        if mask_format in ("bw_masks", "both"):
+            masks_out = out_dir / "masks"
+            masks_out.mkdir(exist_ok=True)
+            mask_count = 0
+            for mask_file in mask_src.glob("*.png"):
+                shutil.copy2(str(mask_file), str(masks_out / mask_file.name))
+                mask_count += 1
+            mask_info_str += f"B&W masks exported: {mask_count}\n"
+
+        if mask_format in ("rgba_images", "both"):
+            rgba_out = out_dir / "rgba"
+            rgba_out.mkdir(exist_ok=True)
+            rgba_count = 0
+            for img_file in Path(state.image_dir).iterdir():
+                if img_file.suffix.lower() in SUPPORTED_EXTENSIONS and img_file.is_file():
+                    mask_path = mask_src / f"{img_file.stem}.png"
+                    if mask_path.exists():
+                        create_rgba_image(
+                            str(img_file), str(mask_path),
+                            str(rgba_out / f"{img_file.stem}.png"),
+                        )
+                        rgba_count += 1
+            mask_info_str += f"RGBA images exported: {rgba_count}\n"
+
     progress(0.8, desc="Generating quality report...")
 
     # Final quality metrics
     stats = get_reconstruction_stats(str(sfm_dir))
     reg_rate = (stats["num_images"] / state.num_images * 100) if state.num_images > 0 else 0
 
-    # Read camera intrinsics for report
-    rec = pycolmap.Reconstruction(str(sfm_dir))
+    # Camera intrinsics from the already-loaded rec
     cam_info = ""
     for cam_id, cam in rec.cameras.items():
         cam_info += f"  Camera {cam_id}: {cam.model.name}, {cam.width}x{cam.height}, params={list(cam.params)}\n"
@@ -217,6 +305,8 @@ def run_export(
         f"3D points: {stats['num_points3d']:,}\n"
         f"Mean reprojection error: {stats['mean_reprojection_error']:.4f} px\n"
         f"Camera intrinsics:\n{cam_info}"
+        f"{alignment_info_str}"
+        f"{mask_info_str}"
         f"Export format: {export_format}\n"
         f"Export directory: {export_dir}"
     )
@@ -269,6 +359,29 @@ def build_stage67_tab():
                 value="binary",
                 label="Export Format",
             )
+
+        gr.Markdown("#### Alignment")
+        with gr.Row():
+            align_check = gr.Checkbox(value=True, label="Auto-align to gravity")
+            center_check = gr.Checkbox(value=True, label="Center at origin")
+        with gr.Row():
+            up_axis_dropdown = gr.Dropdown(
+                choices=["y", "z"],
+                value="y",
+                label="Up Axis",
+            )
+            imu_check = gr.Checkbox(value=True, label="Use IMU data when available")
+
+        gr.Markdown("#### Masks")
+        with gr.Row():
+            include_masks_check = gr.Checkbox(value=False, label="Include masks in export")
+            mask_format_dropdown = gr.Dropdown(
+                choices=["bw_masks", "rgba_images", "both"],
+                value="bw_masks",
+                label="Mask Format",
+            )
+
+        with gr.Row():
             export_btn = gr.Button("Export for 3DGS", variant="primary")
 
         with gr.Row():
@@ -286,6 +399,12 @@ def build_stage67_tab():
         "export_path_input": export_path_input,
         "browse_export_btn": browse_export_btn,
         "export_format_dropdown": export_format_dropdown,
+        "align_check": align_check,
+        "center_check": center_check,
+        "up_axis_dropdown": up_axis_dropdown,
+        "imu_check": imu_check,
+        "include_masks_check": include_masks_check,
+        "mask_format_dropdown": mask_format_dropdown,
         "export_btn": export_btn,
         "quality_report": quality_report,
         "export_log": export_log,
@@ -319,6 +438,12 @@ def wire_stage67(components: dict, state: gr.State):
         inputs=[
             c["export_path_input"],
             c["export_format_dropdown"],
+            c["align_check"],
+            c["up_axis_dropdown"],
+            c["center_check"],
+            c["imu_check"],
+            c["include_masks_check"],
+            c["mask_format_dropdown"],
             state,
         ],
         outputs=[c["quality_report"], c["export_log"], state],
