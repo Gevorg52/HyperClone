@@ -60,6 +60,26 @@ plus three targeted follow-up investigations (enhancement, trainers, SfM).*
   to MSVC; build needs vcvars -vcvars_ver=14.34 — MSVC 14.44 STL requires
   CUDA >= 12.4 while we're on 12.1)
 
+## Faster-GS backend — setup steps (deferred to next session)
+
+Faster-GS installs as a method module inside the NeRFICG framework (MIT).
+One-time provisioning (separate conda env; conda supplies CUDA 12.8 inside
+the env, VS2022 toolsets already present):
+
+```bash
+git clone https://github.com/nerficg-project/nerficg && cd nerficg
+conda env create -f configs/environments/py311_cu128.yaml   # check exact path in repo
+conda activate nerficg
+git clone https://github.com/nerficg-project/faster-gaussian-splatting src/Methods/FasterGS
+python scripts/install.py -m FasterGS
+```
+
+Workflow: `create_config.py -m FasterGS -d <colmap dataset>` → `train.py -c config.yaml`
+→ `convert_to_ply.py`. Then implement `FasterGSBackend` in `core/training/`
+(subprocess + YAML, parse progress, collect PLY) and A/B against our gsplat
+trainer on GPU_V3. Key draw: mask-based carving init for object scans.
+Do NOT install nerficg's other GS method modules (some are Inria-licensed).
+
 ## Watch list (no code or license-blocked as of June 2026 — recheck quarterly)
 
 | Item | What | Status |
