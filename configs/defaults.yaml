@@ -57,9 +57,9 @@ masking:
 
 # Stage 9: 3DGS Training
 training:
-  backend: "gsplat"              # gsplat | (future: 2dgs)
+  backend: "gsplat"              # gsplat | (future: faster-gs)
   max_steps: 30000               # 30K = good quality, 60K = high quality
-  data_factor: 4                 # image downsampling: 1/2/4/8 (4 → 1500x1000 from 6000x4000)
+  data_factor: 2                 # final training resolution: 1/2/4/8 (2 → 3000x2000 from 6000x4000)
   test_every: 8                  # hold out every Nth image for evaluation
   sh_degree: 3                   # max spherical harmonics degree
   ssim_lambda: 0.2               # loss weight: (1-lambda)*L1 + lambda*SSIM
@@ -67,6 +67,16 @@ training:
   normalize_world_space: true    # normalize scene to unit cube
   random_bkgd: false             # auto-enabled when masks are present
   save_ply: true                 # export .ply point cloud at save steps
+  # June 2026 quality stack
+  strategy: "mcmc"               # mcmc (better quality + explicit budget) | default
+  cap_max: 1000000               # MCMC Gaussian budget (~1M objects, ~3M scenes on 24GB)
+  opacity_reg: 0.01              # opacity regularization (required for MCMC)
+  scale_reg: 0.01                # scale regularization (required for MCMC)
+  antialiased: true              # Mip-Splatting anti-aliasing
+  pose_opt: true                 # SE(3) camera pose refinement during training
+  pose_opt_lr: 0.00001
+  coarse_factor: 4               # densification-phase resolution (2x data_factor)
+  coarse_until: 15000            # step to switch from coarse to fine resolution
 
 # Stage 10: Enhancement
 enhancement:

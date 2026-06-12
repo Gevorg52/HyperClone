@@ -10,6 +10,8 @@ import abc
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
+from . import gsplat_jit_shim  # noqa: F401  (must precede gsplat import)
+
 
 # ---------------------------------------------------------------------------
 # Training config (backend-agnostic)

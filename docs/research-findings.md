@@ -1,6 +1,80 @@
 # Apex Reality — Research Findings & Recommended Changes
 
-*Generated: 2026-02-25*
+*Generated: 2026-02-25 — June 2026 update appended at top*
+
+---
+
+# June 2026 Research Update
+
+*Adversarially verified multi-agent research pass, 2026-06-11. 107 claims
+extracted from 23 primary sources, 25 top claims verified by 3-vote panels,
+plus three targeted follow-up investigations (enhancement, trainers, SfM).*
+
+## Headline verdicts
+
+1. **COLMAP-based SfM remains the right backbone.** Sattler et al. benchmark
+   (arXiv 2603.20428, Mar 2026): feed-forward transformer SfM (VGGT lineage)
+   is "significantly less accurate" than COLMAP/GLOMAP; best trade-off is
+   feed-forward init + classical BA. VGGT-X and VGG-T3 (CVPR 2026) both
+   concede the gap in their own papers.
+2. **COLMAP 4.0 released Mar 2026** (4.0.4 current): GLOMAP merged as the
+   "global" mapper, native ALIKED+LightGlue via ONNX, ~10-15% faster BA,
+   deterministic with random_seed. Upgrade pycolmap 3.13 → 4.0.4.
+3. **3DGS-MCMC densification is the proven training-quality lever**
+   (NeurIPS 2024 spotlight; independently reproduced in gsplat eval:
+   29.65 vs 29.00 PSNR vs DefaultStrategy at 3M Gaussians). Adopted as our
+   default (gsplat MCMCStrategy, cap_max budget).
+4. **Mip-Splatting anti-aliasing is the accepted production default**
+   (gsplat rasterize_mode="antialiased"). Adopted.
+5. **Our Cosmos 0.6B Fixer is NVIDIA's current commercial SOTA fixer** —
+   released publicly as "Omniverse NuRec Fixer" (NeurIPS Dec 2025). Code
+   Apache-2.0, weights NVIDIA Open Model License. **V2 weights (Nov 2025) on
+   HF nvidia/Fixer — re-pull.** Difix3D+ itself is non-commercial; skip.
+6. **The big artifact-removal win is the distill-back loop** (Difix3D+
+   progressive update): render pseudo-views on interpolated trajectories →
+   Fixer → append to train set → resume training. NVIDIA doesn't ship the
+   loop; we implement it around Fixer + gsplat (commercial-clean).
+7. **Faster-GS (CVPR Jun 2026, Apache-2.0)**: integrated quality stack
+   (MCMC + Mip-AA + Speedy-Splat pruning + PPISP + mask-based carving init)
+   inside the NeRFICG framework (MIT, Windows/CUDA 12.8). Young but the most
+   interesting external trainer — add as experimental backend, A/B it.
+8. **IMC 2025 winners still use ALIKED+LightGlue+COLMAP**; frontier moved to
+   pair selection (MASt3R-ASMK retrieval). Keep our matcher. RoMa v2 (MIT,
+   DINOv3 license caveat) as rescue matcher for weak pairs only.
+9. **Masked-object SfM consensus unchanged**: run SfM unmasked, mask only for
+   training. Our flow already correct.
+10. **High-res practice**: 24MP native training infeasible on 24GB; train at
+    factor 2 with coarse-to-fine (densify at factor 4, finish at 2). Adopted.
+    Factor 1-2 at 6K realistic on Blackwell 96GB.
+
+## Adopted June 2026 (v1.2)
+
+- gsplat 1.4.0 → 1.5.3 (AOT-compiled; PLY export via export_splats now works —
+  it silently failed on 1.4.0 which lacks the exporter)
+- MCMCStrategy default (cap_max 1M objects / 3M scenes), opacity/scale reg
+- rasterize_mode="antialiased" default
+- SE(3) pose refinement (pose_opt, lr 1e-5) default on
+- Coarse-to-fine resolution schedule (factor 2x final until step 15000)
+- data_factor default 4 → 2
+- Windows JIT shim: core/training/gsplat_jit_shim.py (gsplat passes GCC flags
+  to MSVC; build needs vcvars -vcvars_ver=14.34 — MSVC 14.44 STL requires
+  CUDA >= 12.4 while we're on 12.1)
+
+## Watch list (no code or license-blocked as of June 2026 — recheck quarterly)
+
+| Item | What | Status |
+|---|---|---|
+| GloSplat (2603.04847) | SfM tracks as optimizable anchors during 3DGS training; GloSplat-A beats all COLMAP baselines (28.86 PSNR MipNeRF360) | paper only, no code (verified via GitHub API) |
+| SSR-GS (2603.05152) | direct+indirect specular decomposition (glossy objects) | paper only |
+| 3DGRUT v1.1 (nv-tlabs) | 3DGUT popping-free rendering, Apache-2.0, Windows | candidate Blackwell-era backend |
+| PPISP (nv-tlabs/ppisp) | learned ISP fixes photometric floater causes; also in gsplat main + Faster-GS | code out; needs newer gsplat than 1.5.3 for built-in path |
+| CLM-GS (ASPLOS 2026) | CPU offload breaks single-GPU memory wall for full-res | for Blackwell-era full-res |
+| MapAnything (Meta) | feed-forward SfM init, Apache weights variant, COLMAP export | optional rescue initializer |
+| GSFix3D / GSFixer / FreeFix | repair+distill loops, stronger than Fixer on holes | license-encumbered (Inria/RAIL/CogVideoX) |
+| ArtifactWorld (2604.12251) | 107.5K-clip artifact restoration dataset | unreleased |
+| CHROMA (2507.15748) | feed-forward bilateral grids for appearance | availability unresolved |
+
+---
 
 ## Current Pipeline (MVP)
 - SuperPoint + LightGlue + pycolmap (COLMAP incremental SfM)

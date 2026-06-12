@@ -23,5 +23,12 @@ PyYAML>=6.0
 plotly>=5.0
 matplotlib>=3.7
 
+# 3DGS training (JIT-compiles CUDA kernels on first import; on Windows this
+# needs MSVC <= 14.38 (e.g. vcvars64.bat -vcvars_ver=14.34), the CUDA 12.1
+# toolkit, and ninja. core/training/gsplat_jit_shim.py fixes gsplat's MSVC
+# flags — run tests/smoke_gsplat.py from a VS dev shell once after upgrades.)
+gsplat==1.5.3
+ninja
+
 # PyTorch (CUDA 12.1) — install separately if not already present:
 #   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121

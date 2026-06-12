@@ -209,13 +209,23 @@ class GsplatBackend(TrainingBackend):
     def get_default_config(self) -> dict:
         return {
             "max_steps": 30_000,
-            "data_factor": 4,
+            "data_factor": 2,
             "test_every": 8,
             "save_steps": [7_000, 30_000],
             "sh_degree": 3,
             "ssim_lambda": 0.2,
             "random_bkgd": False,
             "normalize_world_space": True,
+            # June 2026 quality stack
+            "strategy": "mcmc",            # mcmc | default
+            "cap_max": 1_000_000,          # MCMC Gaussian budget
+            "opacity_reg": 0.01,
+            "scale_reg": 0.01,
+            "antialiased": True,           # Mip-Splatting anti-aliasing
+            "pose_opt": True,              # SE(3) pose refinement
+            "pose_opt_lr": 1e-5,
+            "coarse_factor": 4,            # densification-phase resolution
+            "coarse_until": 15_000,        # step to switch to fine resolution
         }
 
     # -----------------------------------------------------------------------
@@ -270,11 +280,17 @@ class GsplatBackend(TrainingBackend):
                     shutil.copy2(str(img), str(images_dir / img.name))
 
         # --- Create downsampled directories ---
-        factor = config.data_factor
-        if factor > 1:
-            ds_dir = data_dir / f"images_{factor}"
-            if not ds_dir.is_dir():
-                _downsample_images(str(images_dir), str(ds_dir), factor)
+        factors = {config.data_factor}
+        coarse_factor = int(config.extra.get(
+            "coarse_factor", self.get_default_config()["coarse_factor"],
+        ) or 0)
+        if coarse_factor > config.data_factor:
+            factors.add(coarse_factor)
+        for factor in factors:
+            if factor > 1:
+                ds_dir = data_dir / f"images_{factor}"
+                if not ds_dir.is_dir():
+                    _downsample_images(str(images_dir), str(ds_dir), factor)
 
         return str(data_dir)
 
@@ -298,6 +314,9 @@ class GsplatBackend(TrainingBackend):
 
         # Build CLI args for our bundled trainer
         result_dir = str(Path(output_dir) / "output")
+        defaults = self.get_default_config()
+        extra = {**defaults, **config.extra}
+
         args = [
             sys.executable, _TRAINER_SCRIPT,
             "--data_dir", data_dir,
@@ -305,15 +324,34 @@ class GsplatBackend(TrainingBackend):
             "--data_factor", str(config.data_factor),
             "--max_steps", str(config.max_steps),
             "--test_every", str(config.test_every),
-            "--sh_degree", str(config.extra.get("sh_degree", 3)),
-            "--ssim_lambda", str(config.extra.get("ssim_lambda", 0.2)),
+            "--sh_degree", str(extra["sh_degree"]),
+            "--ssim_lambda", str(extra["ssim_lambda"]),
+            "--strategy", str(extra["strategy"]),
+            "--cap_max", str(extra["cap_max"]),
+            "--opacity_reg", str(extra["opacity_reg"]),
+            "--scale_reg", str(extra["scale_reg"]),
         ]
 
-        if config.extra.get("normalize_world_space", True):
+        if extra["normalize_world_space"]:
             args.append("--normalize_world_space")
+        else:
+            args.append("--no-normalize_world_space")
 
-        if config.extra.get("random_bkgd", False):
+        if extra["random_bkgd"]:
             args.append("--random_bkgd")
+
+        args.append("--antialiased" if extra["antialiased"] else "--no-antialiased")
+
+        if extra["pose_opt"]:
+            args.append("--pose_opt")
+            args.extend(["--pose_opt_lr", str(extra["pose_opt_lr"])])
+
+        coarse_factor = int(extra.get("coarse_factor", 0) or 0)
+        if coarse_factor > config.data_factor:
+            args.extend([
+                "--coarse_factor", str(coarse_factor),
+                "--coarse_until", str(extra["coarse_until"]),
+            ])
 
         # save_steps
         save_steps = config.save_steps or [7_000, config.max_steps]
@@ -436,11 +474,14 @@ class GsplatBackend(TrainingBackend):
         data_dir: str,
         output_dir: str,
         max_images: int = 0,
+        data_factor: int = 0,
+        antialiased: bool = True,
     ) -> list[str]:
         """Render test-set views from a trained checkpoint.
 
         Loads the checkpoint in-process and renders using gsplat rasterization.
-        Returns paths to saved PNG images.
+        Returns paths to saved PNG images.  *data_factor* should match the
+        factor used in training; 0 picks the smallest images_N dir available.
         """
         import torch
         from gsplat.rendering import rasterization as gsplat_raster
@@ -457,9 +498,20 @@ class GsplatBackend(TrainingBackend):
         ckpt = torch.load(str(ckpts[-1]), map_location=device, weights_only=True)
         splats = {k: v.to(device) for k, v in ckpt["splats"].items()}
 
+        # Resolve render factor: prefer explicit, else smallest available dir
+        if data_factor <= 0:
+            available = sorted(
+                int(p.name.split("_")[1])
+                for p in Path(data_dir).glob("images_*")
+                if p.is_dir() and p.name.split("_")[1].isdigit()
+            )
+            data_factor = available[0] if available else 1
+
         # Load scene data
         from core.training.gsplat_trainer import load_colmap_data, load_image
-        data = load_colmap_data(data_dir, factor=4, test_every=8, normalize=True)
+        data = load_colmap_data(
+            data_dir, factor=data_factor, test_every=8, normalize=True,
+        )
 
         render_dir = Path(output_dir)
         render_dir.mkdir(parents=True, exist_ok=True)
@@ -494,6 +546,8 @@ class GsplatBackend(TrainingBackend):
                     near_plane=0.01,
                     far_plane=1e10,
                     backgrounds=bkgd[None],
+                    rasterize_mode="antialiased" if antialiased else "classic",
+                    packed=False,
                 )
 
                 img = (renders[0].clamp(0, 1) * 255).byte().cpu().numpy()

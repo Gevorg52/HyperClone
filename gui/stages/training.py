@@ -64,6 +64,7 @@ def check_backend(backend_name: str) -> str:
 def prepare_training_data(
     backend_name: str,
     data_factor: int,
+    coarse_to_fine: bool,
     state: PipelineState,
     progress=gr.Progress(),
 ) -> tuple[str, str, PipelineState]:
@@ -86,9 +87,13 @@ def prepare_training_data(
     training_dir = project_dir / "training" / backend_name
     training_dir.mkdir(parents=True, exist_ok=True)
 
+    data_factor = int(data_factor)
     config = TrainingConfig(
         backend=backend_name,
-        data_factor=int(data_factor),
+        data_factor=data_factor,
+        extra={
+            "coarse_factor": data_factor * 2 if coarse_to_fine else 0,
+        },
     )
 
     # Use masks if available
@@ -156,6 +161,11 @@ def start_training(
     max_steps: int,
     data_factor: int,
     test_every: int,
+    strategy: str,
+    cap_max: float,
+    antialiased: bool,
+    pose_opt: bool,
+    coarse_to_fine: bool,
     state: PipelineState,
     progress=gr.Progress(),
 ) -> tuple[str, str, PipelineState]:
@@ -189,6 +199,12 @@ def start_training(
         save_steps=[max_steps // 4, max_steps],
         extra={
             "random_bkgd": state.masks_generated,
+            "strategy": strategy,
+            "cap_max": int(cap_max),
+            "antialiased": bool(antialiased),
+            "pose_opt": bool(pose_opt),
+            "coarse_factor": data_factor * 2 if coarse_to_fine else 0,
+            "coarse_until": min(15_000, max_steps // 2),
         },
     )
 
@@ -240,11 +256,22 @@ def start_training(
     _train_thread = threading.Thread(target=_train_worker, daemon=True)
     _train_thread.start()
 
+    coarse_until = config.extra["coarse_until"]
+    factor_desc = f"{data_factor}x"
+    if coarse_to_fine:
+        factor_desc += f" (coarse {data_factor * 2}x until step {coarse_until:,})"
+    strategy_desc = strategy
+    if strategy == "mcmc":
+        strategy_desc += f" (budget {int(cap_max):,})"
+
     stats = (
         f"Training started!\n"
         f"Backend: {backend_name}\n"
         f"Max steps: {max_steps:,}\n"
-        f"Data factor: {data_factor}x\n"
+        f"Data factor: {factor_desc}\n"
+        f"Strategy: {strategy_desc}\n"
+        f"Anti-aliasing: {'on' if antialiased else 'off'} | "
+        f"Pose refinement: {'on' if pose_opt else 'off'}\n"
         f"Test every: {test_every} images\n"
         f"Masks: {'enabled (random_bkgd)' if state.masks_generated else 'none'}"
     )
@@ -419,9 +446,9 @@ def build_stage9_tab():
             with gr.Column():
                 data_factor_dropdown = gr.Dropdown(
                     choices=["1", "2", "4", "8"],
-                    value="4",
+                    value="2",
                     label="Image Scale Factor",
-                    info="4x recommended for 24MP images (→ 1500x1000)",
+                    info="Final training resolution: 2x → 3000x2000 from 24MP",
                 )
                 max_steps_slider = gr.Slider(
                     minimum=1000, maximum=100_000, value=30_000, step=1000,
@@ -432,6 +459,33 @@ def build_stage9_tab():
                     minimum=1, maximum=32, value=8, step=1,
                     label="Test Every N Images",
                     info="Hold out every Nth image for evaluation",
+                )
+
+        with gr.Accordion("Quality Options", open=True):
+            with gr.Row():
+                strategy_dropdown = gr.Dropdown(
+                    choices=["mcmc", "default"],
+                    value="mcmc",
+                    label="Densification Strategy",
+                    info="MCMC: better quality + explicit Gaussian budget",
+                )
+                cap_max_slider = gr.Slider(
+                    minimum=100_000, maximum=5_000_000, value=1_000_000, step=100_000,
+                    label="Max Gaussians (MCMC budget)",
+                    info="~1M for objects, ~3M for scenes (24GB VRAM)",
+                )
+            with gr.Row():
+                antialiased_checkbox = gr.Checkbox(
+                    value=True, label="Anti-aliasing (Mip-Splatting)",
+                    info="Sharper results when rendering at scales other than training",
+                )
+                pose_opt_checkbox = gr.Checkbox(
+                    value=True, label="Pose refinement",
+                    info="Learn small SE(3) camera corrections during training",
+                )
+                coarse_to_fine_checkbox = gr.Checkbox(
+                    value=True, label="Coarse-to-fine schedule",
+                    info="Densify at 2x lower resolution, finish at full factor",
                 )
 
         # --- Actions ---
@@ -455,6 +509,11 @@ def build_stage9_tab():
         "data_factor_dropdown": data_factor_dropdown,
         "max_steps_slider": max_steps_slider,
         "test_every_slider": test_every_slider,
+        "strategy_dropdown": strategy_dropdown,
+        "cap_max_slider": cap_max_slider,
+        "antialiased_checkbox": antialiased_checkbox,
+        "pose_opt_checkbox": pose_opt_checkbox,
+        "coarse_to_fine_checkbox": coarse_to_fine_checkbox,
         "prepare_btn": prepare_btn,
         "train_btn": train_btn,
         "stop_btn": stop_btn,
@@ -482,7 +541,12 @@ def wire_stage9(components: dict, state: gr.State):
     # Prepare data
     c["prepare_btn"].click(
         fn=prepare_training_data,
-        inputs=[c["backend_dropdown"], c["data_factor_dropdown"], state],
+        inputs=[
+            c["backend_dropdown"],
+            c["data_factor_dropdown"],
+            c["coarse_to_fine_checkbox"],
+            state,
+        ],
         outputs=[c["stats_box"], c["log_box"], state],
     )
 
@@ -494,6 +558,11 @@ def wire_stage9(components: dict, state: gr.State):
             c["max_steps_slider"],
             c["data_factor_dropdown"],
             c["test_every_slider"],
+            c["strategy_dropdown"],
+            c["cap_max_slider"],
+            c["antialiased_checkbox"],
+            c["pose_opt_checkbox"],
+            c["coarse_to_fine_checkbox"],
             state,
         ],
         outputs=[c["stats_box"], c["log_box"], state],

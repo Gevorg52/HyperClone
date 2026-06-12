@@ -3,8 +3,15 @@
 Self-contained trainer that uses:
   - pycolmap.Reconstruction (already installed) for COLMAP data loading
   - gsplat.rendering.rasterization for Gaussian rendering
-  - gsplat.strategy.DefaultStrategy for densification
+  - gsplat.strategy.MCMCStrategy (default) or DefaultStrategy for densification
   - Standard PyTorch for everything else (no nerfview, fused_ssim, etc.)
+
+Quality stack (June 2026):
+  - MCMC densification with explicit Gaussian budget (cap_max)
+  - Mip-Splatting anti-aliasing (rasterize_mode="antialiased")
+  - Optional SE(3) camera pose refinement during training
+  - Coarse-to-fine resolution schedule (densify at low res, finish at high res)
+  - Opacity/scale regularization (required for MCMC)
 
 Designed to be invoked as a subprocess from GsplatBackend.train().
 Progress is printed to stdout in a parseable format.
@@ -12,7 +19,8 @@ Progress is printed to stdout in a parseable format.
 Usage:
     python -m core.training.gsplat_trainer \
         --data_dir <path> --result_dir <path> \
-        --data_factor 4 --max_steps 30000
+        --data_factor 2 --coarse_factor 4 --coarse_until 15000 \
+        --max_steps 30000
 """
 
 from __future__ import annotations
@@ -31,8 +39,16 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+# Must precede any gsplat import (fixes MSVC JIT flags on Windows).
+# Works both as a module (-m core.training.gsplat_trainer) and as a script.
+try:
+    from core.training import gsplat_jit_shim  # noqa: F401
+except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import gsplat_jit_shim  # noqa: F401
+
 from gsplat.rendering import rasterization
-from gsplat.strategy import DefaultStrategy
+from gsplat.strategy import DefaultStrategy, MCMCStrategy
 
 
 # ---------------------------------------------------------------------------
@@ -126,8 +142,10 @@ def load_colmap_data(
 
     for img_id in sorted(rec.images.keys()):
         img = rec.images[img_id]
-        R = img.cam_from_world.rotation.matrix()
-        t = img.cam_from_world.translation.reshape(3, 1)
+        # pycolmap >= 3.12: cam_from_world is a method returning Rigid3d
+        cfw = img.cam_from_world() if callable(img.cam_from_world) else img.cam_from_world
+        R = cfw.rotation.matrix()
+        t = cfw.translation.reshape(3, 1)
         w2c = np.concatenate([np.concatenate([R, t], axis=1), bottom], axis=0)
         w2c_mats.append(w2c)
         camera_ids.append(img.camera_id)
@@ -301,10 +319,11 @@ def init_gaussians_from_sfm(
     scene_scale: float,
     device: torch.device,
     sh_degree: int = 3,
+    init_opacity: float = 0.1,
 ) -> dict:
     """Initialize Gaussian parameters from SfM points."""
     N = len(points)
-    print(f"[Init] {N} Gaussians from SfM points")
+    print(f"[Init] {N} Gaussians from SfM points (opacity={init_opacity})")
 
     means = torch.from_numpy(points).float().to(device)
 
@@ -328,23 +347,65 @@ def init_gaussians_from_sfm(
         topk = dists.topk(k, dim=1, largest=False)  # k smallest (includes self=0)
         avg_dists[i:end] = topk.values[:, 1:].mean(dim=1)  # skip self
     scales = torch.log((avg_dists * 0.5).clamp(min=1e-8))
-    scales = scales.unsqueeze(-1).expand(-1, 3)  # (N, 3)
+    scales = scales.unsqueeze(-1).expand(-1, 3).contiguous()  # (N, 3)
 
-    # Initial opacities (logit space, ~0.1 opacity)
-    opacities = torch.logit(torch.full((N,), 0.1, device=device))
+    # Initial opacities (logit space)
+    opacities = torch.logit(torch.full((N,), init_opacity, device=device))
 
     # Identity quaternions
     quats = torch.zeros(N, 4, device=device)
     quats[:, 0] = 1.0
 
-    return {
+    return torch.nn.ParameterDict({
         "means": torch.nn.Parameter(means),
         "scales": torch.nn.Parameter(scales),
         "quats": torch.nn.Parameter(quats),
         "opacities": torch.nn.Parameter(opacities),
         "sh0": torch.nn.Parameter(sh0),
         "shN": torch.nn.Parameter(shN),
-    }
+    })
+
+
+# ---------------------------------------------------------------------------
+# Camera pose refinement (SE(3) deltas, adapted from gsplat examples)
+# ---------------------------------------------------------------------------
+
+def _rotation_6d_to_matrix(d6: torch.Tensor) -> torch.Tensor:
+    """Convert 6D rotation representation to rotation matrices (Zhou et al.)."""
+    a1, a2 = d6[..., :3], d6[..., 3:]
+    b1 = F.normalize(a1, dim=-1)
+    b2 = a2 - (b1 * a2).sum(-1, keepdim=True) * b1
+    b2 = F.normalize(b2, dim=-1)
+    b3 = torch.cross(b1, b2, dim=-1)
+    return torch.stack((b1, b2, b3), dim=-2)
+
+
+class CameraOptModule(torch.nn.Module):
+    """Per-image learnable SE(3) pose correction.
+
+    Embeddings are zero-initialized; a zero embedding maps to the identity
+    transform, so training starts exactly at the SfM poses.
+    """
+
+    def __init__(self, num_cameras: int):
+        super().__init__()
+        # 3 translation + 6D rotation per camera
+        self.embeds = torch.nn.Embedding(num_cameras, 9)
+        torch.nn.init.zeros_(self.embeds.weight)
+        # identity 6D rotation offset: [1,0,0, 0,1,0]
+        self.register_buffer(
+            "identity_6d", torch.tensor([1.0, 0, 0, 0, 1.0, 0]),
+        )
+
+    def forward(self, c2w: torch.Tensor, embed_id: int) -> torch.Tensor:
+        """Apply the learned correction for camera *embed_id* to c2w (4, 4)."""
+        delta = self.embeds(torch.tensor([embed_id], device=c2w.device))[0]
+        trans = delta[:3]
+        rot = _rotation_6d_to_matrix(delta[3:] + self.identity_6d)
+        transform = torch.eye(4, device=c2w.device, dtype=c2w.dtype)
+        transform[:3, :3] = rot
+        transform[:3, 3] = trans
+        return torch.matmul(c2w, transform)
 
 
 # ---------------------------------------------------------------------------
@@ -388,6 +449,40 @@ def ssim(
 
 
 # ---------------------------------------------------------------------------
+# Rendering helper
+# ---------------------------------------------------------------------------
+
+def render_splats(
+    splats,
+    viewmat: torch.Tensor,
+    K: torch.Tensor,
+    width: int,
+    height: int,
+    sh_degree: int,
+    background: torch.Tensor,
+    rasterize_mode: str = "antialiased",
+):
+    """Rasterize the splats for one camera. Returns (renders, alphas, info)."""
+    return rasterization(
+        means=splats["means"],
+        quats=splats["quats"] / (splats["quats"].norm(dim=-1, keepdim=True) + 1e-12),
+        scales=torch.exp(splats["scales"]),
+        opacities=torch.sigmoid(splats["opacities"]),
+        colors=torch.cat([splats["sh0"], splats["shN"]], dim=1),
+        viewmats=viewmat[None],
+        Ks=K[None],
+        width=width,
+        height=height,
+        sh_degree=sh_degree,
+        near_plane=0.01,
+        far_plane=1e10,
+        backgrounds=background[None],
+        rasterize_mode=rasterize_mode,
+        packed=False,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Training loop
 # ---------------------------------------------------------------------------
 
@@ -395,18 +490,34 @@ def train(args):
     device = torch.device("cuda:0")
     torch.cuda.set_device(device)
 
-    # Load data
-    data = load_colmap_data(
+    rasterize_mode = "antialiased" if args.antialiased else "classic"
+    use_mcmc = args.strategy == "mcmc"
+
+    # Load data — coarse-to-fine uses two resolution levels of the same scene
+    data_fine = load_colmap_data(
         args.data_dir,
         factor=args.data_factor,
         test_every=args.test_every,
         normalize=args.normalize_world_space,
     )
+    coarse_until = args.coarse_until if args.coarse_factor > args.data_factor else 0
+    if coarse_until > 0:
+        data_coarse = load_colmap_data(
+            args.data_dir,
+            factor=args.coarse_factor,
+            test_every=args.test_every,
+            normalize=args.normalize_world_space,
+        )
+        print(f"[Train] Coarse-to-fine: factor {args.coarse_factor} until step "
+              f"{coarse_until}, then factor {args.data_factor}")
+    else:
+        data_coarse = data_fine
 
-    # Init Gaussians
+    # Init Gaussians (MCMC works best with higher initial opacity)
     splats = init_gaussians_from_sfm(
-        data["points"], data["points_rgb"], data["scene_scale"],
+        data_fine["points"], data_fine["points_rgb"], data_fine["scene_scale"],
         device, sh_degree=args.sh_degree,
+        init_opacity=0.5 if use_mcmc else 0.1,
     )
 
     # Optimizers (same LR as gsplat defaults)
@@ -424,9 +535,39 @@ def train(args):
         optimizers["means"], gamma=(1e-2) ** (1.0 / max(args.max_steps, 1)),
     )
 
-    # Densification strategy
-    strategy = DefaultStrategy(verbose=False)
-    strategy_state = strategy.initialize_state()
+    # Densification strategy (refine_stop_iter <= 0 → per-strategy default)
+    refine_stop = args.refine_stop_iter
+    if refine_stop <= 0:
+        refine_stop = 25_000 if use_mcmc else 15_000
+    refine_stop = min(refine_stop, args.max_steps)
+    if use_mcmc:
+        strategy = MCMCStrategy(
+            cap_max=args.cap_max,
+            refine_stop_iter=refine_stop,
+            verbose=False,
+        )
+        strategy_state = strategy.initialize_state()
+        print(f"[Train] MCMC densification: cap_max={args.cap_max}, "
+              f"refine_stop={refine_stop}")
+    else:
+        strategy = DefaultStrategy(
+            refine_stop_iter=refine_stop,
+            verbose=False,
+        )
+        strategy_state = strategy.initialize_state(scene_scale=data_fine["scene_scale"])
+        print(f"[Train] Default densification: refine_stop={refine_stop}")
+
+    # Optional camera pose refinement
+    pose_module = None
+    pose_optimizer = None
+    if args.pose_opt:
+        pose_module = CameraOptModule(len(data_fine["image_names"])).to(device)
+        pose_optimizer = torch.optim.Adam(
+            pose_module.parameters(),
+            lr=args.pose_opt_lr,
+            weight_decay=args.pose_opt_reg,
+        )
+        print(f"[Train] Pose refinement: lr={args.pose_opt_lr}, reg={args.pose_opt_reg}")
 
     # Output dirs
     result_dir = Path(args.result_dir)
@@ -440,12 +581,13 @@ def train(args):
     save_steps.add(args.max_steps)  # always save final
 
     # Training
-    train_indices = data["train_indices"]
+    train_indices = data_fine["train_indices"]
     num_train = len(train_indices)
     ssim_lambda = args.ssim_lambda
 
     print(f"[Train] Starting {args.max_steps} steps, {num_train} train images")
-    print(f"[Train] ssim_lambda={ssim_lambda}, sh_degree={args.sh_degree}")
+    print(f"[Train] strategy={args.strategy}, antialiased={args.antialiased}, "
+          f"ssim_lambda={ssim_lambda}, sh_degree={args.sh_degree}")
     sys.stdout.flush()
 
     running_loss = 0.0
@@ -453,6 +595,11 @@ def train(args):
     t0 = time.time()
 
     for step in range(1, args.max_steps + 1):
+        data = data_coarse if step <= coarse_until else data_fine
+        if step == coarse_until + 1 and coarse_until > 0:
+            print(f"[Train] Switching to fine resolution (factor {args.data_factor}) at step {step}")
+            sys.stdout.flush()
+
         # Random training image
         idx = train_indices[np.random.randint(num_train)]
         batch = load_image(data, idx)
@@ -460,12 +607,11 @@ def train(args):
         K = batch["K"].to(device)  # (3, 3)
         c2w = batch["c2w"].to(device)  # (4, 4)
 
+        if pose_module is not None:
+            c2w = pose_module(c2w, int(idx))
+
         H, W = gt_image.shape[:2]
         w2c = torch.linalg.inv(c2w)  # (4, 4)
-
-        # Build camera matrices for gsplat
-        viewmat = w2c[None]  # (1, 4, 4)
-        Ks = K[None]  # (1, 3, 3)
 
         # Random background for masked scenes
         if args.random_bkgd:
@@ -473,27 +619,10 @@ def train(args):
         else:
             bkgd = torch.zeros(3, device=device)
 
-        # Rasterize
-        renders, alphas, info = rasterization(
-            means=splats["means"],
-            quats=splats["quats"] / (splats["quats"].norm(dim=-1, keepdim=True) + 1e-12),
-            scales=torch.exp(splats["scales"]),
-            opacities=torch.sigmoid(splats["opacities"]),
-            colors=torch.cat([splats["sh0"], splats["shN"]], dim=1),
-            viewmats=viewmat,
-            Ks=Ks,
-            width=W,
-            height=H,
-            sh_degree=args.sh_degree,
-            near_plane=0.01,
-            far_plane=1e10,
-            backgrounds=bkgd[None],
+        renders, alphas, info = render_splats(
+            splats, w2c, K, W, H, args.sh_degree, bkgd, rasterize_mode,
         )
-
-        rendered = renders[0]  # (H, W, 3)
-
-        # Clamp to valid range
-        rendered = rendered.clamp(0.0, 1.0)
+        rendered = renders[0].clamp(0.0, 1.0)  # (H, W, 3)
 
         # L1 + SSIM loss
         l1_loss = F.l1_loss(rendered, gt_image)
@@ -506,6 +635,12 @@ def train(args):
         else:
             loss = l1_loss
 
+        # Opacity/scale regularization (essential for MCMC, harmless otherwise)
+        if args.opacity_reg > 0:
+            loss = loss + args.opacity_reg * torch.sigmoid(splats["opacities"]).mean()
+        if args.scale_reg > 0:
+            loss = loss + args.scale_reg * torch.exp(splats["scales"]).mean()
+
         # PSNR for logging
         with torch.no_grad():
             mse = F.mse_loss(rendered, gt_image)
@@ -513,26 +648,37 @@ def train(args):
             running_loss = 0.95 * running_loss + 0.05 * loss.item()
             running_psnr = 0.95 * running_psnr + 0.05 * psnr
 
+        # Densification hooks (strategies gate internally on refine windows)
+        strategy.step_pre_backward(
+            params=splats,
+            optimizers=optimizers,
+            state=strategy_state,
+            step=step,
+            info=info,
+        )
+
         # Backward
         loss.backward()
-
-        # Densification
-        if step < 15000:
-            strategy.step_pre_backward(
-                params=splats,
-                optimizers=optimizers,
-                state=strategy_state,
-                step=step,
-                info=info,
-            )
 
         # Optimizer step
         for opt in optimizers.values():
             opt.step()
             opt.zero_grad(set_to_none=True)
+        if pose_optimizer is not None:
+            pose_optimizer.step()
+            pose_optimizer.zero_grad(set_to_none=True)
         means_scheduler.step()
 
-        if step < 15000:
+        if use_mcmc:
+            strategy.step_post_backward(
+                params=splats,
+                optimizers=optimizers,
+                state=strategy_state,
+                step=step,
+                info=info,
+                lr=means_scheduler.get_last_lr()[0],
+            )
+        else:
             strategy.step_post_backward(
                 params=splats,
                 optimizers=optimizers,
@@ -557,10 +703,13 @@ def train(args):
         # Save checkpoint
         if step in save_steps:
             ckpt_path = ckpt_dir / f"ckpt_{step-1}_rank0.pt"
-            torch.save({
+            ckpt_payload = {
                 "step": step,
                 "splats": {k: v.data for k, v in splats.items()},
-            }, str(ckpt_path))
+            }
+            if pose_module is not None:
+                ckpt_payload["pose_embeds"] = pose_module.embeds.weight.data
+            torch.save(ckpt_payload, str(ckpt_path))
             print(f"[Checkpoint] Saved {ckpt_path.name}")
 
             # Export PLY
@@ -583,8 +732,8 @@ def train(args):
 
             sys.stdout.flush()
 
-    # Final eval on test set
-    test_indices = data["test_indices"]
+    # Final eval on test set (always at fine resolution, raw poses, black bkgd)
+    test_indices = data_fine["test_indices"]
     if len(test_indices) > 0:
         print(f"\n[Eval] Running on {len(test_indices)} test images...")
         sys.stdout.flush()
@@ -593,7 +742,7 @@ def train(args):
 
         with torch.no_grad():
             for idx in test_indices:
-                batch = load_image(data, idx)
+                batch = load_image(data_fine, idx)
                 gt_image = batch["image"].to(device)
                 K = batch["K"].to(device)
                 c2w = batch["c2w"].to(device)
@@ -601,20 +750,8 @@ def train(args):
                 w2c = torch.linalg.inv(c2w)
 
                 bkgd = torch.zeros(3, device=device)
-                renders, _, _ = rasterization(
-                    means=splats["means"],
-                    quats=splats["quats"] / (splats["quats"].norm(dim=-1, keepdim=True) + 1e-12),
-                    scales=torch.exp(splats["scales"]),
-                    opacities=torch.sigmoid(splats["opacities"]),
-                    colors=torch.cat([splats["sh0"], splats["shN"]], dim=1),
-                    viewmats=w2c[None],
-                    Ks=K[None],
-                    width=W,
-                    height=H,
-                    sh_degree=args.sh_degree,
-                    near_plane=0.01,
-                    far_plane=1e10,
-                    backgrounds=bkgd[None],
+                renders, _, _ = render_splats(
+                    splats, w2c, K, W, H, args.sh_degree, bkgd, rasterize_mode,
                 )
                 rendered = renders[0].clamp(0, 1)
 
@@ -637,6 +774,11 @@ def train(args):
             "ssim": float(avg_ssim),
             "num_gaussians": int(splats["means"].shape[0]),
             "steps": args.max_steps,
+            "strategy": args.strategy,
+            "antialiased": args.antialiased,
+            "pose_opt": args.pose_opt,
+            "data_factor": args.data_factor,
+            "coarse_factor": args.coarse_factor if coarse_until > 0 else None,
         }
         stats_dir = result_dir / "stats"
         stats_dir.mkdir(exist_ok=True)
@@ -658,14 +800,37 @@ def main():
     parser = argparse.ArgumentParser(description="Minimal gsplat trainer for Apex Reality")
     parser.add_argument("--data_dir", type=str, required=True)
     parser.add_argument("--result_dir", type=str, required=True)
-    parser.add_argument("--data_factor", type=int, default=4)
+    parser.add_argument("--data_factor", type=int, default=2)
     parser.add_argument("--max_steps", type=int, default=30000)
     parser.add_argument("--test_every", type=int, default=8)
     parser.add_argument("--sh_degree", type=int, default=3)
     parser.add_argument("--ssim_lambda", type=float, default=0.2)
-    parser.add_argument("--normalize_world_space", action="store_true", default=True)
+    parser.add_argument("--normalize_world_space",
+                        action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--random_bkgd", action="store_true", default=False)
     parser.add_argument("--save_steps", type=int, nargs="*", default=None)
+    # Densification
+    parser.add_argument("--strategy", type=str, default="mcmc",
+                        choices=["default", "mcmc"])
+    parser.add_argument("--cap_max", type=int, default=1_000_000,
+                        help="MCMC Gaussian budget (VRAM control)")
+    parser.add_argument("--refine_stop_iter", type=int, default=0,
+                        help="0 = strategy default (MCMC 25000, default 15000)")
+    parser.add_argument("--opacity_reg", type=float, default=0.01)
+    parser.add_argument("--scale_reg", type=float, default=0.01)
+    # Anti-aliasing (Mip-Splatting)
+    parser.add_argument("--antialiased",
+                        action=argparse.BooleanOptionalAction, default=True)
+    # Pose refinement
+    parser.add_argument("--pose_opt", action="store_true", default=False)
+    parser.add_argument("--pose_opt_lr", type=float, default=1e-5)
+    parser.add_argument("--pose_opt_reg", type=float, default=1e-6)
+    # Coarse-to-fine schedule
+    parser.add_argument("--coarse_factor", type=int, default=0,
+                        help="Resolution factor for the densification phase "
+                             "(0 = disabled, must be > data_factor)")
+    parser.add_argument("--coarse_until", type=int, default=15000,
+                        help="Step at which to switch from coarse to fine resolution")
     args = parser.parse_args()
 
     train(args)
