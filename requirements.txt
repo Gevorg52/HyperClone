@@ -3,6 +3,13 @@
 # HLoc (pulls pycolmap, LightGlue, SuperPoint, etc.)
 hloc @ git+https://github.com/cvg/Hierarchical-Localization.git
 
+# COLMAP 4.x bindings (GLOMAP global mapper merged, ALIKED+LightGlue native)
+pycolmap>=4.0.4
+
+# Optional: RoMa v2 dense rescue matcher for weak pairs (MIT code, but the
+# DINOv3 backbone has Meta's custom license — review for commercial use):
+#   pip install git+https://github.com/Parskatt/RoMaV2
+
 # GUI
 gradio>=4.0
 

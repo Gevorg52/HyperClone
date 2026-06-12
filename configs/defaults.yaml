@@ -25,6 +25,9 @@ matching:
   filter_threshold: 0.1          # match confidence threshold
   retrieval_top_k: 20            # pairs per image when using retrieval
   retrieval_model: "netvlad"     # retrieval model for pair generation
+  # RoMa v2 rescue (optional dense re-matching of weak pairs)
+  rescue_min_matches: 100        # pairs below this match count get re-matched
+  rescue_snap_radius: 8.0        # px (original res) to snap dense matches to ALIKED keypoints
 
 # Stages 4-5: Reconstruction
 reconstruction:

@@ -203,6 +203,20 @@ def build_stage3_tab():
 
         match_btn = gr.Button("Run Feature Matching", variant="primary")
 
+        with gr.Accordion("RoMa v2 Rescue (weak pairs)", open=False):
+            gr.Markdown(
+                "Re-match pairs with few LightGlue matches (low texture, glossy, "
+                "wide baseline) using the RoMa v2 dense matcher, snapping results "
+                "to existing ALIKED keypoints. Optional dependency — see status."
+            )
+            with gr.Row():
+                rescue_threshold_slider = gr.Slider(
+                    minimum=20, maximum=500, value=100, step=10,
+                    label="Weak-Pair Threshold",
+                    info="Pairs with fewer matches than this are re-matched",
+                )
+                rescue_btn = gr.Button("Rescue Weak Pairs", variant="secondary")
+
         with gr.Row():
             stats_box = gr.Textbox(label="Matching Statistics", lines=8, interactive=False)
             log_box = gr.Textbox(label="Log", lines=8, interactive=False)
@@ -220,9 +234,53 @@ def build_stage3_tab():
         "filter_slider": filter_slider,
         "retrieval_k_slider": retrieval_k_slider,
         "match_btn": match_btn,
+        "rescue_threshold_slider": rescue_threshold_slider,
+        "rescue_btn": rescue_btn,
         "stats_box": stats_box,
         "log_box": log_box,
     }
+
+
+def run_roma_rescue(
+    min_matches: int,
+    state: PipelineState,
+    progress=gr.Progress(),
+) -> tuple[str, str, PipelineState]:
+    """Re-match weak pairs with RoMa v2 (optional dependency)."""
+    state.discover_outputs()
+    if not state.match_path or not state.feature_path or not state.pairs_path:
+        raise gr.Error("No matches found. Run feature matching first.")
+
+    from core.roma_rescue import rescue_weak_pairs, roma_available, unload_roma
+
+    ok, msg = roma_available()
+    if not ok:
+        return f"RoMa v2 unavailable.\n\n{msg}", "Rescue skipped.", state
+
+    progress(0.05, desc="Scanning for weak pairs...")
+    try:
+        stats = rescue_weak_pairs(
+            image_dir=state.image_dir,
+            feature_path=state.feature_path,
+            match_path=state.match_path,
+            pairs_path=state.pairs_path,
+            min_matches=int(min_matches),
+            progress_cb=lambda cur, tot, desc: progress(
+                0.05 + 0.9 * (cur / max(tot, 1)), desc=desc,
+            ),
+        )
+    finally:
+        unload_roma()
+
+    state.save()
+    stats_text = (
+        f"RoMa v2 rescue complete.\n"
+        f"Weak pairs (<{int(min_matches)} matches): {stats['weak_pairs']}\n"
+        f"Pairs improved: {stats['rescued_pairs']}\n"
+        f"Matches added: {stats['added_matches']:,}\n\n"
+        f"Re-run Reconstruction (Stage 4-5) to use the new matches."
+    )
+    return stats_text, "Rescue finished.", state
 
 
 def wire_stage3(components: dict, state: gr.State):
@@ -238,5 +296,11 @@ def wire_stage3(components: dict, state: gr.State):
             c["retrieval_k_slider"],
             state,
         ],
+        outputs=[c["stats_box"], c["log_box"], state],
+    )
+
+    c["rescue_btn"].click(
+        fn=run_roma_rescue,
+        inputs=[c["rescue_threshold_slider"], state],
         outputs=[c["stats_box"], c["log_box"], state],
     )
