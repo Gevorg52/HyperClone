@@ -353,6 +353,14 @@ class GsplatBackend(TrainingBackend):
                 "--coarse_until", str(extra["coarse_until"]),
             ])
 
+        # Distill / refine rounds
+        if extra.get("init_ckpt"):
+            args.extend(["--init_ckpt", str(extra["init_ckpt"])])
+        if extra.get("extra_views"):
+            args.extend(["--extra_views", str(extra["extra_views"])])
+        if extra.get("refine_stop_iter"):
+            args.extend(["--refine_stop_iter", str(extra["refine_stop_iter"])])
+
         # save_steps
         save_steps = config.save_steps or [7_000, config.max_steps]
         for s in save_steps:

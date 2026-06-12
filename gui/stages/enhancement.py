@@ -195,6 +195,89 @@ def render_and_enhance(
 
 
 # ---------------------------------------------------------------------------
+# Handler: Distill-back loop
+# ---------------------------------------------------------------------------
+
+def run_distill(
+    enhancer_name: str,
+    rounds: int,
+    views_per_round: int,
+    steps_per_round: int,
+    state: PipelineState,
+    progress=gr.Progress(),
+) -> tuple[str, str, PipelineState]:
+    """Run the Difix3D+-style progressive distill-back loop.
+
+    Renders pseudo-views between training cameras, enhances them, and
+    resumes training with the enhanced views — repeating for N rounds.
+    The improved checkpoint/PLY replace the Stage 9 results in state.
+    """
+    if not state.training_checkpoint:
+        raise gr.Error("No training checkpoint. Complete Stage 9 first.")
+    if not state.training_data_dir:
+        raise gr.Error("Training data directory not set in state.")
+
+    try:
+        training_backend = get_training_backend(state.training_backend)
+        enhancer = get_backend(enhancer_name)
+    except KeyError as e:
+        raise gr.Error(str(e))
+
+    ok, msg = enhancer.validate_environment()
+    if not ok:
+        raise gr.Error(f"Enhancer '{enhancer_name}' not ready:\n{msg}")
+
+    from core.enhancement.distill import run_distill_loop
+
+    project_dir = Path(state.project_dir)
+    distill_dir = project_dir / "enhancement" / "distill"
+
+    progress(0.02, desc="Starting distill loop...")
+
+    try:
+        result = run_distill_loop(
+            training_backend=training_backend,
+            enhancer=enhancer,
+            data_dir=state.training_data_dir,
+            checkpoint_dir=state.training_checkpoint,
+            output_dir=str(distill_dir),
+            rounds=int(rounds),
+            views_per_round=int(views_per_round),
+            steps_per_round=int(steps_per_round),
+            progress_cb=lambda frac, desc: progress(
+                0.02 + 0.96 * frac, desc=desc,
+            ),
+        )
+    except Exception as e:
+        tb = traceback.format_exc()
+        raise gr.Error(f"Distill loop failed: {e}\n\n{tb}")
+
+    # The improved model supersedes the Stage 9 results
+    state.training_checkpoint = result.checkpoint_dir
+    if result.ply_path:
+        state.training_ply = result.ply_path
+    state.training_psnr = result.psnr
+    state.training_ssim = result.ssim
+    state.save()
+
+    stats = (
+        f"Distill loop complete!\n"
+        f"Rounds: {int(rounds)} x {int(views_per_round)} views, "
+        f"{int(steps_per_round):,} steps each\n"
+        f"Final test PSNR: {result.psnr:.2f} dB\n"
+        f"Final test SSIM: {result.ssim:.4f}\n"
+        f"Checkpoint: {result.checkpoint_dir}\n"
+        f"PLY: {result.ply_path or 'N/A'}"
+    )
+    log = (
+        "Distill-back loop finished. Stage 9 checkpoint/PLY now point at "
+        "the refined model (test metrics are computed on real, never-enhanced "
+        "hold-out views)."
+    )
+    return stats, log, state
+
+
+# ---------------------------------------------------------------------------
 # Tab builder
 # ---------------------------------------------------------------------------
 
@@ -233,6 +316,28 @@ def build_stage10_tab():
         with gr.Row():
             enhance_btn = gr.Button("Render & Enhance", variant="primary")
 
+        # --- Distill-back loop ---
+        with gr.Accordion("Distill-Back Loop (bake enhancement into the splat)", open=True):
+            gr.Markdown(
+                "Difix3D+-style progressive update: render pseudo-views between "
+                "training cameras → enhance → resume training with the enhanced "
+                "views. Improves the 3DGS model itself, not just exported frames."
+            )
+            with gr.Row():
+                distill_rounds_slider = gr.Slider(
+                    minimum=1, maximum=5, value=2, step=1,
+                    label="Rounds",
+                )
+                distill_views_slider = gr.Slider(
+                    minimum=20, maximum=300, value=80, step=10,
+                    label="Pseudo-Views per Round",
+                )
+                distill_steps_slider = gr.Slider(
+                    minimum=1000, maximum=10_000, value=4000, step=500,
+                    label="Training Steps per Round",
+                )
+            distill_btn = gr.Button("Run Distill Loop", variant="primary")
+
         # --- Output ---
         with gr.Row():
             stats_box = gr.Textbox(
@@ -253,6 +358,10 @@ def build_stage10_tab():
         "enhancer_status": enhancer_status,
         "num_views_slider": num_views_slider,
         "enhance_btn": enhance_btn,
+        "distill_rounds_slider": distill_rounds_slider,
+        "distill_views_slider": distill_views_slider,
+        "distill_steps_slider": distill_steps_slider,
+        "distill_btn": distill_btn,
         "stats_box": stats_box,
         "log_box": log_box,
         "gallery": gallery,
@@ -279,4 +388,17 @@ def wire_stage10(components: dict, state: gr.State):
         fn=render_and_enhance,
         inputs=[c["enhancer_dropdown"], c["num_views_slider"], state],
         outputs=[c["stats_box"], c["log_box"], c["gallery"], state],
+    )
+
+    # Distill-back loop
+    c["distill_btn"].click(
+        fn=run_distill,
+        inputs=[
+            c["enhancer_dropdown"],
+            c["distill_rounds_slider"],
+            c["distill_views_slider"],
+            c["distill_steps_slider"],
+            state,
+        ],
+        outputs=[c["stats_box"], c["log_box"], state],
     )

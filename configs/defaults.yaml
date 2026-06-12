@@ -80,9 +80,13 @@ training:
 
 # Stage 10: Enhancement
 enhancement:
-  backend: "fixer"               # fixer | (future: difix3d+)
+  backend: "fixer"               # fixer (= NVIDIA NuRec Fixer, Cosmos 0.6B)
   num_views: 100                 # number of novel views to render & enhance
   timestep: 250                  # Fixer denoising timestep (250 recommended)
+  # Distill-back loop (Difix3D+-style progressive update)
+  distill_rounds: 2              # render->enhance->resume cycles
+  distill_views_per_round: 80    # pseudo-views interpolated between cameras
+  distill_steps_per_round: 4000  # resume-training steps per round (no densification)
 
 # Alignment (applied during export)
 alignment:

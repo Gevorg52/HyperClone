@@ -287,6 +287,40 @@ def load_colmap_data(
     }
 
 
+def append_extra_views(data: dict, extra_views_json: str) -> int:
+    """Append externally-defined views (e.g. enhanced pseudo-views) to the
+    training pool.
+
+    The JSON holds a list of ``{"image": path, "K": 3x3, "c2w": 4x4}`` with
+    poses already in the trainer's NORMALIZED world space (as produced by
+    core.enhancement.distill).  Views are added to train_indices only.
+    """
+    entries = json.loads(Path(extra_views_json).read_text(encoding="utf-8"))
+    if not entries:
+        return 0
+
+    base = len(data["image_names"])
+    extra_c2ws = []
+    for i, e in enumerate(entries):
+        cid = f"extra_{i}"
+        data["Ks_dict"][cid] = np.array(e["K"], dtype=np.float64)
+        data["params_dict"][cid] = np.empty(0, dtype=np.float32)
+        data["camera_ids"].append(cid)
+        data["image_paths"].append(e["image"])
+        data["image_names"].append(Path(e["image"]).name)
+        extra_c2ws.append(np.array(e["c2w"], dtype=np.float32))
+
+    data["camtoworlds"] = np.concatenate(
+        [data["camtoworlds"], np.stack(extra_c2ws)], axis=0,
+    )
+    data["train_indices"] = np.concatenate(
+        [data["train_indices"], np.arange(base, base + len(entries))],
+    )
+    print(f"[Data] Appended {len(entries)} extra views (train pool now "
+          f"{len(data['train_indices'])})")
+    return len(entries)
+
+
 def load_image(data: dict, index: int) -> dict:
     """Load a single training image with undistortion."""
     image = imageio.imread(data["image_paths"][index])[..., :3]
@@ -501,6 +535,9 @@ def train(args):
         normalize=args.normalize_world_space,
     )
     coarse_until = args.coarse_until if args.coarse_factor > args.data_factor else 0
+    if args.extra_views and coarse_until > 0:
+        print("[Train] extra_views given — disabling coarse-to-fine for this run")
+        coarse_until = 0
     if coarse_until > 0:
         data_coarse = load_colmap_data(
             args.data_dir,
@@ -513,12 +550,25 @@ def train(args):
     else:
         data_coarse = data_fine
 
-    # Init Gaussians (MCMC works best with higher initial opacity)
-    splats = init_gaussians_from_sfm(
-        data_fine["points"], data_fine["points_rgb"], data_fine["scene_scale"],
-        device, sh_degree=args.sh_degree,
-        init_opacity=0.5 if use_mcmc else 0.1,
-    )
+    # Extra (enhanced pseudo-view) images, poses already normalized
+    if args.extra_views:
+        append_extra_views(data_fine, args.extra_views)
+
+    # Init Gaussians: from checkpoint (distill/refine rounds) or SfM points
+    if args.init_ckpt:
+        ckpt = torch.load(args.init_ckpt, map_location=device, weights_only=True)
+        splats = torch.nn.ParameterDict({
+            k: torch.nn.Parameter(v.to(device)) for k, v in ckpt["splats"].items()
+        })
+        print(f"[Init] {splats['means'].shape[0]} Gaussians from checkpoint "
+              f"{Path(args.init_ckpt).name}")
+    else:
+        # MCMC works best with higher initial opacity
+        splats = init_gaussians_from_sfm(
+            data_fine["points"], data_fine["points_rgb"], data_fine["scene_scale"],
+            device, sh_degree=args.sh_degree,
+            init_opacity=0.5 if use_mcmc else 0.1,
+        )
 
     # Optimizers (same LR as gsplat defaults)
     optimizers = {
@@ -535,10 +585,14 @@ def train(args):
         optimizers["means"], gamma=(1e-2) ** (1.0 / max(args.max_steps, 1)),
     )
 
-    # Densification strategy (refine_stop_iter <= 0 → per-strategy default)
+    # Densification strategy (refine_stop_iter <= 0 → per-strategy default;
+    # checkpoint-resumed refine rounds default to no densification)
     refine_stop = args.refine_stop_iter
     if refine_stop <= 0:
-        refine_stop = 25_000 if use_mcmc else 15_000
+        if args.init_ckpt:
+            refine_stop = 1
+        else:
+            refine_stop = 25_000 if use_mcmc else 15_000
     refine_stop = min(refine_stop, args.max_steps)
     if use_mcmc:
         strategy = MCMCStrategy(
@@ -831,6 +885,11 @@ def main():
                              "(0 = disabled, must be > data_factor)")
     parser.add_argument("--coarse_until", type=int, default=15000,
                         help="Step at which to switch from coarse to fine resolution")
+    # Distill / refine rounds
+    parser.add_argument("--init_ckpt", type=str, default=None,
+                        help="Resume Gaussians from a checkpoint instead of SfM init")
+    parser.add_argument("--extra_views", type=str, default=None,
+                        help="JSON of additional train views (normalized poses)")
     args = parser.parse_args()
 
     train(args)
