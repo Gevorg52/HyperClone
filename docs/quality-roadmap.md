@@ -5,6 +5,30 @@ surface types across *many* clips. **Context: RESEARCH-ONLY** — license is not
 selection filter; we pick the strongest method and reimplement clean-licensed
 versions for our own OSS. License noted per method for that future port.
 
+## EMPIRICAL UPDATE 2 (cap_max experiment — budget is NOT the ceiling)
+
+- **cap_max 8M FAILED (diverged + OOM).** Trajectory: trained fine to ~3M
+  (PSNR ~23), then degraded as it added more — 21.6 @ 5.9M, 19.6 @ 8M, collapsed
+  to ~10, memory exploded (overlapping giant Gaussians → tile-intersection
+  blowup) → OOM at 33 GB. **More Gaussians actively hurt this scene.**
+- **Conclusion: 3M is near-optimal; the Gaussian budget is NOT the detail
+  ceiling.** "Not much difference between the 3M files" is because 3M already
+  saturates the detail this *capture* supports. The ceiling is the **source
+  capture + textureless representation**, not primitive count. Naive budget
+  raise is OFF the table (and would need scale/opacity-reg retuning + gradual
+  cap even to be stable).
+- **Revised lever priority (after 2 negatives — geo-reg and cap-raise):**
+  1. **Diffusion detail enhancement** (SeedVR2 on renders / Difix3D+ distill-back)
+     — the realistic way to add perceived high-frequency detail the photometric
+     reconstruction can't recover from this capture. Highest visual payoff.
+  2. **Deck-specific dense init + priors** (LoFTR points on the deck + depth/normal
+     supervision so MCMC retains them) — principled, modest payoff; targets the
+     0.16× starvation without raising global count.
+  3. **Better source** (deblur/sharpness-aware frame selection; drop the soft
+     frames that average detail away).
+- **Honest limit:** flat, dark, low-contrast micro-texture is a known hard case
+  for photometric 3DGS; structural fixes will only partially close 184→703.
+
 ## EMPIRICAL UPDATE (laptop A/B + density profiling)
 
 - **Fix 1 (edge-aware depth smoothness) did NOT help the mushy deck.** Direct
