@@ -5,6 +5,55 @@ surface types across *many* clips. **Context: RESEARCH-ONLY** — license is not
 selection filter; we pick the strongest method and reimplement clean-licensed
 versions for our own OSS. License noted per method for that future port.
 
+## FINAL RECOMMENDATION (research-backed, June 2026)
+
+**Root cause, confirmed at gsplat source level:** MCMC relocation samples
+`probs = opacities.flatten()` (opacity only) — so flat low-error/low-opacity
+regions are drained *by design*. Our 0.16× deck density is the expected
+equilibrium, not a bug. **You cannot densify or sharpen where there is no
+photometric signal**, and a black semi-gloss textureless surface is signal-
+starved (low texture + low albedo/SNR + view-dependent highlight). Much of the
+deck's "lost" detail was **never photometrically captured** → a real per-capture
+ceiling. The biggest gains are in the photons, not the optimizer.
+
+**Recommendation — for the GENERAL tool (helps every clip), in priority order:**
+1. **WD-R perceptual loss** (Apple, *Drop-In Perceptual Optimization for 3DGS*,
+   arXiv 2603.23297, Mar 2026, code). The strongest *reproduced* perceived-quality
+   lever (39k-pair human study, 2.3× preferred). Drop-in objective swap. Use the
+   **regularized** form (unregularized makes web-like artifacts in undersampled
+   regions = our deck). Track **LPIPS/DISTS, not PSNR**. → biggest method-side win.
+2. **PGSR-style planar/normal reg + lower `opacity_reg` (0.01→0.001)** — the only
+   MCMC-compatible way to "rebalance" toward textureless regions: manufactures a
+   flat-region gradient so MCMC stops draining the deck. Keep cap_max 3M. Fixes
+   coverage/geometry, NOT albedo detail.
+3. **Spec-Gaussian (ASG) or 3DGS-DR (deferred reflection)** for glossy/semi-gloss
+   surfaces (common: laptops, GPUs, statues) — replaces low-freq SH so view-
+   dependent highlights are crisp not foggy. + optional GES (learnable kernel) for
+   edges. All stack with our Mip-Splatting.
+4. **Sharpest-frame selection** (variance-of-Laplacian per partition) in Stage 1 —
+   fixes our video-cull bug AND stops soft frames averaging into mush. Optionally
+   WildGaussians per-pixel uncertainty as a **binary mask** (not a soft weight —
+   soft weighting destabilizes MCMC).
+5. **Capture playbook** for hard surfaces (future shoots): cross-polarized lighting
+   (kills specular), matte/scanning spray (adds correspondence texture), RAW +
+   expose-for-shadows (beats the 8-bit SNR floor). Highest ROI where applicable.
+
+**Reserve as cosmetic polish (synthesis, not measurement):** SplatSuRe
+(arXiv 2512.02172 — most faithful, reuses real close-up detail, not diffusion) >
+Difix3D+ (cleaner but can invent). Distilling 2D edits back into 3D bakes
+*consistent hallucination* on textureless surfaces — fine for looks, not fidelity.
+
+**DO NOT (evidence says these won't help our case):** more depth/normal priors
+expecting RGB detail (geometry-only — DN-Splatter/DNGaussian treat depth↔color as
+a trade-off); 2DGS/GOF/RaDe-GS (over-smooth appearance, lose ~1dB); raise cap_max
+or swap the MCMC sampler (proven to hurt / would worsen starvation); FreGS /
+Sobel/gradient losses (zero signal on textureless by construction).
+
+**For THIS laptop specifically:** it's near its capture ceiling. Levers 1–3 give a
+real but modest gain; pixel-perfect black plastic from passive 8-bit gimbal video
+is not achievable. Invest in the general levers + capture guidance, not in
+squeezing this one surface.
+
 ## EMPIRICAL UPDATE 2 (cap_max experiment — budget is NOT the ceiling)
 
 - **cap_max 8M FAILED (diverged + OOM).** Trajectory: trained fine to ~3M
