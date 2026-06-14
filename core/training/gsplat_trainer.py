@@ -29,7 +29,9 @@ import argparse
 import json
 import math
 import os
+import queue
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -343,6 +345,61 @@ def load_image(data: dict, index: int) -> dict:
     }
 
 
+class Prefetcher:
+    """Background image loader that overlaps disk I/O + decode with GPU work.
+
+    The training loop samples random views every step, so the order doesn't
+    matter — workers sample random train indices, decode/undistort on CPU
+    threads (cv2/imageio release the GIL during the heavy parts), and push
+    ready batches to a bounded queue.  This keeps the GPU fed instead of
+    blocking on per-step image loads (the cause of ~50% GPU utilization).
+    """
+
+    def __init__(self, data, train_indices, num_workers=3, queue_size=6):
+        self.data = data
+        self.train_indices = np.asarray(train_indices)
+        self.q: queue.Queue = queue.Queue(maxsize=queue_size)
+        self._stop = threading.Event()
+        self._threads = [
+            threading.Thread(target=self._worker, daemon=True)
+            for _ in range(max(1, num_workers))
+        ]
+        for t in self._threads:
+            t.start()
+
+    def _worker(self):
+        rng = np.random.default_rng()
+        n = len(self.train_indices)
+        while not self._stop.is_set():
+            idx = int(self.train_indices[rng.integers(n)])
+            try:
+                batch = load_image(self.data, idx)
+            except Exception:
+                continue
+            batch["idx"] = idx
+            try:
+                batch["image"] = batch["image"].pin_memory()
+            except RuntimeError:
+                pass
+            while not self._stop.is_set():
+                try:
+                    self.q.put(batch, timeout=0.5)
+                    break
+                except queue.Full:
+                    continue
+
+    def get(self):
+        return self.q.get()
+
+    def close(self):
+        self._stop.set()
+        try:
+            while True:
+                self.q.get_nowait()
+        except queue.Empty:
+            pass
+
+
 # ---------------------------------------------------------------------------
 # Gaussian initialization
 # ---------------------------------------------------------------------------
@@ -648,16 +705,21 @@ def train(args):
     running_psnr = 0.0
     t0 = time.time()
 
+    # Background image prefetch (overlaps disk I/O + decode with GPU compute)
+    prefetcher = Prefetcher(data_coarse if coarse_until > 0 else data_fine,
+                            train_indices)
+
     for step in range(1, args.max_steps + 1):
-        data = data_coarse if step <= coarse_until else data_fine
         if step == coarse_until + 1 and coarse_until > 0:
             print(f"[Train] Switching to fine resolution (factor {args.data_factor}) at step {step}")
             sys.stdout.flush()
+            prefetcher.close()
+            prefetcher = Prefetcher(data_fine, train_indices)
 
-        # Random training image
-        idx = train_indices[np.random.randint(num_train)]
-        batch = load_image(data, idx)
-        gt_image = batch["image"].to(device)  # (H, W, 3)
+        # Random training image (prefetched on background threads)
+        batch = prefetcher.get()
+        idx = batch["idx"]
+        gt_image = batch["image"].to(device, non_blocking=True)  # (H, W, 3)
         K = batch["K"].to(device)  # (3, 3)
         c2w = batch["c2w"].to(device)  # (4, 4)
 
@@ -770,11 +832,15 @@ def train(args):
             try:
                 from gsplat import export_splats
                 ply_path = ply_dir / f"point_cloud_{step-1}.ply"
+                # export_splats expects RAW parameters: the standard 3DGS PLY
+                # stores scale in log-space and opacity in logit-space (the
+                # viewer applies exp()/sigmoid() on load). Passing activated
+                # values here double-activates → giant ~scene-sized splats.
                 export_splats(
                     means=splats["means"].detach(),
-                    scales=torch.exp(splats["scales"].detach()),
+                    scales=splats["scales"].detach(),
                     quats=splats["quats"].detach(),
-                    opacities=torch.sigmoid(splats["opacities"].detach()),
+                    opacities=splats["opacities"].detach(),
                     sh0=splats["sh0"].detach(),
                     shN=splats["shN"].detach(),
                     format="ply",
@@ -785,6 +851,8 @@ def train(args):
                 print(f"[PLY] Export failed: {e}")
 
             sys.stdout.flush()
+
+    prefetcher.close()
 
     # Final eval on test set (always at fine resolution, raw poses, black bkgd)
     test_indices = data_fine["test_indices"]
