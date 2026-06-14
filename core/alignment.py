@@ -17,6 +17,15 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+def _cam_from_world(image):
+    """Return the image's cam_from_world Rigid3d.
+
+    pycolmap >= 4.0 exposes ``cam_from_world`` as a method; 3.x as a property.
+    """
+    cfw = image.cam_from_world
+    return cfw() if callable(cfw) else cfw
+
+
 # ============================================================================
 # 2a. Sidecar JSON reader
 # ============================================================================
@@ -218,7 +227,7 @@ def estimate_gravity_from_imu(rec, gravity_vectors: dict) -> np.ndarray:
 
         image = rec.images[image_id]
         # cam_from_world rotation: R maps world → camera
-        R = image.cam_from_world.rotation.matrix()
+        R = _cam_from_world(image).rotation.matrix()
         # Transform device gravity to world frame: g_world = R^T @ g_device
         g_world = R.T @ g_device
         world_gravities.append(g_world)
@@ -258,7 +267,7 @@ def estimate_gravity_from_cameras(rec) -> np.ndarray:
     y_axes = []
 
     for image in rec.images.values():
-        R = image.cam_from_world.rotation.matrix()
+        R = _cam_from_world(image).rotation.matrix()
         # Camera X-axis in world frame: first row of cam_from_world rotation
         x_axes.append(R[0, :])
         # Camera Y-axis in world frame: second row
@@ -428,8 +437,9 @@ def align_reconstruction(
         # Camera centers: c = -R^T @ t
         centers = []
         for image in rec.images.values():
-            R = image.cam_from_world.rotation.matrix()
-            t = image.cam_from_world.translation
+            cfw = _cam_from_world(image)
+            R = cfw.rotation.matrix()
+            t = cfw.translation
             cam_center = -R.T @ t
             centers.append(cam_center)
         centroid = np.mean(centers, axis=0)

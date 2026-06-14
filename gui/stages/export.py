@@ -54,32 +54,41 @@ def _run_standalone_ba(
     errors_before = [p.error for p in rec.points3D.values() if p.error > 0]
     pre_error = sum(errors_before) / len(errors_before) if errors_before else 0.0
 
-    # Try pycolmap bundle adjustment API
+    # Try pycolmap bundle adjustment API (preferred)
     try:
         ba_options = pycolmap.BundleAdjustmentOptions()
-        try:
-            ba_options.solver_options.max_num_iterations = ba_iterations
-        except AttributeError:
-            raise RuntimeError(
-                "pycolmap BA API mismatch: 'solver_options.max_num_iterations' not found. "
-                "Check pycolmap version (need >= 3.13)."
-            )
         ba_options.refine_focal_length = refine_focal
         ba_options.refine_principal_point = refine_principal
         ba_options.refine_extra_params = refine_extra
+
+        # Solver iteration cap location differs across pycolmap versions:
+        #   pycolmap >= 4.0 : ba_options.ceres.solver_options.max_num_iterations
+        #   pycolmap 3.x    : ba_options.solver_options.max_num_iterations
+        # Best-effort; BA still runs (at the Ceres default) if neither is present.
+        for _set_iters in (
+            lambda: setattr(ba_options.ceres.solver_options,
+                            "max_num_iterations", ba_iterations),
+            lambda: setattr(ba_options.solver_options,
+                            "max_num_iterations", ba_iterations),
+        ):
+            try:
+                _set_iters()
+                break
+            except AttributeError:
+                continue
 
         pycolmap.bundle_adjustment(rec, ba_options)
 
         # Write refined reconstruction back
         rec.write(str(sfm_dir))
 
-    except (AttributeError, TypeError):
-        # Fallback: try COLMAP CLI
+    except Exception as api_err:
+        # Fallback: COLMAP CLI
         colmap_bin = shutil.which("colmap")
         if colmap_bin is None:
             raise RuntimeError(
-                "pycolmap bundle_adjustment API not available and COLMAP CLI not found. "
-                "Install COLMAP or update pycolmap."
+                f"pycolmap bundle_adjustment failed ({api_err}) and COLMAP CLI "
+                "not found on PATH. Install COLMAP or update pycolmap."
             )
 
         cmd = [
