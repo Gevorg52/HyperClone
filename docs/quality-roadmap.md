@@ -5,6 +5,28 @@ surface types across *many* clips. **Context: RESEARCH-ONLY** — license is not
 selection filter; we pick the strongest method and reimplement clean-licensed
 versions for our own OSS. License noted per method for that future port.
 
+## EMPIRICAL UPDATE (laptop A/B + density profiling)
+
+- **Fix 1 (edge-aware depth smoothness) did NOT help the mushy deck.** Direct
+  deck-region measurement on a held-out view: sharpness 184 (baseline) vs 182
+  (geo_reg) vs **703 (GT)**; deck-PSNR unchanged. Verified wired (gradients reach
+  all params) — it's just the wrong lever here. Kept in code (off by default;
+  may help genuinely-bumpy geometry on other clips), but **de-prioritized**.
+- **Profiled the real bottleneck: the flat deck is Gaussian-STARVED.** Projected
+  into the held-out view, the deck has **0.16×** the trained-Gaussian density of
+  the textured keyboard (914 vs 5852 per kpx) and **0.28×** the SfM-init density.
+  MCMC drains Gaussians from low-error flat regions toward textured ones, so the
+  deck is *sparser after training than at init*. Too few Gaussians → only
+  low-frequency (blurry) content representable → "mush".
+- **Reordered fix priority (profile-driven):**
+  1. **Fix 3 — denser init on textureless** (LoFTR/RoMa dense matching) → more
+     SfM points → more seeded Gaussians on the deck. Attacks the 0.28× starvation.
+  2. **Fix 2 — external depth/normal priors** → adds a *supervision signal* on
+     flat regions (where photometric loss is ~flat), which both constrains
+     geometry AND gives MCMC an error gradient there so it RETAINS Gaussians
+     (counters the 0.16× drain).
+  3. Fix 1 depth-smoothness: keep off by default.
+
 ## The headline problem (this clip, and general): mushy flat/textureless surfaces
 
 Confirmed visually (4K render vs GT crop of the laptop's black deck): textured
