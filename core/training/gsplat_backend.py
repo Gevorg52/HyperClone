@@ -226,6 +226,11 @@ class GsplatBackend(TrainingBackend):
             "pose_opt_lr": 1e-5,
             "coarse_factor": 4,            # densification-phase resolution
             "coarse_until": 15_000,        # step to switch to fine resolution
+            # Edge-aware geometric reg (textureless/flat-surface "mush" fix)
+            "geo_reg": False,              # off by default; opt-in per run
+            "geo_reg_lambda": 0.05,
+            "geo_reg_beta": 10.0,
+            "geo_reg_start": 3000,
         }
 
     # -----------------------------------------------------------------------
@@ -351,6 +356,15 @@ class GsplatBackend(TrainingBackend):
             args.extend([
                 "--coarse_factor", str(coarse_factor),
                 "--coarse_until", str(extra["coarse_until"]),
+            ])
+
+        # Edge-aware geometric regularization
+        if extra.get("geo_reg"):
+            args.append("--geo_reg")
+            args.extend([
+                "--geo_reg_lambda", str(extra["geo_reg_lambda"]),
+                "--geo_reg_beta", str(extra["geo_reg_beta"]),
+                "--geo_reg_start", str(extra["geo_reg_start"]),
             ])
 
         # Distill / refine rounds

@@ -552,8 +552,13 @@ def render_splats(
     sh_degree: int,
     background: torch.Tensor,
     rasterize_mode: str = "antialiased",
+    render_mode: str = "RGB",
 ):
-    """Rasterize the splats for one camera. Returns (renders, alphas, info)."""
+    """Rasterize the splats for one camera. Returns (renders, alphas, info).
+
+    render_mode="RGB+ED" appends a 4th channel = expected depth (same pass,
+    no extra render), used for the edge-aware geometric regularizer.
+    """
     return rasterization(
         means=splats["means"],
         quats=splats["quats"] / (splats["quats"].norm(dim=-1, keepdim=True) + 1e-12),
@@ -569,8 +574,32 @@ def render_splats(
         far_plane=1e10,
         backgrounds=background[None],
         rasterize_mode=rasterize_mode,
+        render_mode=render_mode,
         packed=False,
     )
+
+
+def edge_aware_depth_smoothness(depth, image, beta: float = 10.0):
+    """Edge-aware 2nd-order (curvature) depth smoothness.
+
+    Penalizes depth *curvature* (not gradient) so genuine planar slopes are
+    allowed but bumpy "mush" on flat surfaces is removed. Weighted by the
+    inverse image gradient so it acts only where the image is flat (textureless
+    plastic) and is silent at real edges (keys, labels). This is the unifying
+    SOTA lever for textureless 3DGS (AtomGS / PGSR / DN-Splatter).
+
+    depth: (H, W) expected depth. image: (H, W, 3) in [0, 1].
+    """
+    gray = (0.299 * image[..., 0] + 0.587 * image[..., 1] + 0.114 * image[..., 2])
+    # second derivative of depth (Laplacian, separable)
+    d2x = depth[:, 2:] - 2 * depth[:, 1:-1] + depth[:, :-2]
+    d2y = depth[2:, :] - 2 * depth[1:-1, :] + depth[:-2, :]
+    # central image gradient magnitude (aligned with the 2nd-derivative centers)
+    ix = (gray[:, 2:] - gray[:, :-2]).abs()
+    iy = (gray[2:, :] - gray[:-2, :]).abs()
+    wx = torch.exp(-beta * ix)  # ~1 on flat regions, ~0 at edges
+    wy = torch.exp(-beta * iy)
+    return (d2x.abs() * wx).mean() + (d2y.abs() * wy).mean()
 
 
 # ---------------------------------------------------------------------------
@@ -735,10 +764,12 @@ def train(args):
         else:
             bkgd = torch.zeros(3, device=device)
 
+        geo_on = args.geo_reg and step >= args.geo_reg_start
         renders, alphas, info = render_splats(
             splats, w2c, K, W, H, args.sh_degree, bkgd, rasterize_mode,
+            render_mode="RGB+ED" if geo_on else "RGB",
         )
-        rendered = renders[0].clamp(0.0, 1.0)  # (H, W, 3)
+        rendered = renders[0][..., :3].clamp(0.0, 1.0)  # (H, W, 3)
 
         # L1 + SSIM loss
         l1_loss = F.l1_loss(rendered, gt_image)
@@ -756,6 +787,14 @@ def train(args):
             loss = loss + args.opacity_reg * torch.sigmoid(splats["opacities"]).mean()
         if args.scale_reg > 0:
             loss = loss + args.scale_reg * torch.exp(splats["scales"]).mean()
+
+        # Edge-aware geometric regularization — flattens textureless surfaces
+        # (the "mushy black plastic" fix) without softening textured detail.
+        if geo_on:
+            depth = renders[0][..., 3]  # (H, W) expected depth, differentiable
+            loss = loss + args.geo_reg_lambda * edge_aware_depth_smoothness(
+                depth, gt_image, beta=args.geo_reg_beta,
+            )
 
         # PSNR for logging
         with torch.no_grad():
@@ -958,6 +997,15 @@ def main():
                         help="Resume Gaussians from a checkpoint instead of SfM init")
     parser.add_argument("--extra_views", type=str, default=None,
                         help="JSON of additional train views (normalized poses)")
+    # Edge-aware geometric regularization (textureless/flat-surface "mush" fix)
+    parser.add_argument("--geo_reg", action="store_true", default=False,
+                        help="Enable edge-aware 2nd-order depth smoothness")
+    parser.add_argument("--geo_reg_lambda", type=float, default=0.05,
+                        help="Weight of the geometric regularization term")
+    parser.add_argument("--geo_reg_beta", type=float, default=10.0,
+                        help="Edge sensitivity: higher = reg confined to flatter regions")
+    parser.add_argument("--geo_reg_start", type=int, default=3000,
+                        help="Step to start geo reg (after coarse geometry forms)")
     args = parser.parse_args()
 
     train(args)

@@ -21,9 +21,13 @@ def _cam_from_world(image):
     """Return the image's cam_from_world Rigid3d.
 
     pycolmap >= 4.0 exposes ``cam_from_world`` as a method; 3.x as a property.
+    Call it only when it's not already a Rigid3d-like object (has ``.rotation``)
+    — this handles both pycolmap versions and test mocks.
     """
     cfw = image.cam_from_world
-    return cfw() if callable(cfw) else cfw
+    if callable(cfw) and not hasattr(cfw, "rotation"):
+        cfw = cfw()
+    return cfw
 
 
 # ============================================================================

@@ -411,8 +411,11 @@ class TestBug5_BAOptionsSafety:
 
     def test_ba_options_has_safety_check(self):
         source = SRC_EXPORT.read_text()
-        assert "AttributeError" in source
-        assert "pycolmap BA API mismatch" in source
+        # BA must be version-robust (pycolmap 4.x moved iters under .ceres) and
+        # degrade gracefully: any pycolmap failure routes to the COLMAP CLI.
+        assert "ceres" in source, "should handle pycolmap 4.x ceres.solver_options"
+        assert "except Exception" in source, "pycolmap failure must be caught"
+        assert "bundle_adjuster" in source, "should fall back to COLMAP CLI"
 
 
 class TestBug6_NoDeadImageListWrite:
