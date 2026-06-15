@@ -166,6 +166,8 @@ def start_training(
     antialiased: bool,
     pose_opt: bool,
     coarse_to_fine: bool,
+    perceptual_loss: bool,
+    lpips_lambda: float,
     state: PipelineState,
     progress=gr.Progress(),
 ) -> tuple[str, str, PipelineState]:
@@ -191,21 +193,30 @@ def start_training(
     data_factor = int(data_factor)
     test_every = int(test_every)
 
+    extra = {
+        "random_bkgd": state.masks_generated,
+        "strategy": strategy,
+        "cap_max": int(cap_max),
+        "antialiased": bool(antialiased),
+        "pose_opt": bool(pose_opt),
+        "coarse_factor": data_factor * 2 if coarse_to_fine else 0,
+        "coarse_until": min(15_000, max_steps // 2),
+    }
+    # Perceptual (LPIPS) loss — clean win at lower res / under-resolved content;
+    # at full res (factor 1) start it only in the fine phase to limit
+    # over-texturing of already-well-resolved regions.
+    if perceptual_loss:
+        extra["lpips_lambda"] = float(lpips_lambda)
+        extra["lpips_start"] = (min(15_000, max_steps // 2)
+                                if (coarse_to_fine and data_factor <= 1)
+                                else max(1, max_steps // 5))
     config = TrainingConfig(
         backend=backend_name,
         max_steps=max_steps,
         data_factor=data_factor,
         test_every=test_every,
         save_steps=[max_steps // 4, max_steps],
-        extra={
-            "random_bkgd": state.masks_generated,
-            "strategy": strategy,
-            "cap_max": int(cap_max),
-            "antialiased": bool(antialiased),
-            "pose_opt": bool(pose_opt),
-            "coarse_factor": data_factor * 2 if coarse_to_fine else 0,
-            "coarse_until": min(15_000, max_steps // 2),
-        },
+        extra=extra,
     )
 
     # Clear previous state
@@ -264,6 +275,12 @@ def start_training(
     if strategy == "mcmc":
         strategy_desc += f" (budget {int(cap_max):,})"
 
+    if perceptual_loss:
+        percep_desc = (f"LPIPS λ={float(lpips_lambda):.2f} "
+                       f"(from step {extra['lpips_start']:,})")
+    else:
+        percep_desc = "off"
+
     stats = (
         f"Training started!\n"
         f"Backend: {backend_name}\n"
@@ -272,6 +289,7 @@ def start_training(
         f"Strategy: {strategy_desc}\n"
         f"Anti-aliasing: {'on' if antialiased else 'off'} | "
         f"Pose refinement: {'on' if pose_opt else 'off'}\n"
+        f"Perceptual loss: {percep_desc}\n"
         f"Test every: {test_every} images\n"
         f"Masks: {'enabled (random_bkgd)' if state.masks_generated else 'none'}"
     )
@@ -487,6 +505,18 @@ def build_stage9_tab():
                     value=True, label="Coarse-to-fine schedule",
                     info="Densify at 2x lower resolution, finish at full factor",
                 )
+            with gr.Row():
+                perceptual_loss_checkbox = gr.Checkbox(
+                    value=False, label="Perceptual (LPIPS) loss",
+                    info="Recovers fine detail. Clean win at scale 2-8; at scale 1 "
+                         "(full 4K) it can over-texture well-resolved areas — use a "
+                         "low weight there.",
+                )
+                lpips_lambda_slider = gr.Slider(
+                    minimum=0.02, maximum=0.4, value=0.1, step=0.02,
+                    label="Perceptual Loss Weight",
+                    info="~0.2 at scale 2-8; ~0.05-0.1 at scale 1 (avoids grain)",
+                )
 
         # --- Actions ---
         with gr.Row():
@@ -514,6 +544,8 @@ def build_stage9_tab():
         "antialiased_checkbox": antialiased_checkbox,
         "pose_opt_checkbox": pose_opt_checkbox,
         "coarse_to_fine_checkbox": coarse_to_fine_checkbox,
+        "perceptual_loss_checkbox": perceptual_loss_checkbox,
+        "lpips_lambda_slider": lpips_lambda_slider,
         "prepare_btn": prepare_btn,
         "train_btn": train_btn,
         "stop_btn": stop_btn,
@@ -563,6 +595,8 @@ def wire_stage9(components: dict, state: gr.State):
             c["antialiased_checkbox"],
             c["pose_opt_checkbox"],
             c["coarse_to_fine_checkbox"],
+            c["perceptual_loss_checkbox"],
+            c["lpips_lambda_slider"],
             state,
         ],
         outputs=[c["stats_box"], c["log_box"], state],
