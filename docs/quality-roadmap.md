@@ -66,10 +66,16 @@ Result is **resolution-dependent, not a clean universal win**:
   λ=0.1 milder but keyboard still regresses (0.285).
 - **Lesson:** LPIPS λ must scale DOWN with resolution+run length; a *global*
   perceptual loss can't distinguish under- vs well-resolved regions. A clean 4K
-  gain needs a **spatially-selective** perceptual loss (WD-R regularized, or LPIPS
-  masked to under-resolved/low-density regions) — marginal payoff vs effort on a
-  capture-limited surface. Keep LPIPS as a tunable option (default OFF; useful for
-  ≤1080p / under-resolved captures). Judge by LPIPS+crops, never PSNR.
+  gain needs a **spatially-selective** perceptual loss.
+- **SOLVED — gated LPIPS (`--lpips_gated`, default on).** Gates the LPIPS term by
+  relative per-crop L1 error (EMA-normalized) → acts on under-resolved crops, ~0 on
+  well-resolved. 4-way 4K A/B (held-out, deck/keyboard LPIPS):
+  orig 0.318/0.274 · global0.1 0.316/0.285 · global0.2 0.309/0.327 ·
+  **gated0.2 0.313/0.274**. Gated improves the deck WITHOUT harming the keyboard
+  (0.274 = original) — the clean win global LPIPS couldn't achieve. Makes the
+  perceptual lever safe at any resolution; now the production default. Deck gain
+  modest (capture-limited) but free + safe. (Apple WD-R rejected: unreleased,
+  spatially-uniform σ=4 = same blind spot, full-image-4K-VGG hostile to 24GB.)
 
 ## EMPIRICAL UPDATE 2 (cap_max experiment — budget is NOT the ceiling)
 

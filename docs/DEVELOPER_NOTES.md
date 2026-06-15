@@ -169,7 +169,11 @@ verification drop unregisterable frames).
 ## 7. Open items / future work
 
 - Fix the Stage-1 video sharpness-cull bug (§5).
-- Validate gated LPIPS at 4K (A/B: original vs global vs gated) — in progress.
+- ~~Validate gated LPIPS at 4K~~ DONE: 4-way 4K A/B confirms gated λ0.2 improves
+  the deck (LPIPS 0.318→0.313, sharper) with the keyboard EXACTLY unharmed (0.274 =
+  original), vs global λ0.2 which wrecked the keyboard (0.327). Gated LPIPS is the
+  production default for the perceptual lever; deck gain is modest (capture-limited)
+  but free and safe at any resolution.
 - Re-pull `nvidia/Fixer` V2 weights; run the distill-back loop (needs Docker up).
 - Optional installs (research-only, not yet wired): RoMa v2 dense rescue
   (`core/roma_rescue.py`), Faster-GS backend (`docs/research-findings.md` has setup).
