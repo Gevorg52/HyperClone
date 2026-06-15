@@ -625,14 +625,21 @@ def get_lpips(device):
 
 
 def lpips_patch_loss(rendered, gt_image, patch: int, device):
-    """LPIPS on a matched random crop of rendered vs GT. Inputs (H,W,3) in [0,1]."""
+    """LPIPS on a matched random crop of rendered vs GT. Inputs (H,W,3) in [0,1].
+
+    Returns (lpips_value, crop_l1_detached). The crop's L1 error is used to GATE
+    the perceptual loss toward under-resolved regions (high error) and away from
+    already-well-resolved ones (low error) — so LPIPS sharpens the textureless
+    deck without over-texturing the well-resolved keyboard.
+    """
     H, W = gt_image.shape[:2]
     ph, pw = min(patch, H), min(patch, W)
     top = int(np.random.randint(0, H - ph + 1))
     left = int(np.random.randint(0, W - pw + 1))
     r = rendered[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
     g = gt_image[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
-    return get_lpips(device)(r, g)
+    crop_l1 = (r - g).abs().mean().detach()
+    return get_lpips(device)(r, g), crop_l1
 
 
 # ---------------------------------------------------------------------------
@@ -765,6 +772,7 @@ def train(args):
 
     running_loss = 0.0
     running_psnr = 0.0
+    running_crop_l1 = None  # EMA of LPIPS-crop L1, for gated perceptual loss
     t0 = time.time()
 
     # Background image prefetch (overlaps disk I/O + decode with GPU compute)
@@ -830,11 +838,24 @@ def train(args):
             )
 
         # Perceptual (LPIPS) loss — recovers high-frequency detail averaged out
-        # by L1+SSIM. Strongest reproduced perceived-sharpness lever.
+        # by L1+SSIM. Optionally GATED by relative crop error so it acts on
+        # under-resolved regions and spares already-well-resolved ones (avoids
+        # over-texturing at full 4K).
         if args.lpips_lambda > 0 and step >= args.lpips_start:
-            loss = loss + args.lpips_lambda * lpips_patch_loss(
-                rendered, gt_image, args.lpips_patch, device,
-            )
+            lp, crop_l1 = lpips_patch_loss(rendered, gt_image, args.lpips_patch, device)
+            if args.lpips_gated:
+                if running_crop_l1 is None:
+                    running_crop_l1 = crop_l1
+                else:
+                    running_crop_l1 = 0.99 * running_crop_l1 + 0.01 * crop_l1
+                # gate ~0 on below-average-error (well-resolved) crops, ~1 on
+                # above-average-error (under-resolved) crops
+                gate = torch.sigmoid(
+                    (crop_l1 - running_crop_l1) / (0.25 * running_crop_l1 + 1e-6)
+                )
+                loss = loss + args.lpips_lambda * gate * lp
+            else:
+                loss = loss + args.lpips_lambda * lp
 
         # PSNR for logging
         with torch.no_grad():
@@ -1053,6 +1074,10 @@ def main():
                         help="Random crop size for LPIPS (bounds memory at 4K)")
     parser.add_argument("--lpips_start", type=int, default=3000,
                         help="Step to start LPIPS (after coarse structure forms)")
+    parser.add_argument("--lpips_gated", action=argparse.BooleanOptionalAction,
+                        default=True,
+                        help="Gate LPIPS toward under-resolved (high-error) crops "
+                             "so it doesn't over-texture well-resolved regions")
     args = parser.parse_args()
 
     train(args)
