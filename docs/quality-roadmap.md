@@ -54,6 +54,23 @@ real but modest gain; pixel-perfect black plastic from passive 8-bit gimbal vide
 is not achievable. Invest in the general levers + capture guidance, not in
 squeezing this one surface.
 
+## EMPIRICAL UPDATE 3 (LPIPS perceptual loss — implemented + tested)
+
+Added `--lpips_lambda` (torchmetrics VGG, random-crop, gradients verified).
+Result is **resolution-dependent, not a clean universal win**:
+- **≤1080p / under-resolved content: clean win** (factor-2 A/B: keyboard LPIPS
+  -5.7%, deck -3.8%, both sharper).
+- **Full 4K (well-resolved scene): a wash.** LPIPS helps where detail is MISSING
+  (starved deck) but OVER-TEXTURES where detail is already present (keyboard adds
+  wrong grain → LPIPS worse). λ=0.2 over-cooks (keyboard 0.274→0.327, PSNR -2dB);
+  λ=0.1 milder but keyboard still regresses (0.285).
+- **Lesson:** LPIPS λ must scale DOWN with resolution+run length; a *global*
+  perceptual loss can't distinguish under- vs well-resolved regions. A clean 4K
+  gain needs a **spatially-selective** perceptual loss (WD-R regularized, or LPIPS
+  masked to under-resolved/low-density regions) — marginal payoff vs effort on a
+  capture-limited surface. Keep LPIPS as a tunable option (default OFF; useful for
+  ≤1080p / under-resolved captures). Judge by LPIPS+crops, never PSNR.
+
 ## EMPIRICAL UPDATE 2 (cap_max experiment — budget is NOT the ceiling)
 
 - **cap_max 8M FAILED (diverged + OOM).** Trajectory: trained fine to ~3M
