@@ -402,6 +402,59 @@ def _format_completed_result(
 
 
 # ---------------------------------------------------------------------------
+# Handler: Prune floaters (faithful post-training cleanup)
+# ---------------------------------------------------------------------------
+
+def prune_model(
+    opacity_min: float,
+    state: PipelineState,
+    progress=gr.Progress(),
+) -> tuple[str, str, PipelineState]:
+    """Remove near-invisible + spatial-outlier Gaussians from the trained model.
+
+    Faithful (only removes primitives) — validated lossless at opacity_min<=0.01.
+    Writes a *_pruned PLY + checkpoint and points state at them.
+    """
+    if not state.training_checkpoint:
+        raise gr.Error("No trained checkpoint. Complete Stage 9 training first.")
+    ckpts = sorted(Path(state.training_checkpoint).glob("ckpt_*_rank0.pt"))
+    ckpts = [c for c in ckpts if "pruned" not in c.name]
+    if not ckpts:
+        raise gr.Error(f"No checkpoint found in {state.training_checkpoint}")
+
+    progress(0.2, desc="Pruning floaters (kNN outlier removal)...")
+    from core.training.prune import prune_splats
+
+    ckpt = ckpts[-1]
+    out_ply = ckpt.parent.parent / "ply" / f"{ckpt.stem.replace('_rank0','')}_pruned.ply"
+    out_ckpt = ckpt.parent / f"{ckpt.stem}_pruned.pt"
+    try:
+        st = prune_splats(
+            ckpt_path=str(ckpt), out_ply=str(out_ply), out_ckpt=str(out_ckpt),
+            opacity_min=float(opacity_min), sor_k=8, sor_std=2.0,
+        )
+    except Exception as e:
+        import traceback
+        raise gr.Error(f"Pruning failed: {e}\n\n{traceback.format_exc()}")
+
+    progress(0.95, desc="Done.")
+    state.training_ply = st["out_ply"]
+    state.save()
+
+    import os
+    mb = os.path.getsize(st["out_ply"]) / 1e6
+    stats = (
+        f"Floater cleanup complete (faithful — removes only near-invisible/outlier "
+        f"Gaussians).\n"
+        f"Gaussians: {st['n_before']:,} → {st['n_after']:,} ({st['pct_kept']}% kept)\n"
+        f"  removed low-opacity (<{opacity_min}): {st['removed_low_opacity']:,}\n"
+        f"  removed spatial outliers: {st['removed_outliers']:,}\n"
+        f"Pruned PLY ({mb:.0f} MB): {st['out_ply']}"
+    )
+    return stats, "Pruned model written.", state
+
+
+# ---------------------------------------------------------------------------
 # Handler: Stop training
 # ---------------------------------------------------------------------------
 
@@ -525,6 +578,21 @@ def build_stage9_tab():
             stop_btn = gr.Button("Stop Training", variant="stop")
             refresh_btn = gr.Button("Refresh Progress")
 
+        # --- Post-training cleanup ---
+        with gr.Accordion("Floater cleanup (post-training, faithful)", open=False):
+            gr.Markdown(
+                "Removes near-invisible + spatial-outlier Gaussians from the trained "
+                "model. Faithful — only removes primitives (can't reduce fidelity), "
+                "typically ~halves the PLY losslessly. No diffusion / no Docker."
+            )
+            with gr.Row():
+                prune_opacity_slider = gr.Slider(
+                    minimum=0.0, maximum=0.05, value=0.01, step=0.005,
+                    label="Min opacity to keep",
+                    info="≤0.01 is lossless on MCMC models; >0.02 starts to cost quality",
+                )
+                prune_btn = gr.Button("Prune Floaters", variant="secondary")
+
         # --- Output ---
         with gr.Row():
             stats_box = gr.Textbox(
@@ -546,6 +614,8 @@ def build_stage9_tab():
         "coarse_to_fine_checkbox": coarse_to_fine_checkbox,
         "perceptual_loss_checkbox": perceptual_loss_checkbox,
         "lpips_lambda_slider": lpips_lambda_slider,
+        "prune_opacity_slider": prune_opacity_slider,
+        "prune_btn": prune_btn,
         "prepare_btn": prepare_btn,
         "train_btn": train_btn,
         "stop_btn": stop_btn,
@@ -599,6 +669,13 @@ def wire_stage9(components: dict, state: gr.State):
             c["lpips_lambda_slider"],
             state,
         ],
+        outputs=[c["stats_box"], c["log_box"], state],
+    )
+
+    # Prune floaters (post-training cleanup)
+    c["prune_btn"].click(
+        fn=prune_model,
+        inputs=[c["prune_opacity_slider"], state],
         outputs=[c["stats_box"], c["log_box"], state],
     )
 
