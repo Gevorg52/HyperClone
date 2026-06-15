@@ -602,6 +602,39 @@ def edge_aware_depth_smoothness(depth, image, beta: float = 10.0):
     return (d2x.abs() * wx).mean() + (d2y.abs() * wy).mean()
 
 
+_lpips_model = None
+
+
+def get_lpips(device):
+    """Lazily build a frozen VGG-LPIPS for use as a perceptual training loss.
+
+    Perceptual loss is the most-reproduced lever for perceived sharpness; it
+    recovers high-frequency detail that L1+SSIM averages out. Computed on a
+    random crop per step (bounds 4K memory) — over many steps it covers the
+    whole frame.
+    """
+    global _lpips_model
+    if _lpips_model is None:
+        from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
+        m = LearnedPerceptualImagePatchSimilarity(net_type="vgg", normalize=True)
+        m = m.to(device).eval()
+        for p in m.parameters():
+            p.requires_grad_(False)
+        _lpips_model = m
+    return _lpips_model
+
+
+def lpips_patch_loss(rendered, gt_image, patch: int, device):
+    """LPIPS on a matched random crop of rendered vs GT. Inputs (H,W,3) in [0,1]."""
+    H, W = gt_image.shape[:2]
+    ph, pw = min(patch, H), min(patch, W)
+    top = int(np.random.randint(0, H - ph + 1))
+    left = int(np.random.randint(0, W - pw + 1))
+    r = rendered[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
+    g = gt_image[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
+    return get_lpips(device)(r, g)
+
+
 # ---------------------------------------------------------------------------
 # Training loop
 # ---------------------------------------------------------------------------
@@ -794,6 +827,13 @@ def train(args):
             depth = renders[0][..., 3]  # (H, W) expected depth, differentiable
             loss = loss + args.geo_reg_lambda * edge_aware_depth_smoothness(
                 depth, gt_image, beta=args.geo_reg_beta,
+            )
+
+        # Perceptual (LPIPS) loss — recovers high-frequency detail averaged out
+        # by L1+SSIM. Strongest reproduced perceived-sharpness lever.
+        if args.lpips_lambda > 0 and step >= args.lpips_start:
+            loss = loss + args.lpips_lambda * lpips_patch_loss(
+                rendered, gt_image, args.lpips_patch, device,
             )
 
         # PSNR for logging
@@ -1006,6 +1046,13 @@ def main():
                         help="Edge sensitivity: higher = reg confined to flatter regions")
     parser.add_argument("--geo_reg_start", type=int, default=3000,
                         help="Step to start geo reg (after coarse geometry forms)")
+    # Perceptual (LPIPS) loss
+    parser.add_argument("--lpips_lambda", type=float, default=0.0,
+                        help="Weight of LPIPS perceptual loss (0 = off)")
+    parser.add_argument("--lpips_patch", type=int, default=512,
+                        help="Random crop size for LPIPS (bounds memory at 4K)")
+    parser.add_argument("--lpips_start", type=int, default=3000,
+                        help="Step to start LPIPS (after coarse structure forms)")
     args = parser.parse_args()
 
     train(args)

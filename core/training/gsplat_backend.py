@@ -231,6 +231,10 @@ class GsplatBackend(TrainingBackend):
             "geo_reg_lambda": 0.05,
             "geo_reg_beta": 10.0,
             "geo_reg_start": 3000,
+            # Perceptual (LPIPS) loss — perceived-sharpness lever
+            "lpips_lambda": 0.0,           # off by default; opt-in (try ~0.5)
+            "lpips_patch": 512,
+            "lpips_start": 3000,
         }
 
     # -----------------------------------------------------------------------
@@ -365,6 +369,14 @@ class GsplatBackend(TrainingBackend):
                 "--geo_reg_lambda", str(extra["geo_reg_lambda"]),
                 "--geo_reg_beta", str(extra["geo_reg_beta"]),
                 "--geo_reg_start", str(extra["geo_reg_start"]),
+            ])
+
+        # Perceptual (LPIPS) loss
+        if extra.get("lpips_lambda", 0):
+            args.extend([
+                "--lpips_lambda", str(extra["lpips_lambda"]),
+                "--lpips_patch", str(extra["lpips_patch"]),
+                "--lpips_start", str(extra["lpips_start"]),
             ])
 
         # Distill / refine rounds
