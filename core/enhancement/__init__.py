@@ -101,6 +101,12 @@ def _auto_register():
         register_backend(FixerBackend())
     except Exception:
         pass
+    try:
+        # Native (no-Docker) Difix3D+ — preferred WSL-free diffusion fixer
+        from core.enhancement.difix_backend import DifixBackend  # noqa: F401
+        register_backend(DifixBackend())
+    except Exception:
+        pass
 
 
 _auto_register()

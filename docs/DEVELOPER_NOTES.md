@@ -174,6 +174,21 @@ verification drop unregisterable frames).
   original), vs global λ0.2 which wrecked the keyboard (0.327). Gated LPIPS is the
   production default for the perceptual lever; deck gain is modest (capture-limited)
   but free and safe at any resolution.
+
+### Artifact correction (June 2026)
+- **DONE — faithful floater cleanup** (`core/training/prune.py`, Stage 9 GUI
+  "Floater cleanup"): removes near-invisible (opacity<0.01) + spatial-outlier
+  Gaussians. Validated lossless (3M→1.34M, PLY 708→316 MB, held-out PSNR/LPIPS
+  unchanged). **Do this first** for any clip — faithful, no model, no Docker.
+- **SCAFFOLDED — native Difix3D+ backend** (`core/enhancement/difix_backend.py`,
+  registered as enhancement backend `difix`): WSL-FREE diffusion artifact cleaner
+  (the Docker dependency was the *separate* Cosmos NuRec Fixer, not Difix). Drops
+  into the distill-back loop (`core/enhancement/distill.py`). To enable: install in
+  an ISOLATED env (`diffusers==0.25.1 transformers==4.38.0 peft==0.9.0 accelerate`);
+  weights `nvidia/difix` auto-download. **Use only for clips with real
+  floater/ghosting artifacts — NOT for capture-limited textureless surfaces (it
+  hallucinates, doesn't recover).** WD-R was researched and rejected (see §6).
+- Enhancement backends now: `fixer` (Cosmos, Docker — avoid) and `difix` (native).
 - Re-pull `nvidia/Fixer` V2 weights; run the distill-back loop (needs Docker up).
 - Optional installs (research-only, not yet wired): RoMa v2 dense rescue
   (`core/roma_rescue.py`), Faster-GS backend (`docs/research-findings.md` has setup).
