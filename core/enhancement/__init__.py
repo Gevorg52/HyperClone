@@ -20,7 +20,7 @@ from typing import Callable, Optional
 class EnhancementConfig:
     """Common enhancement parameters."""
 
-    backend: str = "fixer"
+    backend: str = "difix"
     num_views: int = 100              # How many novel views to render + enhance
     extra: dict = field(default_factory=dict)  # Backend-specific overrides
 
@@ -95,16 +95,21 @@ def available_backends() -> list[str]:
 # ---------------------------------------------------------------------------
 
 def _auto_register():
-    """Import bundled backends so they self-register."""
+    """Import bundled backends so they self-register.
+
+    Difix is registered FIRST so it is the default-selected backend: it runs
+    natively (no Docker/WSL) and, with the sharpness gate on by default, cleans
+    soft/under-observed regions without damaging the well-resolved subject.
+    """
     try:
-        from core.enhancement.fixer_backend import FixerBackend  # noqa: F401
-        register_backend(FixerBackend())
+        # Native (no-Docker) Difix3D+ — preferred WSL-free diffusion fixer (default)
+        from core.enhancement.difix_backend import DifixBackend  # noqa: F401
+        register_backend(DifixBackend())
     except Exception:
         pass
     try:
-        # Native (no-Docker) Difix3D+ — preferred WSL-free diffusion fixer
-        from core.enhancement.difix_backend import DifixBackend  # noqa: F401
-        register_backend(DifixBackend())
+        from core.enhancement.fixer_backend import FixerBackend  # noqa: F401
+        register_backend(FixerBackend())
     except Exception:
         pass
 

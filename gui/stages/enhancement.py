@@ -100,6 +100,7 @@ def render_views(
 def render_and_enhance(
     enhancer_name: str,
     num_views: int,
+    gate: bool,
     state: PipelineState,
     progress=gr.Progress(),
 ) -> tuple[str, str, list, PipelineState]:
@@ -151,6 +152,7 @@ def render_and_enhance(
     config = EnhancementConfig(
         backend=enhancer_name,
         num_views=int(num_views),
+        extra={"gated": bool(gate)},
     )
 
     try:
@@ -203,6 +205,7 @@ def run_distill(
     rounds: int,
     views_per_round: int,
     steps_per_round: int,
+    gate: bool,
     state: PipelineState,
     progress=gr.Progress(),
 ) -> tuple[str, str, PipelineState]:
@@ -244,6 +247,7 @@ def run_distill(
             rounds=int(rounds),
             views_per_round=int(views_per_round),
             steps_per_round=int(steps_per_round),
+            enhancer_extra={"gated": bool(gate)},
             progress_cb=lambda frac, desc: progress(
                 0.02 + 0.96 * frac, desc=desc,
             ),
@@ -311,6 +315,12 @@ def build_stage10_tab():
                     label="Number of Views to Render & Enhance",
                     info="More views = better coverage but longer processing",
                 )
+                gate_check = gr.Checkbox(
+                    value=True,
+                    label="Gate Difix (protect already-sharp regions)",
+                    info="Blends Difix in only where the render is locally soft, "
+                         "leaving the well-resolved subject untouched. Recommended.",
+                )
 
         # --- Actions ---
         with gr.Row():
@@ -357,6 +367,7 @@ def build_stage10_tab():
         "check_btn": check_btn,
         "enhancer_status": enhancer_status,
         "num_views_slider": num_views_slider,
+        "gate_check": gate_check,
         "enhance_btn": enhance_btn,
         "distill_rounds_slider": distill_rounds_slider,
         "distill_views_slider": distill_views_slider,
@@ -386,7 +397,7 @@ def wire_stage10(components: dict, state: gr.State):
     # Render & Enhance
     c["enhance_btn"].click(
         fn=render_and_enhance,
-        inputs=[c["enhancer_dropdown"], c["num_views_slider"], state],
+        inputs=[c["enhancer_dropdown"], c["num_views_slider"], c["gate_check"], state],
         outputs=[c["stats_box"], c["log_box"], c["gallery"], state],
     )
 
@@ -398,6 +409,7 @@ def wire_stage10(components: dict, state: gr.State):
             c["distill_rounds_slider"],
             c["distill_views_slider"],
             c["distill_steps_slider"],
+            c["gate_check"],
             state,
         ],
         outputs=[c["stats_box"], c["log_box"], state],

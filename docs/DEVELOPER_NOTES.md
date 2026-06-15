@@ -191,13 +191,33 @@ verification drop unregisterable frames).
     genuinely cleans soft/under-observed regions. BUT on the well-resolved SUBJECT
     it over-sharpens / **hallucinates**: deck LPIPS 0.256→0.279, keyboard
     0.194→0.234 (sharper but *less faithful* — looks better, measures worse).
-  - **Verdict:** same lesson as global LPIPS — global enhancement can't tell
-    under- from well-resolved regions. Use Difix for clips with real
-    floater/ghosting/under-observed artifacts; do NOT apply globally to a
-    well-reconstructed subject when fidelity matters. The textureless deck stays a
-    capture fix. WD-R rejected (see §6).
-- Enhancement backends now: `fixer` (Cosmos, Docker — avoid) and `difix` (native,
-  isolated-env subprocess — preferred WSL-free diffusion path).
+  - **Verdict (ungated):** same lesson as global LPIPS — global enhancement can't
+    tell under- from well-resolved regions.
+- **DONE + TESTED — sharpness-GATED Difix (`gated`, ON by default).** Fixes the
+  above: a per-pixel FreeFix-style 2D blend `final = (1-w)·render + w·difix`
+  (`_gate_blend` in `difix_backend.py`). `w` is high where the render is locally
+  SOFT, ~0 where it is already SHARP, with the pivot at the image's **median**
+  local sharpness (Sobel-magnitude, Gaussian-smoothed σ=7) — so it is
+  **resolution-robust** (no absolute threshold). This keeps Difix's gains on soft
+  regions and protects the well-resolved subject.
+  - **Why a sharpness gate (validated, the RIGHT metric is patch-LPIPS not L1):**
+    binning 224 patches by render sharpness, Difix's LPIPS improvement is
+    **+0.036 / +0.033 (Q1–Q2 softest, ~69% helped)** but **−0.014 (Q5 sharpest,
+    only 20% helped)**. The "mushy" deck has HIGH local gradient (keys/labels/
+    edges) → lands in the skip bucket too, so one signal guards BOTH failure modes
+    (over-sharpening the keyboard AND hallucinating the deck).
+  - **Empirical (laptop, 8 views) — gated beats render AND ungated Difix:**
+    full-image LPIPS **render 0.366 / ungated 0.350 / GATED 0.343**. Region LPIPS
+    (render | difix | gated): deck 0.256 | 0.279 | **0.254**, keyboard 0.194 |
+    0.234 | **0.199** (both back to ~render fidelity), background 0.350 | 0.351 |
+    **0.318** (soft-region gain kept). So Difix is now safe on by default.
+  - Research basis (verified vs arXiv): FreeFix (2601.20857) per-pixel confidence
+    blend; HAD (2605.16873) for the hallucination nuance. A stronger Tier-2 gate
+    (alpha-accumulation + reference-coverage evidence guard) is the next step if a
+    clip has truly unobserved regions; sharpness alone sufficed here. Set
+    `gated=False` (or untick the Stage-10 checkbox) for the raw ungated output.
+- Enhancement backends now: `difix` (native, isolated-env subprocess — **default**,
+  gated, preferred WSL-free diffusion path) and `fixer` (Cosmos, Docker — avoid).
 - Re-pull `nvidia/Fixer` V2 weights; run the distill-back loop (needs Docker up).
 - Optional installs (research-only, not yet wired): RoMa v2 dense rescue
   (`core/roma_rescue.py`), Faster-GS backend (`docs/research-findings.md` has setup).
