@@ -3,31 +3,37 @@
 Difix3D+ (arXiv 2503.01774, weights hf.co/nvidia/difix) is a single-step
 SD-Turbo diffusion model that removes 3DGS artifacts (floaters, ghosting, blur)
 from rendered novel views. Unlike the Cosmos "NuRec Fixer" (Docker-only), Difix
-runs natively via `diffusers` — pure pip, no flash-attn/triton/bitsandbytes.
+runs natively — but its pinned deps (diffusers==0.25.1, transformers==4.38.0,
+numpy<2) clash with the main env, so we run it as a SUBPROCESS in an isolated
+conda env via `conda run -n difix` (no Docker, no WSL).
 
-This backend implements the standard EnhancementBackend interface, so it drops
-straight into the Difix3D+-style distill-back loop in `core/enhancement/distill.py`
-(render pseudo-views → enhance → append → resume), giving a WSL-free diffusion
-artifact-correction path.
+Drops into the distill-back loop (core/enhancement/distill.py).
 
-SCAFFOLD STATUS: structurally complete and registered. Running it requires the
-Difix deps + weights, which conflict with newer diffusers used elsewhere — install
-in an ISOLATED env (per the README): diffusers==0.25.1, transformers==4.38.0,
-peft==0.9.0, accelerate, plus torch/torchvision. Weights auto-download on first
-use (~SD-Turbo size; research/non-commercial license — fine for R&D). License is
-NOT a blocker for this research project. Validate the exact pipeline call against
-the current nv-tlabs/Difix3D repo before relying on it in production.
+SETUP (one-time, native):
+    git clone https://github.com/nv-tlabs/Difix3D   (-> DIFIX_REPO)
+    conda create -n difix python=3.10 -y
+    conda run -n difix pip install torch==2.3.0 torchvision==0.18.0 \
+        --index-url https://download.pytorch.org/whl/cu121
+    conda run -n difix pip install diffusers==0.25.1 transformers==4.38.0 \
+        peft==0.9.0 huggingface-hub==0.25.1 accelerate "imageio[ffmpeg]" \
+        einops lpips torchmetrics pillow "numpy<2"
+    # weights (nvidia/difix) auto-download on first use. Research/non-commercial.
 
-Use it for clips that genuinely have floater/ghosting/extrapolation artifacts —
-NOT for capture-limited textureless surfaces (it would hallucinate, not recover).
+EMPIRICAL (laptop A/B, June 2026): full-image LPIPS improved (0.366->0.350 over 8
+views; biggest gains on under-observed orbit views) — Difix genuinely cleans soft
+/ under-observed regions. BUT on the well-resolved SUBJECT it over-sharpens /
+HALLUCINATES (deck LPIPS 0.256->0.279, keyboard 0.194->0.234 — sharper but less
+faithful). Use it for clips with real floater/ghosting/under-observed artifacts;
+do NOT apply globally to a well-reconstructed subject if fidelity matters.
 """
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Optional
-
-from PIL import Image
 
 from core.enhancement import (
     EnhancementBackend,
@@ -35,60 +41,51 @@ from core.enhancement import (
     EnhancementProgressCallback,
 )
 
-DEFAULT_MODEL = "nvidia/difix"          # or "nvidia/difix_ref" (reference-guided)
-DEFAULT_TIMESTEP = 199                   # SD-Turbo single-step timestep
-_pipe = None
+DIFIX_ENV = "difix"
+DIFIX_REPO = r"F:\HYPERclone\Difix3D"
+_RUNNER = str(Path(__file__).resolve().parent / "difix_runner.py")
 
 
-def _load_pipeline(model: str, device: str = "cuda"):
-    """Lazily build the Difix diffusers pipeline (cached at module level)."""
-    global _pipe
-    if _pipe is None:
-        import torch
-        # The repo ships a custom DifixPipeline; fall back to a generic
-        # DiffusionPipeline with trust_remote_code if the package isn't present.
-        try:
-            from difix3d import DifixPipeline  # type: ignore
-            _pipe = DifixPipeline.from_pretrained(model, trust_remote_code=True)
-        except Exception:
-            from diffusers import DiffusionPipeline
-            _pipe = DiffusionPipeline.from_pretrained(
-                model, trust_remote_code=True, torch_dtype=torch.float16,
-            )
-        _pipe = _pipe.to(device)
-    return _pipe
+def _conda() -> Optional[str]:
+    return shutil.which("conda") or (
+        r"C:\Users\gevor\anaconda3\Scripts\conda.exe"
+        if os.path.exists(r"C:\Users\gevor\anaconda3\Scripts\conda.exe") else None
+    )
 
 
 class DifixBackend(EnhancementBackend):
-    """Native (diffusers) NVIDIA Difix3D+ artifact-removal backend."""
+    """Native (isolated-conda-env subprocess) NVIDIA Difix3D+ artifact cleaner."""
 
     name = "difix"
 
     def validate_environment(self) -> tuple[bool, str]:
-        try:
-            import diffusers  # noqa: F401
-            import torch  # noqa: F401
-        except ImportError:
+        conda = _conda()
+        if conda is None:
+            return False, "conda not found on PATH (needed to run the isolated difix env)."
+        if not Path(DIFIX_REPO).is_dir():
             return False, (
-                "Difix needs `diffusers` (native, no Docker). Recommended in an "
-                "ISOLATED env to avoid version clashes:\n"
-                "  pip install diffusers==0.25.1 transformers==4.38.0 peft==0.9.0 "
-                "accelerate\n"
-                "Weights (nvidia/difix) auto-download on first use."
+                f"Difix3D repo not found at {DIFIX_REPO}. Clone it:\n"
+                "  git clone https://github.com/nv-tlabs/Difix3D"
+            )
+        try:
+            envs = subprocess.run([conda, "env", "list"], capture_output=True,
+                                  text=True, timeout=30).stdout
+        except Exception as e:
+            return False, f"Could not list conda envs: {e}"
+        if DIFIX_ENV not in envs:
+            return False, (
+                f"Isolated conda env '{DIFIX_ENV}' not found. See setup in "
+                "core/enhancement/difix_backend.py docstring (one-time)."
             )
         return True, (
-            "Difix (native diffusers) ready. Weights 'nvidia/difix' download on "
-            "first use. NOTE: pinned diffusers/transformers recommended in an "
-            "isolated env; validate the pipeline call vs the current Difix3D repo."
+            f"Difix ready (native subprocess: conda env '{DIFIX_ENV}', repo "
+            f"{DIFIX_REPO}). Weights nvidia/difix auto-download on first use."
         )
 
     def get_default_config(self) -> dict:
-        return {
-            "model": DEFAULT_MODEL,
-            "timestep": DEFAULT_TIMESTEP,
-            "num_inference_steps": 1,
-            "prompt": "remove degradation",  # Difix's training prompt
-        }
+        return {"env": DIFIX_ENV, "repo": DIFIX_REPO,
+                "model": "nvidia/difix", "timestep": 199,
+                "prompt": "remove degradation"}
 
     def enhance_images(
         self,
@@ -99,34 +96,39 @@ class DifixBackend(EnhancementBackend):
     ) -> list[str]:
         if not image_paths:
             return []
-        out = Path(output_dir)
-        out.mkdir(parents=True, exist_ok=True)
         cfg = {**self.get_default_config(), **(config.extra or {})}
+        conda = _conda()
+        if conda is None:
+            raise RuntimeError("conda not found; cannot run the difix env.")
 
-        pipe = _load_pipeline(cfg["model"])
-        enhanced: list[str] = []
-        n = len(image_paths)
-        for i, src in enumerate(image_paths):
-            if progress_cb and i % 5 == 0:
-                progress_cb(i, n, f"Difix enhancing {i + 1}/{n}")
-            img = Image.open(src).convert("RGB")
-            try:
-                result = pipe(
-                    cfg["prompt"], image=img,
-                    num_inference_steps=cfg["num_inference_steps"],
-                    timesteps=[cfg["timestep"]],
-                )
-                fixed = result.images[0]
-            except Exception as e:  # API mismatch → fail loudly with guidance
-                raise RuntimeError(
-                    f"Difix pipeline call failed ({e}). Verify the inference API "
-                    "against the current nv-tlabs/Difix3D repo and update "
-                    "core/enhancement/difix_backend._load_pipeline / enhance_images."
-                )
-            dst = out / (Path(src).stem + ".png")
-            fixed.save(str(dst))
-            enhanced.append(str(dst))
+        out = Path(output_dir)
+        staging = out / "difix_staging"
+        enhanced = out / "enhanced"
+        if staging.is_dir():
+            shutil.rmtree(staging)
+        staging.mkdir(parents=True, exist_ok=True)
+        enhanced.mkdir(parents=True, exist_ok=True)
+        for src in image_paths:
+            shutil.copy2(src, staging / Path(src).name)
 
         if progress_cb:
-            progress_cb(n, n, f"Difix enhanced {len(enhanced)} images")
-        return enhanced
+            progress_cb(0, len(image_paths), "Running Difix (isolated env)...")
+        cmd = [
+            conda, "run", "-n", cfg["env"], "python", _RUNNER,
+            "--input", str(staging), "--output", str(enhanced),
+            "--repo", cfg["repo"], "--model", cfg["model"],
+            "--prompt", cfg["prompt"], "--timestep", str(cfg["timestep"]),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+        if "DIFIX_RUNNER_DONE" not in result.stdout:
+            raise RuntimeError(
+                f"Difix runner failed (exit {result.returncode}):\n"
+                f"stdout: {result.stdout[-2000:]}\nstderr: {result.stderr[-2000:]}"
+            )
+
+        outs = sorted(str(p) for p in enhanced.iterdir()
+                      if p.suffix.lower() in {".png", ".jpg", ".jpeg"})
+        shutil.rmtree(staging, ignore_errors=True)
+        if progress_cb:
+            progress_cb(len(outs), len(image_paths), f"Difix enhanced {len(outs)} images")
+        return outs

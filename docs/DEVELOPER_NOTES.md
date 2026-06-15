@@ -180,15 +180,24 @@ verification drop unregisterable frames).
   "Floater cleanup"): removes near-invisible (opacity<0.01) + spatial-outlier
   Gaussians. Validated lossless (3M→1.34M, PLY 708→316 MB, held-out PSNR/LPIPS
   unchanged). **Do this first** for any clip — faithful, no model, no Docker.
-- **SCAFFOLDED — native Difix3D+ backend** (`core/enhancement/difix_backend.py`,
-  registered as enhancement backend `difix`): WSL-FREE diffusion artifact cleaner
-  (the Docker dependency was the *separate* Cosmos NuRec Fixer, not Difix). Drops
-  into the distill-back loop (`core/enhancement/distill.py`). To enable: install in
-  an ISOLATED env (`diffusers==0.25.1 transformers==4.38.0 peft==0.9.0 accelerate`);
-  weights `nvidia/difix` auto-download. **Use only for clips with real
-  floater/ghosting artifacts — NOT for capture-limited textureless surfaces (it
-  hallucinates, doesn't recover).** WD-R was researched and rejected (see §6).
-- Enhancement backends now: `fixer` (Cosmos, Docker — avoid) and `difix` (native).
+- **DONE + TESTED — native Difix3D+ backend** (`core/enhancement/difix_backend.py`
+  + `difix_runner.py`, registered as `difix`): WSL-FREE (the Docker dep was the
+  *separate* Cosmos NuRec Fixer). Runs as a **subprocess in an isolated conda env**
+  `difix` (`conda run -n difix`) so its pinned deps stay out of the main env. Setup
+  in the backend docstring; **needs `numpy<2`** (torch 2.3 `from_numpy` breaks on
+  NumPy 2.x). Drops into the distill-back loop. Validated end-to-end on Windows.
+  - **Empirical (laptop, 8 held-out views):** full-image LPIPS **0.366→0.350**
+    (−4.5%, 7/8 views; biggest gains on under-observed orbit views) — Difix
+    genuinely cleans soft/under-observed regions. BUT on the well-resolved SUBJECT
+    it over-sharpens / **hallucinates**: deck LPIPS 0.256→0.279, keyboard
+    0.194→0.234 (sharper but *less faithful* — looks better, measures worse).
+  - **Verdict:** same lesson as global LPIPS — global enhancement can't tell
+    under- from well-resolved regions. Use Difix for clips with real
+    floater/ghosting/under-observed artifacts; do NOT apply globally to a
+    well-reconstructed subject when fidelity matters. The textureless deck stays a
+    capture fix. WD-R rejected (see §6).
+- Enhancement backends now: `fixer` (Cosmos, Docker — avoid) and `difix` (native,
+  isolated-env subprocess — preferred WSL-free diffusion path).
 - Re-pull `nvidia/Fixer` V2 weights; run the distill-back loop (needs Docker up).
 - Optional installs (research-only, not yet wired): RoMa v2 dense rescue
   (`core/roma_rescue.py`), Faster-GS backend (`docs/research-findings.md` has setup).
