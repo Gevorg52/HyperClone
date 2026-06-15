@@ -193,6 +193,14 @@ def render_pseudo_views(
                 "c2w": c2w.tolist(),
             })
 
+    # Release the splats + gsplat CUDA cache from THIS process before the Difix
+    # subprocess runs — otherwise the parent holds ~2-3 GiB (3M Gaussians) and
+    # starves Difix's 1080p VAE decode, which then thrashes (2-3 min/img).
+    del splats, K_t, bkgd
+    import gc
+    gc.collect()
+    torch.cuda.empty_cache()
+
     return render_paths, entries
 
 

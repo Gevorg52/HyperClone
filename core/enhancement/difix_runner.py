@@ -14,6 +14,7 @@ import os
 import sys
 from glob import glob
 
+import torch
 from PIL import Image
 
 
@@ -39,14 +40,22 @@ def main():
         + glob(os.path.join(args.input, "*.jpeg"))
     )
     print(f"[difix_runner] {len(files)} images", flush=True)
-    for f in files:
+    for i, f in enumerate(files):
         img = Image.open(f).convert("RGB")
-        res = pipe(args.prompt, image=img, num_inference_steps=1,
-                   timesteps=[args.timestep], guidance_scale=0.0).images[0]
+        with torch.inference_mode():
+            res = pipe(args.prompt, image=img, num_inference_steps=1,
+                       timesteps=[args.timestep], guidance_scale=0.0).images[0]
         if res.size != img.size:
             res = res.resize(img.size, Image.BICUBIC)
         res.save(os.path.join(args.output,
                               os.path.splitext(os.path.basename(f))[0] + ".png"))
+        # Bound VRAM: the diffusers pipeline's caching allocator otherwise grows
+        # run-to-run (8->24 GiB over a batch -> WDDM pages to RAM -> ~2-3 min/img).
+        # Releasing reserved-but-free blocks each image keeps it flat (~8 GiB).
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        if (i + 1) % 10 == 0:
+            print(f"[difix_runner] {i + 1}/{len(files)}", flush=True)
     print("DIFIX_RUNNER_DONE", flush=True)
 
 

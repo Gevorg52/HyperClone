@@ -161,7 +161,11 @@ class DifixBackend(EnhancementBackend):
             "--repo", cfg["repo"], "--model", cfg["model"],
             "--prompt", cfg["prompt"], "--timestep", str(cfg["timestep"]),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+        # expandable_segments cuts allocator fragmentation on the 1080p VAE
+        # decode (keeps Difix well under the 24 GiB ceiling on a 4090).
+        sub_env = {**os.environ, "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"}
+        result = subprocess.run(cmd, capture_output=True, text=True,
+                                timeout=7200, env=sub_env)
         if "DIFIX_RUNNER_DONE" not in result.stdout:
             raise RuntimeError(
                 f"Difix runner failed (exit {result.returncode}):\n"
