@@ -237,6 +237,7 @@ class GsplatBackend(TrainingBackend):
             "lpips_start": 3000,
             "lpips_gated": True,           # gate toward under-resolved regions
             "gram_lambda": 0.0,            # VGG Gram/style loss (Difix3D+ texture)
+            "bilateral_grid": False,       # per-view BilaRF color grid (exposure/WB)
         }
 
     # -----------------------------------------------------------------------
@@ -382,6 +383,10 @@ class GsplatBackend(TrainingBackend):
             ])
             args.append("--lpips_gated" if extra.get("lpips_gated", True)
                         else "--no-lpips_gated")
+
+        # Per-view bilateral grid (BilaRF) — exposure/WB absorption
+        if extra.get("bilateral_grid"):
+            args.append("--bilateral_grid")
 
         # Gram/style loss (texture baking; shares LPIPS crop/gate/start)
         if extra.get("gram_lambda", 0):

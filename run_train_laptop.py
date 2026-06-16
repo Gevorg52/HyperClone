@@ -11,6 +11,7 @@ Outputs base checkpoint + PLY under _dataset/Laptop/train/.  The gated-Difix
 distill-back loop is launched separately (run_distill_laptop.py) once the base
 model exists, so the long base run can proceed independently.
 """
+import argparse
 import time
 from pathlib import Path
 
@@ -26,8 +27,14 @@ def banner(msg: str):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--bilateral", action="store_true",
+                    help="enable per-view bilateral grid (writes to train_bil/)")
+    args = ap.parse_args()
+
     t0 = time.time()
     backend = GsplatBackend()
+    out_dir = TRAIN_DIR + ("_bil" if args.bilateral else "")
 
     config = TrainingConfig(
         backend="gsplat",
@@ -49,14 +56,20 @@ def main():
             "lpips_patch": 512,
             "lpips_start": 3_000,
             "lpips_gated": True,
+            "bilateral_grid": args.bilateral,
         },
     )
 
-    banner("STAGE 9a — prepare data (factor 1 + coarse factor 4)")
+    banner("STAGE 9a — prepare data (reuse train/data if present)")
     t = time.time()
-    data_dir = backend.prepare_data(
-        export_dir=EXPORT_DIR, mask_dir=None, output_dir=TRAIN_DIR, config=config,
-    )
+    existing = Path(TRAIN_DIR) / "data"
+    if (existing / "sparse").exists() and (existing / "images_4").exists():
+        data_dir = str(existing)   # reuse the already-prepared 4K data
+        print(f"reusing existing data_dir = {data_dir}")
+    else:
+        data_dir = backend.prepare_data(
+            export_dir=EXPORT_DIR, mask_dir=None, output_dir=out_dir, config=config,
+        )
     print(f"data_dir = {data_dir}  [{time.time() - t:.0f}s]", flush=True)
 
     banner("STAGE 9b — train (MCMC 3M, AA, pose_opt, C2F 4->1, gated LPIPS 0.2, 30k)")
@@ -70,7 +83,7 @@ def main():
                   flush=True)
 
     result = backend.train(
-        data_dir=data_dir, output_dir=TRAIN_DIR, config=config, progress_cb=prog,
+        data_dir=data_dir, output_dir=out_dir, config=config, progress_cb=prog,
     )
     print(f"[train] {time.time() - t:.0f}s", flush=True)
 

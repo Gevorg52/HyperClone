@@ -824,6 +824,26 @@ def train(args):
           f"ssim_lambda={ssim_lambda}, sh_degree={args.sh_degree}")
     sys.stdout.flush()
 
+    # Optional per-view bilateral grid (BilaRF) — a learned 3D affine color grid
+    # applied to the RENDER during training only (dropped at inference). Absorbs
+    # per-image exposure/WB drift so the canonical Gaussians converge to a
+    # consistent radiance instead of spawning exposure-compensating floaters.
+    bil_grids = bil_opt = _bil_slice = _bil_tv = None
+    train_pos = {}
+    if args.bilateral_grid:
+        try:  # runs as a module (import) or as a subprocess script (bare name)
+            from core.training.lib_bilagrid import (
+                BilateralGrid, slice as _bil_slice, total_variation_loss as _bil_tv,
+            )
+        except ModuleNotFoundError:
+            from lib_bilagrid import (
+                BilateralGrid, slice as _bil_slice, total_variation_loss as _bil_tv,
+            )
+        bil_grids = BilateralGrid(num_train, grid_X=16, grid_Y=16, grid_W=8).to(device)
+        bil_opt = torch.optim.Adam(bil_grids.parameters(), lr=2e-3, eps=1e-15)
+        train_pos = {int(g): i for i, g in enumerate(train_indices)}
+        print(f"[Train] Bilateral grid ON ({num_train} views, 16x16x8)")
+
     running_loss = 0.0
     running_psnr = 0.0
     running_crop_l1 = None  # EMA of LPIPS-crop L1, for gated perceptual loss
@@ -865,6 +885,19 @@ def train(args):
             render_mode="RGB+ED" if geo_on else "RGB",
         )
         rendered = renders[0][..., :3].clamp(0.0, 1.0)  # (H, W, 3)
+
+        # Bilateral-grid color correction (training-only) — match this view's
+        # exposure/WB so photometric loss doesn't drive exposure floaters.
+        if bil_grids is not None:
+            gy, gx = torch.meshgrid(
+                (torch.arange(H, device=device) + 0.5) / H,
+                (torch.arange(W, device=device) + 0.5) / W,
+                indexing="ij",
+            )
+            grid_xy = torch.stack([gx, gy], dim=-1).unsqueeze(0)        # (1,H,W,2)
+            iid = torch.tensor([train_pos.get(int(idx), 0)], device=device)
+            rendered = _bil_slice(bil_grids, grid_xy,
+                                  rendered.unsqueeze(0), iid)["rgb"][0]
 
         # L1 + SSIM loss
         l1_loss = F.l1_loss(rendered, gt_image)
@@ -914,6 +947,10 @@ def train(args):
             else:
                 loss = loss + args.lpips_lambda * lp + args.gram_lambda * gram
 
+        # Bilateral-grid total-variation smoothness (keeps the grid well-behaved)
+        if bil_grids is not None:
+            loss = loss + 10.0 * _bil_tv(bil_grids.grids)
+
         # PSNR for logging
         with torch.no_grad():
             mse = F.mse_loss(rendered, gt_image)
@@ -940,6 +977,9 @@ def train(args):
         if pose_optimizer is not None:
             pose_optimizer.step()
             pose_optimizer.zero_grad(set_to_none=True)
+        if bil_opt is not None:
+            bil_opt.step()
+            bil_opt.zero_grad(set_to_none=True)
         means_scheduler.step()
 
         if use_mcmc:
@@ -1138,6 +1178,10 @@ def main():
     parser.add_argument("--gram_lambda", type=float, default=0.0,
                         help="Weight of VGG Gram/style loss (Difix3D+ texture "
                              "baking; 0 = off; shares LPIPS crop+gate+start)")
+    parser.add_argument("--bilateral_grid", action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help="Per-view BilaRF color grid (training-only) to absorb "
+                             "exposure/WB drift; dropped at inference")
     args = parser.parse_args()
 
     train(args)
