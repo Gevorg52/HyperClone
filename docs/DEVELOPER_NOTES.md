@@ -218,6 +218,41 @@ verification drop unregisterable frames).
     `gated=False` (or untick the Stage-10 checkbox) for the raw ungated output.
 - Enhancement backends now: `difix` (native, isolated-env subprocess — **default**,
   gated, preferred WSL-free diffusion path) and `fixer` (Cosmos, Docker — avoid).
+
+### Distill-back: transferring Difix detail INTO the PLY (v1 vs v2 — WORKING)
+
+The gated-Difix *renders* look clean, but baking that into the 3D Gaussians is the
+hard part. Full validated run on the Laptop 4K clip (base train: factor 1, MCMC
+3M, gated LPIPS, 60 min):
+
+- **v1 (conservative, `run_distill_laptop.py`):** `refine_stop_iter=1` (no
+  densification) + L1+SSIM only. Geometry frozen + no perceptual loss → **the PLY
+  barely changed** (held-out LPIPS only −3.6%) even though renders looked great.
+  Lesson: nothing could *carry* the 2D detail into 3D.
+- **v2 (aggressive, `--aggressive`) — WORKING, the recommended recipe:** *free
+  appearance, constrain geometry.* MCMC relocation @ **`cap_max=3M`** (GOTCHA: the
+  1M default would prune a 3M model down by ⅔ — must match current count) + **gated
+  LPIPS 0.2 in the distill loss** + `geo_reg`, 3 rounds × 120 views × 8000 steps.
+  Floater-safe because MCMC *at the cap* relocates spare Gaussians onto
+  under-densified **real** surfaces (the "mush" is sparse-but-real, not empty
+  holes) and never spawns in empty space (unlike DefaultStrategy clone/split).
+  - **Results (base → v1 → v2, held-out @ factor 2):** LPIPS 0.355 → 0.342 →
+    **0.324 (−8.7%, ~2.4× v1)**; SOR-outlier floaters 0.04% → 0.02% → **0.04%
+    (= base, no new floaters)**; giant-blobs 8.3% → 37% → 9.9% (v1's no-densify
+    L1-nudging *bloated* Gaussians; v2 far healthier); dead low-opacity 58% → 84%
+    → 43% (MCMC kept Gaussians working). Visual (`compare/`): v2 deck/keys/sticker
+    crisper, background floater-free.
+  - **Honest caveat:** distilled models get extra same-resolution training, so
+    +PSNR is inflated — judge by **LPIPS + visual + floater metrics**, not PSNR.
+- **Tools:** `floater_report.py` (opacity/SOR/blob health per ckpt),
+  `render_compare.py` (GT|base|v1|v2 side-by-side), `eval_compare.py` (fair
+  same-res PSNR/SSIM/LPIPS).
+- **Next levers (v3, researched, NOT yet built):** Difix3D+'s Gram/style loss
+  (L2+LPIPS+**0.5·Gram**, 2503.01774) for harder texture baking; per-pixel
+  confidence weighting by rendered Gaussian scale `Pc=∛(s0·s1·s2)` (3DGS-Enhancer
+  2410.16266) — the proven anti-floater weighting that would let us raise the cap
+  to fill *true* holes safely; ArtifactWorld LPIPS artifact-heatmap gating
+  (2604.12251). MCMC is floater-resistant by construction (2404.09591).
 - Re-pull `nvidia/Fixer` V2 weights; run the distill-back loop (needs Docker up).
 - Optional installs (research-only, not yet wired): RoMa v2 dense rescue
   (`core/roma_rescue.py`), Faster-GS backend (`docs/research-findings.md` has setup).
