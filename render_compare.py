@@ -45,11 +45,14 @@ def label(img, txt):
 
 
 def main():
-    base, v1, v2 = sys.argv[1], sys.argv[2], sys.argv[3]
+    # accept "label=ckpt" pairs (e.g. base=... v2=... v3=...)
     OUT.mkdir(parents=True, exist_ok=True)
     data = load_colmap_data(DATA, factor=FACTOR, test_every=8, normalize=True)
     test = list(data["test_indices"])
-    models = {"base": load_splats(base), "v1": load_splats(v1), "v2": load_splats(v2)}
+    models = {}
+    for arg in sys.argv[1:]:
+        lbl, path = arg.split("=", 1)
+        models[lbl] = load_splats(path)
 
     for vp in VIEW_POS:
         idx = test[vp % len(test)]

@@ -247,12 +247,35 @@ hard part. Full validated run on the Laptop 4K clip (base train: factor 1, MCMC
 - **Tools:** `floater_report.py` (opacity/SOR/blob health per ckpt),
   `render_compare.py` (GT|base|v1|v2 side-by-side), `eval_compare.py` (fair
   same-res PSNR/SSIM/LPIPS).
-- **Next levers (v3, researched, NOT yet built):** Difix3D+'s Gram/style loss
-  (L2+LPIPS+**0.5·Gram**, 2503.01774) for harder texture baking; per-pixel
-  confidence weighting by rendered Gaussian scale `Pc=∛(s0·s1·s2)` (3DGS-Enhancer
-  2410.16266) — the proven anti-floater weighting that would let us raise the cap
-  to fill *true* holes safely; ArtifactWorld LPIPS artifact-heatmap gating
-  (2604.12251). MCMC is floater-resistant by construction (2404.09591).
+### v3 (Gram + cap→4M growth) — TESTED, did NOT beat v2 on this scene
+
+Built the next levers and ran them (`run_distill_laptop.py --v3`): v2 recipe +
+**Gram/style loss** (`--gram_lambda 0.5`, VGG16 Gram on the shared LPIPS crop,
+Difix3D+ 2503.01774) + **`cap_max` 3M→4M** (MCMC *grows* +1M Gaussians to fill
+holes) + `scale_reg` 0.02. Pc-confidence-downweight (3DGS-Enhancer 2410.16266)
+was deliberately NOT used — it down-weights under-reconstructed regions, which
+*fights* hole-filling; floater control came from MCMC + rails + prune instead.
+
+- **Result (held-out @ factor2): v3 REGRESSED vs v2.** LPIPS base 0.355 → v2
+  **0.324** → v3 0.337 (−5.1%, *worse* than v2's −8.7%). PSNR/SSIM also down
+  slightly (22.82 / 0.836 vs 23.08 / 0.838). Visual: v3 ≈ v2 but marginally
+  softer.
+- **Floaters stayed controlled** (goal held): v3 grew to exactly 4.0M with
+  SOR-outlier 0.02% + giant 8.0% — the *cleanest* of all four, below base. So the
+  +1M growth created NO floaters; it just **diluted/softened** the well-covered
+  regions. Confirms the cap-divergence finding: **3M is the sweet spot; more
+  Gaussians hurt** even when floater-free.
+- **Why:** the laptop is a well-captured orbit with ~no real holes/extreme views,
+  so the cap-raise had nothing to fill and the extra Gaussians under-trained →
+  softer. **v3's levers are for UNDER-captured / holey / extreme-novel-view
+  scenes**, not well-covered ones. Held-out LPIPS also can't *see* hole-filling
+  (test views are well-covered), so on a sparse-capture scene v3 may still win —
+  re-test there before dismissing.
+- **Verdict: v2 (`--aggressive`) is the working best for well-captured clips.**
+  Gram (`--gram_lambda`) + cap-raise remain available, OFF by default. Tag
+  `working-distill-v2`. Untested further levers: ArtifactWorld LPIPS
+  artifact-heatmap gating (2604.12251); inverted-Pc enhance-where-coarse.
+  MCMC is floater-resistant by construction (2404.09591).
 - Re-pull `nvidia/Fixer` V2 weights; run the distill-back loop (needs Docker up).
 - Optional installs (research-only, not yet wired): RoMa v2 dense rescue
   (`core/roma_rescue.py`), Faster-GS backend (`docs/research-findings.md` has setup).

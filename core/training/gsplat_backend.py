@@ -236,6 +236,7 @@ class GsplatBackend(TrainingBackend):
             "lpips_patch": 512,
             "lpips_start": 3000,
             "lpips_gated": True,           # gate toward under-resolved regions
+            "gram_lambda": 0.0,            # VGG Gram/style loss (Difix3D+ texture)
         }
 
     # -----------------------------------------------------------------------
@@ -381,6 +382,16 @@ class GsplatBackend(TrainingBackend):
             ])
             args.append("--lpips_gated" if extra.get("lpips_gated", True)
                         else "--no-lpips_gated")
+
+        # Gram/style loss (texture baking; shares LPIPS crop/gate/start)
+        if extra.get("gram_lambda", 0):
+            args.extend(["--gram_lambda", str(extra["gram_lambda"])])
+            # gram needs the perceptual crop path active even if LPIPS is off
+            if not extra.get("lpips_lambda", 0):
+                args.extend(["--lpips_patch", str(extra.get("lpips_patch", 512)),
+                             "--lpips_start", str(extra.get("lpips_start", 3000))])
+                args.append("--lpips_gated" if extra.get("lpips_gated", True)
+                            else "--no-lpips_gated")
 
         # Distill / refine rounds
         if extra.get("init_ckpt"):

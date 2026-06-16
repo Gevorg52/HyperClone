@@ -32,7 +32,12 @@ def main():
     ap.add_argument("--aggressive", action="store_true",
                     help="v2: push detail into the PLY — gated LPIPS + MCMC "
                          "relocation @ cap + geo_reg. Writes to distill_v2/.")
+    ap.add_argument("--v3", action="store_true",
+                    help="v3: v2 + Gram/style loss + cap_max 3M->4M (grow into "
+                         "holes) + stronger scale_reg. Writes to distill_v3/.")
     args = ap.parse_args()
+    if args.v3:
+        args.aggressive = True   # v3 builds on the v2 recipe
 
     # v2 "push the limits" defaults (only applied if user left the conservative
     # defaults in place, so explicit flags still win).
@@ -58,6 +63,11 @@ def main():
             "opacity_reg": 0.01,
             "scale_reg": 0.01,
         }
+    if args.v3:
+        out_dir = TRAIN_DIR / "distill_v3"
+        train_extra["gram_lambda"] = 0.5           # Difix3D+ texture-baking term
+        train_extra["cap_max"] = 4_000_000         # grow new Gaussians into holes
+        train_extra["scale_reg"] = 0.02            # stronger anti-giant-blob for growth
 
     ckpts = sorted(CKPT_DIR.glob("ckpt_*_rank0.pt"))
     if not ckpts:

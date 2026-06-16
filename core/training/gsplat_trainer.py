@@ -639,7 +639,61 @@ def lpips_patch_loss(rendered, gt_image, patch: int, device):
     r = rendered[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
     g = gt_image[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
     crop_l1 = (r - g).abs().mean().detach()
-    return get_lpips(device)(r, g), crop_l1
+    return get_lpips(device)(r, g), crop_l1, r, g
+
+
+# ---------------------------------------------------------------------------
+# Gram / style loss (Difix3D+ texture-baking term) — VGG feature correlations
+# ---------------------------------------------------------------------------
+
+_vgg_model = None
+_vgg_norm = None
+
+
+def get_vgg(device):
+    """Frozen VGG16 feature extractor (up to relu3_3) for the Gram/style loss.
+
+    Difix3D+ (arXiv 2503.01774) bakes high-frequency *texture* into the splats
+    with a Gram-matrix term (L = L2 + LPIPS + 0.5·Gram) that LPIPS alone misses.
+    """
+    global _vgg_model
+    if _vgg_model is None:
+        from torchvision.models import vgg16, VGG16_Weights
+        m = vgg16(weights=VGG16_Weights.IMAGENET1K_V1).features[:16]
+        m = m.to(device).eval()
+        for p in m.parameters():
+            p.requires_grad_(False)
+        _vgg_model = m
+    return _vgg_model
+
+
+def _gram(f):
+    b, c, h, w = f.shape
+    f = f.reshape(b, c, h * w)
+    return torch.bmm(f, f.transpose(1, 2)) / (c * h * w)
+
+
+def gram_loss(r, g, device):
+    """Multi-layer Gram MSE on matched BCHW [0,1] crops (r=rendered, g=target)."""
+    global _vgg_norm
+    if _vgg_norm is None:
+        _vgg_norm = (
+            torch.tensor([0.485, 0.456, 0.406], device=device).view(1, 3, 1, 1),
+            torch.tensor([0.229, 0.224, 0.225], device=device).view(1, 3, 1, 1),
+        )
+    mean, std = _vgg_norm
+    x = (r - mean) / std
+    y = ((g - mean) / std).detach()   # target: no gradient
+    vgg = get_vgg(device)
+    taps = {3, 8, 15}  # relu1_2, relu2_2, relu3_3
+    loss = 0.0
+    for i, layer in enumerate(vgg):
+        x, y = layer(x), layer(y)
+        if i in taps:
+            loss = loss + F.mse_loss(_gram(x), _gram(y))
+        if i >= 15:
+            break
+    return loss
 
 
 # ---------------------------------------------------------------------------
@@ -841,8 +895,11 @@ def train(args):
         # by L1+SSIM. Optionally GATED by relative crop error so it acts on
         # under-resolved regions and spares already-well-resolved ones (avoids
         # over-texturing at full 4K).
-        if args.lpips_lambda > 0 and step >= args.lpips_start:
-            lp, crop_l1 = lpips_patch_loss(rendered, gt_image, args.lpips_patch, device)
+        if (args.lpips_lambda > 0 or args.gram_lambda > 0) and step >= args.lpips_start:
+            lp, crop_l1, r_crop, g_crop = lpips_patch_loss(
+                rendered, gt_image, args.lpips_patch, device)
+            # Gram/style term shares the same crop (Difix3D+ texture-baking lever)
+            gram = gram_loss(r_crop, g_crop, device) if args.gram_lambda > 0 else 0.0
             if args.lpips_gated:
                 if running_crop_l1 is None:
                     running_crop_l1 = crop_l1
@@ -853,9 +910,9 @@ def train(args):
                 gate = torch.sigmoid(
                     (crop_l1 - running_crop_l1) / (0.25 * running_crop_l1 + 1e-6)
                 )
-                loss = loss + args.lpips_lambda * gate * lp
+                loss = loss + gate * (args.lpips_lambda * lp + args.gram_lambda * gram)
             else:
-                loss = loss + args.lpips_lambda * lp
+                loss = loss + args.lpips_lambda * lp + args.gram_lambda * gram
 
         # PSNR for logging
         with torch.no_grad():
@@ -1078,6 +1135,9 @@ def main():
                         default=True,
                         help="Gate LPIPS toward under-resolved (high-error) crops "
                              "so it doesn't over-texture well-resolved regions")
+    parser.add_argument("--gram_lambda", type=float, default=0.0,
+                        help="Weight of VGG Gram/style loss (Difix3D+ texture "
+                             "baking; 0 = off; shares LPIPS crop+gate+start)")
     args = parser.parse_args()
 
     train(args)
