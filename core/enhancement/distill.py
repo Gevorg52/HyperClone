@@ -219,6 +219,7 @@ def run_distill_loop(
     steps_per_round: int = 4000,
     data_factor: int = 0,
     enhancer_extra: Optional[dict] = None,
+    train_extra: Optional[dict] = None,
     progress_cb: Optional[ProgressCallback] = None,
 ) -> TrainingResult:
     """Run the progressive distill-back loop.
@@ -290,19 +291,27 @@ def run_distill_loop(
         _progress(base + 0.5 / rounds, f"Round {r}/{rounds}: resuming training "
                   f"({steps_per_round} steps)...")
         ckpts = sorted(Path(current_ckpt_dir).glob("ckpt_*_rank0.pt"))
+        # Conservative defaults: geometry frozen (no densification), L1+SSIM only.
+        # train_extra overrides these for an aggressive "add detail / fill holes"
+        # pass (e.g. refine_stop_iter>1 to densify, lpips_lambda to transfer
+        # high-freq detail). GOTCHA: if densification is enabled, cap_max MUST be
+        # set to the model's current Gaussian count (the 1M default would prune a
+        # 3M model down to 1M). init_ckpt/extra_views are never overridable.
+        extra = {
+            "pose_opt": False,        # pseudo-poses are exact
+            "coarse_factor": 0,       # refine at fine resolution only
+            "strategy": "mcmc",
+            "refine_stop_iter": 1,    # no densification (conservative default)
+        }
+        extra.update(train_extra or {})
+        extra["init_ckpt"] = str(ckpts[-1])
+        extra["extra_views"] = str(extra_views_json)
         train_config = TrainingConfig(
             backend=training_backend.name,
             max_steps=steps_per_round,
             data_factor=data_factor,
             save_steps=[steps_per_round],
-            extra={
-                "init_ckpt": str(ckpts[-1]),
-                "extra_views": str(extra_views_json),
-                "pose_opt": False,        # pseudo-poses are exact
-                "coarse_factor": 0,       # refine at fine resolution only
-                "strategy": "mcmc",
-                "refine_stop_iter": 1,    # no densification in refine rounds
-            },
+            extra=extra,
         )
         result = training_backend.train(
             data_dir=data_dir,

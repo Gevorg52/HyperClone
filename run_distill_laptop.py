@@ -20,6 +20,7 @@ TRAIN_DIR = Path(r"F:\HYPERclone\apex-sfm\_dataset\Laptop\train")
 DATA_DIR = TRAIN_DIR / "data"
 CKPT_DIR = TRAIN_DIR / "output" / "ckpts"
 DISTILL_DIR = TRAIN_DIR / "distill"
+CAP_MAX = 3_000_000   # MUST match the base model's Gaussian count when densifying
 
 
 def main():
@@ -28,7 +29,35 @@ def main():
     ap.add_argument("--rounds", type=int, default=2)
     ap.add_argument("--views", type=int, default=80)
     ap.add_argument("--steps", type=int, default=4000)
+    ap.add_argument("--aggressive", action="store_true",
+                    help="v2: push detail into the PLY — gated LPIPS + MCMC "
+                         "relocation @ cap + geo_reg. Writes to distill_v2/.")
     args = ap.parse_args()
+
+    # v2 "push the limits" defaults (only applied if user left the conservative
+    # defaults in place, so explicit flags still win).
+    out_dir = DISTILL_DIR
+    train_extra = None
+    if args.aggressive:
+        out_dir = TRAIN_DIR / "distill_v2"
+        if args.rounds == 2:
+            args.rounds = 3
+        if args.views == 80:
+            args.views = 120
+        if args.steps == 4000:
+            args.steps = 8000
+        train_extra = {
+            "cap_max": CAP_MAX,                     # never prune the 3M model down
+            "refine_stop_iter": int(0.8 * args.steps),  # MCMC relocates ~80% of round
+            "lpips_lambda": 0.2,                    # transfer high-freq detail
+            "lpips_patch": 512,
+            "lpips_start": 200,                     # resumed model -> start early
+            "lpips_gated": True,                    # protect the well-resolved subject
+            "geo_reg": True,                        # keep relocated splats on surfaces
+            "geo_reg_start": 200,
+            "opacity_reg": 0.01,
+            "scale_reg": 0.01,
+        }
 
     ckpts = sorted(CKPT_DIR.glob("ckpt_*_rank0.pt"))
     if not ckpts:
@@ -44,8 +73,12 @@ def main():
             _downsample_images(str(DATA_DIR / "images"), str(ds), args.factor)
     print(f"base checkpoint dir = {CKPT_DIR}")
     print(f"latest ckpt         = {ckpts[-1].name}")
+    print(f"mode={'AGGRESSIVE v2' if args.aggressive else 'conservative v1'}  "
+          f"out={out_dir.name}")
     print(f"distill: factor={args.factor} rounds={args.rounds} "
-          f"views/round={args.views} steps/round={args.steps}", flush=True)
+          f"views/round={args.views} steps/round={args.steps}")
+    if train_extra:
+        print(f"train_extra = {train_extra}", flush=True)
 
     tb = get_training_backend("gsplat")
     enh = get_enhancer("difix")           # gated on by default
@@ -64,12 +97,13 @@ def main():
         enhancer=enh,
         data_dir=str(DATA_DIR),
         checkpoint_dir=str(CKPT_DIR),
-        output_dir=str(DISTILL_DIR),
+        output_dir=str(out_dir),
         rounds=args.rounds,
         views_per_round=args.views,
         steps_per_round=args.steps,
         data_factor=args.factor,
         enhancer_extra={"gated": True},
+        train_extra=train_extra,
         progress_cb=prog,
     )
 
