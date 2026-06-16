@@ -1,16 +1,15 @@
-"""Fair base-vs-distilled comparison at the SAME resolution (factor 2).
+"""Compare N trained checkpoints at the SAME resolution on the held-out split.
 
-The base run's test PSNR (21.45) was measured at factor 1 and the distill loop
-evals at factor 2 — not comparable. This re-evals BOTH checkpoints with identical
-code at factor 2 on the held-out test split, and adds LPIPS (the perceptual
-metric that actually tracks the gated-Difix improvement; the trainer eval only
-does PSNR/SSIM).
+Reports PSNR / SSIM / LPIPS / DISTS (DISTS is texture-stat-tolerant — a fairer
+judge for a texture-statistic loss like WD-R; LPIPS alone is mildly adversarial to
+WD-R). DISTS is optional (needs pyiqa); degrades to N/A if unavailable.
 
-Usage:  python eval_compare.py <base_ckpt.pt> <distilled_ckpt.pt>
+Usage:  python eval_compare.py <label=ckpt> [<label=ckpt> ...]
+   e.g. python eval_compare.py base=...\ckpt_29999_rank0.pt wd=...\ckpt_29999_rank0.pt
+   (back-compat: two bare paths are treated as base=.. cand=..)
 """
 import math
 import sys
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -25,6 +24,13 @@ SH = 3
 FACTOR = 2
 device = "cuda"
 
+_dists = None
+try:
+    import pyiqa
+    _dists = pyiqa.create_metric("dists", device=device)
+except Exception:
+    _dists = None
+
 
 def load_splats(path):
     ck = torch.load(path, map_location=device, weights_only=True)
@@ -33,7 +39,7 @@ def load_splats(path):
 
 def evaluate(splats, data):
     lp = get_lpips(device)
-    ps, ss, ls = [], [], []
+    ps, ss, ls, ds = [], [], [], []
     with torch.no_grad():
         for idx in data["test_indices"]:
             b = load_image(data, idx)
@@ -42,37 +48,52 @@ def evaluate(splats, data):
             c2w = b["c2w"].to(device)
             H, W = gt.shape[:2]
             w2c = torch.linalg.inv(c2w)
-            bk = torch.zeros(3, device=device)
-            r, _, _ = render_splats(splats, w2c, K, W, H, SH, bk, "antialiased")
+            r, _, _ = render_splats(splats, w2c, K, W, H, SH,
+                                    torch.zeros(3, device=device), "antialiased")
             r = r[0].clamp(0, 1)
-            mse = F.mse_loss(r, gt)
-            ps.append(10.0 * math.log10(1.0 / (mse.item() + 1e-10)))
+            ps.append(10.0 * math.log10(1.0 / (F.mse_loss(r, gt).item() + 1e-10)))
             rb = r.permute(2, 0, 1).unsqueeze(0)
             gb = gt.permute(2, 0, 1).unsqueeze(0)
             ss.append(ssim(rb, gb).item())
             ls.append(float(lp(rb, gb)))
-    return float(np.mean(ps)), float(np.mean(ss)), float(np.mean(ls))
+            if _dists is not None:
+                ds.append(float(_dists(rb, gb)))
+    dmean = float(np.mean(ds)) if ds else float("nan")
+    return float(np.mean(ps)), float(np.mean(ss)), float(np.mean(ls)), dmean
 
 
 def main():
-    if len(sys.argv) < 3:
-        raise SystemExit("usage: python eval_compare.py <base_ckpt> <distilled_ckpt>")
-    base, dist = sys.argv[1], sys.argv[2]
+    global DATA
+    args = sys.argv[1:]
+    # optional data=<dir> override (else default Laptop)
+    args = [a for a in args if not (a.startswith("data=") and (DATA := a.split("=", 1)[1]))]
+    if not args:
+        raise SystemExit("usage: python eval_compare.py [data=<dir>] <label=ckpt> ...")
+    if "=" not in args[0]:                       # back-compat: bare paths
+        args = [f"base={args[0]}"] + [f"cand{i}={p}" for i, p in enumerate(args[1:])]
+    items = [a.split("=", 1) for a in args]
+
     data = load_colmap_data(DATA, factor=FACTOR, test_every=8, normalize=True)
-    print(f"\nEval @ factor {FACTOR} (1080p) on {len(data['test_indices'])} "
-          f"held-out views   (LPIPS lower=better)\n")
-    print(f"{'model':12s} {'Gaussians':>10s}  {'PSNR':>7s}  {'SSIM':>7s}  {'LPIPS':>7s}")
+    print(f"\nEval @ factor {FACTOR} on {len(data['test_indices'])} held-out views   "
+          f"(LPIPS/DISTS lower=better; DISTS={'on' if _dists else 'N/A — pip pyiqa'})\n")
+    print(f"{'model':12s} {'Gaussians':>10s}  {'PSNR':>7s}  {'SSIM':>7s}  "
+          f"{'LPIPS':>7s}  {'DISTS':>7s}")
     rows = {}
-    for name, ck in [("BASE", base), ("DISTILLED", dist)]:
+    for label, ck in items:
         s = load_splats(ck)
-        p, q, l = evaluate(s, data)
-        rows[name] = (p, q, l)
-        print(f"{name:12s} {s['means'].shape[0]:>10,}  {p:7.3f}  {q:7.4f}  {l:7.4f}")
-    if "BASE" in rows and "DISTILLED" in rows:
-        bp, bq, bl = rows["BASE"]
-        dp, dq, dl = rows["DISTILLED"]
-        print(f"\n{'delta':12s} {'':>10s}  {dp - bp:+7.3f}  {dq - bq:+7.4f}  "
-              f"{dl - bl:+7.4f}   (LPIPS {-(dl - bl) / bl * 100:+.1f}%)")
+        p, q, l, d = evaluate(s, data)
+        rows[label] = (p, q, l, d)
+        print(f"{label:12s} {s['means'].shape[0]:>10,}  {p:7.3f}  {q:7.4f}  "
+              f"{l:7.4f}  {d:7.4f}")
+    # deltas vs the first (baseline) model
+    base_label = items[0][0]
+    bp, bq, bl, bd = rows[base_label]
+    print(f"\ndeltas vs {base_label} (LPIPS/DISTS: negative = better):")
+    for label, ck in items[1:]:
+        p, q, l, d = rows[label]
+        print(f"  {label:12s} PSNR {p-bp:+.3f}  SSIM {q-bq:+.4f}  "
+              f"LPIPS {l-bl:+.4f} ({-(l-bl)/bl*100:+.1f}%)  "
+              f"DISTS {d-bd:+.4f} ({-(d-bd)/bd*100:+.1f}%)")
 
 
 if __name__ == "__main__":

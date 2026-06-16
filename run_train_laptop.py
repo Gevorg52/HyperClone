@@ -30,11 +30,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bilateral", action="store_true",
                     help="enable per-view bilateral grid (writes to train_bil/)")
+    ap.add_argument("--wd", action="store_true",
+                    help="use WD-R perceptual loss instead of gated LPIPS (train_wd/)")
+    ap.add_argument("--wd_lambda", type=float, default=0.05,
+                    help="WD-R weight (calibrate vs L1+SSIM gradient ~1.6x)")
     args = ap.parse_args()
 
     t0 = time.time()
     backend = GsplatBackend()
-    out_dir = TRAIN_DIR + ("_bil" if args.bilateral else "")
+    suffix = "_bil" if args.bilateral else ("_wd" if args.wd else "")
+    out_dir = TRAIN_DIR + suffix
 
     config = TrainingConfig(
         backend="gsplat",
@@ -52,10 +57,11 @@ def main():
             "pose_opt_lr": 1e-5,
             "coarse_factor": 4,        # densify at 960x540
             "coarse_until": 15_000,    # switch to full 4K for the fine phase
-            "lpips_lambda": 0.2,       # gated perceptual loss (production default)
+            "lpips_lambda": 0.0 if args.wd else 0.2,  # WD run turns LPIPS off
             "lpips_patch": 512,
-            "lpips_start": 3_000,
+            "lpips_start": 3_000,      # also the WD warm-up step
             "lpips_gated": True,
+            "wd_lambda": args.wd_lambda if args.wd else 0.0,
             "bilateral_grid": args.bilateral,
         },
     )

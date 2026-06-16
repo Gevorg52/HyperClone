@@ -844,6 +844,17 @@ def train(args):
         train_pos = {int(g): i for i, g in enumerate(train_indices)}
         print(f"[Train] Bilateral grid ON ({num_train} views, 16x16x8)")
 
+    # Optional Wasserstein-Distortion (WD-R) perceptual loss (texture-statistic;
+    # alternative to LPIPS). Warm-up shares --lpips_start; ungated, own random crop.
+    _wd_fn = None
+    if args.wd_lambda > 0:
+        try:
+            from core.training.wd_loss import wasserstein_distortion as _wd_fn
+        except ModuleNotFoundError:
+            from wd_loss import wasserstein_distortion as _wd_fn
+        print(f"[Train] WD-R perceptual loss ON (wd_lambda={args.wd_lambda}, "
+              f"start={args.lpips_start})")
+
     running_loss = 0.0
     running_psnr = 0.0
     running_crop_l1 = None  # EMA of LPIPS-crop L1, for gated perceptual loss
@@ -946,6 +957,17 @@ def train(args):
                 loss = loss + gate * (args.lpips_lambda * lp + args.gram_lambda * gram)
             else:
                 loss = loss + args.lpips_lambda * lp + args.gram_lambda * gram
+
+        # Wasserstein Distortion (WD-R) — texture-statistic VGG loss (own crop,
+        # ungated). Compares LOCAL mean+std of features (vs LPIPS pointwise).
+        if _wd_fn is not None and step >= args.lpips_start:
+            Hc, Wc = gt_image.shape[:2]
+            ph, pw = min(args.lpips_patch, Hc), min(args.lpips_patch, Wc)
+            top = int(np.random.randint(0, Hc - ph + 1))
+            left = int(np.random.randint(0, Wc - pw + 1))
+            rc = rendered[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
+            gc = gt_image[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
+            loss = loss + args.wd_lambda * _wd_fn(rc, gc, device)
 
         # Bilateral-grid total-variation smoothness (keeps the grid well-behaved)
         if bil_grids is not None:
@@ -1178,6 +1200,9 @@ def main():
     parser.add_argument("--gram_lambda", type=float, default=0.0,
                         help="Weight of VGG Gram/style loss (Difix3D+ texture "
                              "baking; 0 = off; shares LPIPS crop+gate+start)")
+    parser.add_argument("--wd_lambda", type=float, default=0.0,
+                        help="Weight of Wasserstein-Distortion (WD-R) perceptual "
+                             "loss (texture-statistic; 0 = off; warm-up = lpips_start)")
     parser.add_argument("--bilateral_grid", action=argparse.BooleanOptionalAction,
                         default=False,
                         help="Per-view BilaRF color grid (training-only) to absorb "

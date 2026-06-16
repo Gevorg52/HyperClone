@@ -45,7 +45,17 @@ def label(img, txt):
 
 
 def main():
-    # accept "label=ckpt" pairs (e.g. base=... v2=... v3=...)
+    # accept "label=ckpt" pairs (e.g. base=... v2=... v3=...); optional data=<dir>, out=<dir>
+    global DATA, OUT
+    args = []
+    for a in sys.argv[1:]:
+        if a.startswith("data="):
+            DATA = a.split("=", 1)[1]
+        elif a.startswith("out="):
+            OUT = Path(a.split("=", 1)[1])
+        else:
+            args.append(a)
+    sys.argv = [sys.argv[0]] + args
     OUT.mkdir(parents=True, exist_ok=True)
     data = load_colmap_data(DATA, factor=FACTOR, test_every=8, normalize=True)
     test = list(data["test_indices"])
