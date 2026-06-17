@@ -238,6 +238,7 @@ class GsplatBackend(TrainingBackend):
             "lpips_gated": True,           # gate toward under-resolved regions
             "gram_lambda": 0.0,            # VGG Gram/style loss (Difix3D+ texture)
             "wd_lambda": 0.0,              # Wasserstein-Distortion (WD-R) perceptual
+            "wd_gated": True,             # gate WD by GT texture (no grain on flats)
             "bilateral_grid": False,       # per-view BilaRF color grid (exposure/WB)
         }
 
@@ -388,6 +389,8 @@ class GsplatBackend(TrainingBackend):
         # Wasserstein-Distortion (WD-R) perceptual loss (shares lpips_patch/start)
         if extra.get("wd_lambda", 0):
             args.extend(["--wd_lambda", str(extra["wd_lambda"])])
+            args.append("--wd_gated" if extra.get("wd_gated", True)
+                        else "--no-wd_gated")
             if not extra.get("lpips_lambda", 0):
                 args.extend(["--lpips_patch", str(extra.get("lpips_patch", 512)),
                              "--lpips_start", str(extra.get("lpips_start", 3000))])

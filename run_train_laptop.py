@@ -31,14 +31,21 @@ def main():
     ap.add_argument("--bilateral", action="store_true",
                     help="enable per-view bilateral grid (writes to train_bil/)")
     ap.add_argument("--wd", action="store_true",
-                    help="use WD-R perceptual loss instead of gated LPIPS (train_wd/)")
-    ap.add_argument("--wd_lambda", type=float, default=0.05,
-                    help="WD-R weight (calibrate vs L1+SSIM gradient ~1.6x)")
+                    help="use WD-R perceptual loss instead of gated LPIPS")
+    ap.add_argument("--wd_lambda", type=float, default=0.025,
+                    help="WD-R weight (calibrated ~0.025 for this stack)")
+    ap.add_argument("--wd_gated", action=argparse.BooleanOptionalAction, default=True,
+                    help="gate WD by GT texture (train_wdg/); --no-wd_gated -> train_wd/")
     args = ap.parse_args()
 
     t0 = time.time()
     backend = GsplatBackend()
-    suffix = "_bil" if args.bilateral else ("_wd" if args.wd else "")
+    if args.bilateral:
+        suffix = "_bil"
+    elif args.wd:
+        suffix = "_wdg" if args.wd_gated else "_wd"
+    else:
+        suffix = ""
     out_dir = TRAIN_DIR + suffix
 
     config = TrainingConfig(
@@ -62,6 +69,7 @@ def main():
             "lpips_start": 3_000,      # also the WD warm-up step
             "lpips_gated": True,
             "wd_lambda": args.wd_lambda if args.wd else 0.0,
+            "wd_gated": args.wd_gated,
             "bilateral_grid": args.bilateral,
         },
     )

@@ -260,8 +260,21 @@ def load_colmap_data(
 
     # Train/test split
     indices = np.arange(len(image_names))
-    test_indices = indices[indices % test_every == 0]
-    train_indices = indices[indices % test_every != 0]
+    # Held-out-wedge mode (proof experiments): APEX_HOLDOUT="start,frac" holds out a
+    # CONTIGUOUS arc of the trajectory (images are name-sorted ~ capture order) as the
+    # test set and trains on the rest — simulates an under-observed/unseen region.
+    _holdout = os.environ.get("APEX_HOLDOUT", "")
+    if _holdout:
+        hs, hf = (float(x) for x in _holdout.split(","))
+        n = len(indices)
+        lo, hi = int(hs * n), int((hs + hf) * n)
+        mask = np.zeros(n, dtype=bool)
+        mask[lo:hi] = True
+        test_indices = indices[mask]
+        train_indices = indices[~mask]
+    else:
+        test_indices = indices[indices % test_every == 0]
+        train_indices = indices[indices % test_every != 0]
 
     # Scene scale
     cam_locs = camtoworlds[:, :3, 3]
@@ -858,6 +871,7 @@ def train(args):
     running_loss = 0.0
     running_psnr = 0.0
     running_crop_l1 = None  # EMA of LPIPS-crop L1, for gated perceptual loss
+    running_wd_tex = None   # EMA of GT-crop texture energy, for gated WD
     t0 = time.time()
 
     # Background image prefetch (overlaps disk I/O + decode with GPU compute)
@@ -967,7 +981,22 @@ def train(args):
             left = int(np.random.randint(0, Wc - pw + 1))
             rc = rendered[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
             gc = gt_image[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
-            loss = loss + args.wd_lambda * _wd_fn(rc, gc, device)
+            d_wd = _wd_fn(rc, gc, device)
+            if args.wd_gated:
+                # gate WD by the GT crop's TEXTURE energy: full WD where there is
+                # real texture, ~0 on flat/mush crops (so WD can't synthesize grain
+                # floaters where there's no signal). |grad| of the GT crop.
+                gg = 0.299 * gc[0, 0] + 0.587 * gc[0, 1] + 0.114 * gc[0, 2]
+                tex = ((gg[:, 1:] - gg[:, :-1]).abs().mean()
+                       + (gg[1:, :] - gg[:-1, :]).abs().mean()).detach()
+                if running_wd_tex is None:
+                    running_wd_tex = tex
+                else:
+                    running_wd_tex = 0.99 * running_wd_tex + 0.01 * tex
+                gate = torch.sigmoid((tex - running_wd_tex) / (0.5 * running_wd_tex + 1e-6))
+                loss = loss + args.wd_lambda * gate * d_wd
+            else:
+                loss = loss + args.wd_lambda * d_wd
 
         # Bilateral-grid total-variation smoothness (keeps the grid well-behaved)
         if bil_grids is not None:
@@ -1203,6 +1232,10 @@ def main():
     parser.add_argument("--wd_lambda", type=float, default=0.0,
                         help="Weight of Wasserstein-Distortion (WD-R) perceptual "
                              "loss (texture-statistic; 0 = off; warm-up = lpips_start)")
+    parser.add_argument("--wd_gated", action=argparse.BooleanOptionalAction,
+                        default=True,
+                        help="Gate WD by GT-crop texture energy (fires on textured "
+                             "crops, ~0 on flats -> no grain floaters on mush)")
     parser.add_argument("--bilateral_grid", action=argparse.BooleanOptionalAction,
                         default=False,
                         help="Per-view BilaRF color grid (training-only) to absorb "
