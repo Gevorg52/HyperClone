@@ -221,6 +221,7 @@ class GsplatBackend(TrainingBackend):
             "cap_max": 1_000_000,          # MCMC Gaussian budget
             "opacity_reg": 0.01,
             "scale_reg": 0.01,
+            "vis_reg": 0.0,                # visibility loss (kill empty-space floaters)
             "antialiased": True,           # Mip-Splatting anti-aliasing
             "pose_opt": True,              # SE(3) pose refinement
             "pose_opt_lr": 1e-5,
@@ -344,6 +345,7 @@ class GsplatBackend(TrainingBackend):
             "--cap_max", str(extra["cap_max"]),
             "--opacity_reg", str(extra["opacity_reg"]),
             "--scale_reg", str(extra["scale_reg"]),
+            "--vis_reg", str(extra.get("vis_reg", 0.0)),
         ]
 
         if extra["normalize_world_space"]:

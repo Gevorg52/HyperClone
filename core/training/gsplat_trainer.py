@@ -347,6 +347,34 @@ def append_extra_views(data: dict, extra_views_json: str) -> int:
     return len(entries)
 
 
+def compute_unseen_mask(means: torch.Tensor, data: dict, device) -> torch.Tensor:
+    """Bool (N,) mask: True where a Gaussian center projects into NO training/pseudo
+    camera frustum (= floats in empty, never-supervised space). Used by the
+    visibility loss to drive such Gaussians' opacity -> 0 (Nerfbusters-style),
+    WITHOUT deleting pseudo-view-filled surfaces (those ARE seen by pseudo cams).
+    Precomputed once (resume has no densification, so the set is fixed)."""
+    N = means.shape[0]
+    seen = torch.zeros(N, dtype=torch.bool, device=device)
+    Xh = torch.cat([means, torch.ones(N, 1, device=device)], dim=1)  # (N,4)
+    for idx in data["train_indices"]:
+        idx = int(idx)
+        cid = data["camera_ids"][idx]
+        w2c = torch.linalg.inv(
+            torch.from_numpy(data["camtoworlds"][idx]).float().to(device))
+        K = torch.from_numpy(np.asarray(data["Ks_dict"][cid])).float().to(device)
+        W, H = data["imsize_dict"].get(cid, (None, None))
+        if W is None:
+            continue
+        xc = (w2c @ Xh.T).T[:, :3]
+        z = xc[:, 2].clamp(min=1e-6)
+        u = (K[0, 0] * xc[:, 0] + K[0, 2] * z) / z
+        v = (K[1, 1] * xc[:, 1] + K[1, 2] * z) / z
+        seen |= (xc[:, 2] > 0) & (u >= 0) & (u < W) & (v >= 0) & (v < H)
+        if bool(seen.all()):
+            break
+    return ~seen
+
+
 def load_image(data: dict, index: int) -> dict:
     """Load a single training image with undistortion."""
     image = imageio.imread(data["image_paths"][index])[..., :3]
@@ -881,6 +909,13 @@ def train(args):
         print(f"[Train] WD-R perceptual loss ON (wd_lambda={args.wd_lambda}, "
               f"start={args.lpips_start})")
 
+    # Visibility loss: precompute the never-seen (empty-space floater) mask once
+    unseen_mask = None
+    if args.vis_reg > 0:
+        unseen_mask = compute_unseen_mask(splats["means"].detach(), data_fine, device)
+        print(f"[Train] Visibility loss ON (vis_reg={args.vis_reg}): "
+              f"{int(unseen_mask.sum())}/{unseen_mask.numel()} Gaussians seen by no camera")
+
     running_loss = 0.0
     running_psnr = 0.0
     running_crop_l1 = None  # EMA of LPIPS-crop L1, for gated perceptual loss
@@ -953,6 +988,9 @@ def train(args):
             loss = loss + args.opacity_reg * torch.sigmoid(splats["opacities"]).mean()
         if args.scale_reg > 0:
             loss = loss + args.scale_reg * torch.exp(splats["scales"]).mean()
+        if unseen_mask is not None:
+            loss = loss + args.vis_reg * torch.sigmoid(
+                splats["opacities"][unseen_mask]).mean()
 
         # Edge-aware geometric regularization — flattens textureless surfaces
         # (the "mushy black plastic" fix) without softening textured detail.
@@ -1208,6 +1246,9 @@ def main():
                         help="0 = strategy default (MCMC 25000, default 15000)")
     parser.add_argument("--opacity_reg", type=float, default=0.01)
     parser.add_argument("--scale_reg", type=float, default=0.01)
+    parser.add_argument("--vis_reg", type=float, default=0.0,
+                        help="Visibility loss: push opacity->0 for Gaussians seen by "
+                             "no training/pseudo camera (kills empty-space floaters)")
     # Anti-aliasing (Mip-Splatting)
     parser.add_argument("--antialiased",
                         action=argparse.BooleanOptionalAction, default=True)
