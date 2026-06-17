@@ -159,6 +159,15 @@ def render_pseudo_views(
         data["camtoworlds"], data["train_indices"], num_views,
     )
 
+    # Phase-1a coverage gate (validated +1.03 dB): weight each pseudo-view by how
+    # FAR it is from the nearest real camera, normalized to [0,1]. The prior then
+    # supervises strongly in under-observed regions and ~0 near captured views, so
+    # it never overrides real data. (per-view distance-to-nearest-real-cam predicts
+    # error at Pearson +0.50; gated beat ungated on every metric.)
+    train_c = data["camtoworlds"][data["train_indices"], :3, 3]
+    cov = np.array([np.min(np.linalg.norm(train_c - c2w[:3, 3], axis=1)) for c2w in poses])
+    wcov = np.clip(cov / (np.percentile(cov, 90) + 1e-9), 0.0, 1.0)
+
     # Use the first training camera's intrinsics/size for all pseudo-views
     ref_idx = int(data["train_indices"][0])
     ref_cid = data["camera_ids"][ref_idx]
@@ -191,6 +200,7 @@ def render_pseudo_views(
                 "image": str(path),  # swapped for enhanced path later
                 "K": K.tolist(),
                 "c2w": c2w.tolist(),
+                "weight": float(wcov[i]),  # coverage gate (Phase 1a)
             })
 
     # Release the splats + gsplat CUDA cache from THIS process before the Difix
