@@ -68,10 +68,18 @@ def main():
             H, W = b["image"].shape[:2]
             r, _, _ = render_splats(splats, torch.linalg.inv(c2w), K, W, H, SH,
                                     torch.zeros(3, device=device), "antialiased")
-            img = (r[0].clamp(0, 1).cpu().numpy() * 255).astype(np.uint8)
+            bgr = (r[0].clamp(0, 1).cpu().numpy() * 255).astype(np.uint8)[..., ::-1]
+            # cap long edge ~1280px so Difix doesn't choke on multi-K renders
+            # (GPU scene is ~6K -> factor2 ~3K). Scale K to match the resized image.
+            hh, ww = bgr.shape[:2]
+            sc = min(1.0, 1280.0 / max(hh, ww))
+            if sc < 1.0:
+                bgr = cv2.resize(bgr, (round(ww * sc), round(hh * sc)),
+                                 interpolation=cv2.INTER_AREA)
+            Ksc = K.clone(); Ksc[0, :] *= sc; Ksc[1, :] *= sc
             p = rdir / f"wedge_{j:04d}.png"
-            cv2.imwrite(str(p), img[..., ::-1])
-            entries.append({"image": str(p), "K": K.cpu().tolist(), "c2w": c2w.cpu().tolist()})
+            cv2.imwrite(str(p), bgr)
+            entries.append({"image": str(p), "K": Ksc.cpu().tolist(), "c2w": c2w.cpu().tolist()})
     del splats; torch.cuda.empty_cache()
     print(f"rendered {len(entries)} wedge views from baseline", flush=True)
 
