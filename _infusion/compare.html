@@ -1,0 +1,104 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>InFusion auto-complete — results</title>
+<style>
+ body{background:#111;color:#ddd;font:14px/1.5 system-ui,Segoe UI,Arial;margin:0;padding:28px 40px}
+ h1{color:#fff;font-size:24px;margin:0 0 4px} h2{color:#7fd1ff;margin:34px 0 6px;font-size:19px}
+ .sub{color:#888;margin:0 0 14px} img{max-width:100%;border:1px solid #333;border-radius:6px;display:block;background:#000}
+ table{border-collapse:collapse;margin:10px 0 4px} td,th{border:1px solid #333;padding:5px 12px;text-align:right}
+ th:first-child,td:first-child{text-align:left} .win{color:#7CFC78;font-weight:600}
+ .cap{color:#9ab;margin:6px 0 2px;font-size:13px} .lo{color:#ffa07a} code{color:#ffd479}
+ .box{background:#181818;border:1px solid #2a2a2a;border-radius:8px;padding:14px 18px;margin:10px 0}
+</style></head><body>
+<h1>Splat auto-completion — validation results</h1>
+<p class="sub">GPU scan: a genuine 312k-Gaussian hole was carved (front-surface shell), then recovered. The original full splat = ground truth. Laptop scan: detector run on the real un-holed splat (safety test).</p>
+
+<h2>0 · Unified engine — final results (edge-gated detect → seed → distill + accept/reject gate → detail-refine + densify)</h2>
+<p class="cap">GPU hole recovery — FULL | holed (chaotic gap) | auto-complete (restored):</p>
+<img src="full_gpu/result.png">
+<table>
+<tr><th>scan</th><th>holed → auto-complete (PSNR)</th><th>gain</th><th>gate</th></tr>
+<tr><td class="win">GPU (clear hole)</td><td>23.47 → 32.63</td><td class="win">+9.16 dB</td><td>4 accept / 2 reject</td></tr>
+<tr><td class="win">Laptop (real masked, 30-view)</td><td>14.95 → 21.09</td><td class="win">+6.14 dB</td><td>4 accept / 2 reject</td></tr>
+</table>
+<div class="box">One engine, both scans: recovers genuine holes AND the accept/reject gate leaves adequate geometry alone (commits a fill only if it improves held-out real-photo agreement). Effective + safe.</div>
+
+<h2>1 · The winner — Progressive auto-complete (fully automatic, no hand mask)</h2>
+<p class="cap">FULL (GT) &nbsp;|&nbsp; HOLED (gap) &nbsp;|&nbsp; PROG (auto-recovered)</p>
+<img src="prog/prog_result.png">
+<table>
+<tr><th>state</th><th>PSNR vs full</th><th>SSIM</th></tr>
+<tr><td>holed (gap)</td><td>22.23</td><td>.955</td></tr>
+<tr><td class="win">auto progressive</td><td class="win">27.70</td><td class="win">.967</td></tr>
+</table>
+<p class="cap">Monotonic over 6 rounds: 24.69 → 25.71 → 26.57 → 26.93 → 27.22 → <b>27.70 dB</b> (+5.47), hole area 36k→12k px (converging). No floaters.</p>
+
+<h2>1b · Detail recovery — de-mushing the fill (NEW)</h2>
+<p class="cap">FULL (GT) | mushy (after fill) | refined (gated-LPIPS multi-view + densify). The detail comes back out of the raw photos.</p>
+<img src="refine/refine_zoom.png">
+<table>
+<tr><th>stage</th><th>PSNR vs full</th><th>SSIM</th><th>hole-LPIPS (↓ = sharper)</th></tr>
+<tr><td>mushy (after fill)</td><td>27.70</td><td>.967</td><td>0.1149</td></tr>
+<tr><td>refined (LPIPS only)</td><td>30.57</td><td>.976</td><td>0.0907</td></tr>
+<tr><td class="win">refined + densify</td><td class="win">31.15</td><td class="win">.977</td><td class="win">0.0709</td></tr>
+</table>
+<p class="cap">+3.45 dB, hole-LPIPS −38%, visibly ≈ FULL. InFusion = geometry seeder; gated-LPIPS multi-view + densification = detail recoverer.</p>
+
+<h2>2 · Approach comparison (same hole, view 256)</h2>
+<table>
+<tr><th>approach</th><th>PSNR vs full</th><th>SSIM</th><th>notes</th></tr>
+<tr><td>holed (gap)</td><td>22.23</td><td>.955</td><td>—</td></tr>
+<tr><td>manual single-view</td><td>26.88</td><td>.965</td><td>hand-drawn mask</td></tr>
+<tr><td>auto batch (inject-all)</td><td>26.72</td><td>.964</td><td>ugly 14 dB raw state</td></tr>
+<tr><td class="win">auto progressive</td><td class="win">27.70</td><td class="win">.967</td><td>automatic, clean, monotonic</td></tr>
+</table>
+
+<h2>3 · Manual single-view fill (the first proof)</h2>
+<p class="cap">FULL (GT) | HOLED | FILLED-raw (back-projected) | FILLED-opt</p>
+<img src="io2/integrate.png">
+<p class="cap">Zoom on the heatsink hole — FILLED(opt) | HOLED | FILLED-raw | FILLED-opt:</p>
+<img src="io2/zoom.png">
+
+<h2>4 · Auto batch (inject all 6 views at once)</h2>
+<p class="cap">FULL | HOLED | auto-raw (messy 14 dB — 6 depth-sheets overlap) | auto-opt (cleaned)</p>
+<img src="auto/auto_result.png">
+
+<h2>4a · DE-MUSH FIX — real-trainer reconstruction (NEW, the fix)</h2>
+<p class="cap">View 192 — FULL(orig) | holed | reconstructed | reconstructed. Custom detail-refine produced brown mush; the real production trainer (MCMC inject_noise + relocation + gated-LPIPS) reconstructs the checkerboard faithfully:</p>
+<img src="diag/compare4.png">
+<table>
+<tr><th>vs GT PHOTOS (30 hole-views, LPIPS ↓)</th><th>LPIPS</th><th>gap recovery</th></tr>
+<tr><td>holed (floor)</td><td>0.4635</td><td>0%</td></tr>
+<tr><td>custom-refine (old, mush)</td><td>0.4112</td><td>42%</td></tr>
+<tr><td>original splat (ceiling)</td><td>0.3376</td><td>100%</td></tr>
+<tr><td class="win">integrated engine (real-trainer)</td><td class="win">0.3251</td><td class="win">110% — beats original</td></tr>
+</table>
+<div class="box">Root cause of the mush: our hand-rolled refine left fill geometry stuck (no MCMC inject_noise/relocation) → contradictory multi-view color → averaged to mush. Fix: InFusion = cold-start seed only; the validated production trainer reconstructs. Honest metric = LPIPS vs GT photos (PSNR-vs-full-splat was misleading).</div>
+
+<h2>4b · FULL TEST on the real masked LAPTOP scan (NEW)</h2>
+<p class="cap">Carved a genuine hole, ran the whole engine (edge-gated detect → seed → progressive distill + accept/reject gate → detail-refine). Worst-hole view 192 — FULL | holed (7.4 dB smear) | auto-complete (texture restored):</p>
+<img src="full_laptop/result_holeview.png">
+<table>
+<tr><th>across 30 views that see the hole</th><th>PSNR vs full</th><th>LPIPS</th></tr>
+<tr><td>holed</td><td>14.95</td><td>0.2467</td></tr>
+<tr><td class="win">auto-complete</td><td class="win">21.09</td><td class="win">0.2097</td></tr>
+<tr><td>delta</td><td class="win">+6.14 dB</td><td class="win">−0.037</td></tr>
+</table>
+<div class="box">Accept/reject gate (commit a fill only if it improves held-out real-photo agreement) accepted 4 genuine fills, rejected 2 non-improving ones — the safety mechanism for "upload anything, never make it worse." <br>Eval lesson: a hole is invisible head-on (backing geometry fills it, the carve view read 30.78 dB) and severe from oblique angles (7.4 dB) — judge recovery multi-view, never at the carve view.</div>
+
+<h2>5 · Detector validation (the safety-critical piece)</h2>
+<p class="cap">PHOTO | HOLED render | err | warp-inconsistency | defect = err×warp. The hole lights up in <b>defect</b>; the polka-dot texture is suppressed (warp is consistent there).</p>
+<img src="detect/3_warp.png">
+<div class="box">render-vs-photo error <b>10.3×</b> on hole vs good surface · warp inconsistency <b>4.9×</b> · combined <b>66% recall @ 5% false-positive</b> (single view)</div>
+<p class="cap">Occlusion-aware coverage heatmap (blue = under-observed, red = well-observed) — cleanly separates Type-2/4:</p>
+<img src="detect/2_coverage.png">
+<p class="cap">Depth-completion accuracy on an observed patch (TRUE | InFusion | error): 3.2% rel-err, 0.978 corr.</p>
+<img src="io/score.png">
+
+<h2>6 · Generalization — real masked Laptop splat (SAFETY TEST)</h2>
+<p class="cap">PHOTO | render | err | warp | defect | mask &nbsp;(4 views). Only <b>1.17% flagged</b>; the textureless deck stays dark in <b>defect</b> = NOT flagged.</p>
+<img src="laptop/laptop_detect.png">
+<p class="cap">What got flagged (PHOTO | MASK, views 144 & 216): <span class="lo">silhouette EDGES, not the deck</span> — the capture-limited surface is correctly left alone.</p>
+<img src="laptop/laptop_flagcheck.png">
+<div class="box">✅ The whole safety premise holds on a real scan: it does almost nothing where the splat is good or capture-limited, reacts only at genuine geometry discontinuities. (Edges are a known WarpRF artifact → suppress with a depth-gradient gate.)</div>
+
+</body></html>

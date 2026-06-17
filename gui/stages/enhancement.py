@@ -282,6 +282,76 @@ def run_distill(
 
 
 # ---------------------------------------------------------------------------
+# Handler: Auto-complete holes (detect -> seed -> reconstruct)
+# ---------------------------------------------------------------------------
+
+def check_autocomplete() -> str:
+    """Validate the auto-complete environment (InFusion + difix env + CUDA)."""
+    try:
+        from core.enhancement.autocomplete import AutoCompleteConfig, validate_environment
+        ok, msg = validate_environment(AutoCompleteConfig())
+        return msg
+    except Exception as e:
+        return f"Auto-complete unavailable: {e}"
+
+
+def run_autocomplete_handler(
+    max_rounds: int,
+    state: PipelineState,
+    progress=gr.Progress(),
+) -> tuple[str, str, list, PipelineState]:
+    """Detect holes in the trained splat, seed them, and reconstruct.
+
+    Only commits fills that improve agreement with the real photos (the accept/
+    reject gate), so a complete splat is left unchanged. On success the refined
+    checkpoint/PLY supersede the Stage 9 results.
+    """
+    if not state.training_checkpoint:
+        raise gr.Error("No training checkpoint. Complete Stage 9 first.")
+    if not state.training_data_dir:
+        raise gr.Error("Training data directory not set in state.")
+
+    from core.enhancement.autocomplete import (
+        run_autocomplete, AutoCompleteConfig, validate_environment,
+    )
+
+    cfg = AutoCompleteConfig(max_rounds=int(max_rounds))
+    ok, msg = validate_environment(cfg)
+    if not ok:
+        raise gr.Error(f"Auto-complete not ready:\n{msg}")
+
+    project_dir = Path(state.project_dir)
+    out_dir = project_dir / "enhancement" / "autocomplete"
+    progress(0.02, desc="Starting auto-complete...")
+
+    try:
+        result = run_autocomplete(
+            checkpoint_dir=state.training_checkpoint,
+            data_dir=state.training_data_dir,
+            output_dir=str(out_dir),
+            config=cfg,
+            progress_cb=lambda f, d: progress(f, desc=d),
+        )
+    except Exception as e:
+        tb = traceback.format_exc()
+        raise gr.Error(f"Auto-complete failed: {e}\n\n{tb}")
+
+    if result.holes_filled > 0 and result.checkpoint:
+        # the reconstructed model supersedes the Stage 9 results
+        state.training_checkpoint = str(Path(result.checkpoint).parents[1])
+        if result.ply_path:
+            state.training_ply = result.ply_path
+        state.save()
+
+    log = (
+        "Auto-complete finished. "
+        + ("Stage 9 checkpoint/PLY now point at the completed model."
+           if result.holes_filled > 0 else "Splat left unchanged (no holes to fix).")
+    )
+    return result.report, log, result.sample_renders, state
+
+
+# ---------------------------------------------------------------------------
 # Tab builder
 # ---------------------------------------------------------------------------
 
@@ -348,6 +418,28 @@ def build_stage10_tab():
                 )
             distill_btn = gr.Button("Run Distill Loop", variant="primary")
 
+        # --- Auto-complete holes ---
+        with gr.Accordion("Auto-Complete Holes (detect → seed → reconstruct)", open=False):
+            gr.Markdown(
+                "Automatically **detect** geometry holes/defects (multi-view "
+                "consistency + coverage), **seed** them (InFusion depth-completion), "
+                "and **reconstruct** faithfully with the production trainer "
+                "(MCMC + gated LPIPS). An accept/reject gate commits a fill only if it "
+                "improves agreement with the real photos, so a complete splat is left "
+                "untouched. Requires the `difix` env + InFusion checkpoint."
+            )
+            with gr.Row():
+                ac_rounds_slider = gr.Slider(
+                    minimum=1, maximum=10, value=6, step=1,
+                    label="Max hole rounds",
+                    info="Each round fills (or rejects) the worst remaining hole.",
+                )
+                ac_check_btn = gr.Button("Check Auto-Complete Env", size="sm")
+            ac_status = gr.Textbox(
+                label="Auto-Complete Status", lines=2, interactive=False,
+            )
+            ac_btn = gr.Button("Run Auto-Complete", variant="primary")
+
         # --- Output ---
         with gr.Row():
             stats_box = gr.Textbox(
@@ -373,6 +465,10 @@ def build_stage10_tab():
         "distill_views_slider": distill_views_slider,
         "distill_steps_slider": distill_steps_slider,
         "distill_btn": distill_btn,
+        "ac_rounds_slider": ac_rounds_slider,
+        "ac_check_btn": ac_check_btn,
+        "ac_status": ac_status,
+        "ac_btn": ac_btn,
         "stats_box": stats_box,
         "log_box": log_box,
         "gallery": gallery,
@@ -413,4 +509,16 @@ def wire_stage10(components: dict, state: gr.State):
             state,
         ],
         outputs=[c["stats_box"], c["log_box"], state],
+    )
+
+    # Auto-complete holes
+    c["ac_check_btn"].click(
+        fn=check_autocomplete,
+        inputs=[],
+        outputs=[c["ac_status"]],
+    )
+    c["ac_btn"].click(
+        fn=run_autocomplete_handler,
+        inputs=[c["ac_rounds_slider"], state],
+        outputs=[c["stats_box"], c["log_box"], c["gallery"], state],
     )

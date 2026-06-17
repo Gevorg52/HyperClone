@@ -1,0 +1,7 @@
+# Auto-complete research scratch — keep the .py validation scripts + compare.html,
+# ignore all heavy artifacts (splats, point clouds, renders, InFusion I/O).
+*.pt
+*.ply
+*.png
+*.npy
+checkpoints/
