@@ -299,6 +299,9 @@ def load_colmap_data(
         "train_indices": train_indices,
         "test_indices": test_indices,
         "scene_scale": scene_scale,
+        # per-view loss weight (1.0 for captured views; extra/pseudo views may set
+        # <1 via append_extra_views -> confidence-gated prior fusion, Phase 1)
+        "loss_weight": np.ones(len(image_names), dtype=np.float32),
     }
 
 
@@ -331,8 +334,16 @@ def append_extra_views(data: dict, extra_views_json: str) -> int:
     data["train_indices"] = np.concatenate(
         [data["train_indices"], np.arange(base, base + len(entries))],
     )
+    # per-view loss weights (default 1.0; entries may carry "weight" for
+    # confidence-gated prior fusion — high in under-observed regions, ~0 near
+    # real cameras so the prior never overrides captured data)
+    w = np.array([float(e.get("weight", 1.0)) for e in entries], dtype=np.float32)
+    if "loss_weight" not in data:
+        data["loss_weight"] = np.ones(base, dtype=np.float32)
+    data["loss_weight"] = np.concatenate([data["loss_weight"], w])
     print(f"[Data] Appended {len(entries)} extra views (train pool now "
-          f"{len(data['train_indices'])})")
+          f"{len(data['train_indices'])}); extra-view weight "
+          f"mean={w.mean():.2f} range=[{w.min():.2f},{w.max():.2f}]")
     return len(entries)
 
 
@@ -351,10 +362,12 @@ def load_image(data: dict, index: int) -> dict:
             if w > 0 and h > 0:
                 image = image[y:y+h, x:x+w]
 
+    lw = data.get("loss_weight")
     return {
         "image": torch.from_numpy(image).float() / 255.0,
         "K": torch.from_numpy(K).float(),
         "c2w": torch.from_numpy(c2w).float(),
+        "loss_weight": float(lw[index]) if lw is not None else 1.0,
     }
 
 
@@ -1008,6 +1021,13 @@ def train(args):
             psnr = 10.0 * math.log10(1.0 / (mse.item() + 1e-10))
             running_loss = 0.95 * running_loss + 0.05 * loss.item()
             running_psnr = 0.95 * running_psnr + 0.05 * psnr
+
+        # Confidence-gated prior fusion (Phase 1): scale this view's gradient by its
+        # loss weight — 1.0 for captured views, <1 for extra/pseudo views in
+        # well-observed regions so the prior never overrides real data.
+        view_w = float(batch.get("loss_weight", 1.0))
+        if view_w != 1.0:
+            loss = loss * view_w
 
         # Densification hooks (strategies gate internally on refine windows)
         strategy.step_pre_backward(
