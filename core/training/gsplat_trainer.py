@@ -216,6 +216,18 @@ def load_colmap_data(
     else:
         image_paths = [os.path.join(colmap_image_dir, n) for n in image_names]
 
+    # Resolve mask paths (for object-mask alpha supervision). Prefer masks_{factor}/
+    # (matches the downsampled images), fall back to masks/. Masks are PNG, stem-matched
+    # to the COLMAP image name. None if no mask dir exists.
+    mask_paths = None
+    for md in ([os.path.join(data_dir, f"masks_{factor}")] if factor > 1 else []) + \
+              [os.path.join(data_dir, "masks")]:
+        if os.path.isdir(md):
+            cand = [os.path.join(md, os.path.splitext(n)[0] + ".png") for n in image_names]
+            if any(os.path.isfile(p) for p in cand):
+                mask_paths = cand
+                break
+
     # Verify first image exists and adjust intrinsics if needed
     first_img = imageio.imread(image_paths[0])[..., :3]
     actual_h, actual_w = first_img.shape[:2]
@@ -288,6 +300,7 @@ def load_colmap_data(
         "Ks_dict": Ks_dict,
         "camera_ids": camera_ids,
         "image_paths": image_paths,
+        "mask_paths": mask_paths,
         "image_names": image_names,
         "imsize_dict": imsize_dict,
         "params_dict": params_dict,
@@ -383,20 +396,39 @@ def load_image(data: dict, index: int) -> dict:
     dist = data["params_dict"][cid]
     c2w = data["camtoworlds"][index]
 
+    # Object mask (optional) — load + undistort/crop identically to the image so it
+    # stays pixel-aligned. Resize to the (possibly downsampled) image first.
+    mask = None
+    mpaths = data.get("mask_paths")
+    if mpaths is not None and mpaths[index] and os.path.isfile(mpaths[index]):
+        m = imageio.imread(mpaths[index])
+        if m.ndim == 3:
+            m = m[..., 0]
+        if m.shape[:2] != image.shape[:2]:
+            m = cv2.resize(m, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
+        mask = (m.astype(np.float32) / 255.0)
+
     if len(dist) > 0 and cid in data["mapx_dict"]:
         image = cv2.remap(image, data["mapx_dict"][cid], data["mapy_dict"][cid], cv2.INTER_LINEAR)
+        if mask is not None:
+            mask = cv2.remap(mask, data["mapx_dict"][cid], data["mapy_dict"][cid], cv2.INTER_LINEAR)
         if cid in data["roi_dict"]:
             x, y, w, h = data["roi_dict"][cid]
             if w > 0 and h > 0:
                 image = image[y:y+h, x:x+w]
+                if mask is not None:
+                    mask = mask[y:y+h, x:x+w]
 
     lw = data.get("loss_weight")
-    return {
+    out = {
         "image": torch.from_numpy(image).float() / 255.0,
         "K": torch.from_numpy(K).float(),
         "c2w": torch.from_numpy(c2w).float(),
         "loss_weight": float(lw[index]) if lw is not None else 1.0,
     }
+    if mask is not None:
+        out["mask"] = torch.from_numpy(mask).float()  # (H, W) in [0,1]
+    return out
 
 
 class Prefetcher:
@@ -433,6 +465,8 @@ class Prefetcher:
             batch["idx"] = idx
             try:
                 batch["image"] = batch["image"].pin_memory()
+                if "mask" in batch:
+                    batch["mask"] = batch["mask"].pin_memory()
             except RuntimeError:
                 pass
             while not self._stop.is_set():
@@ -983,6 +1017,18 @@ def train(args):
         else:
             loss = l1_loss
 
+        # Object-mask alpha supervision — the rendered alpha (accumulated opacity) must
+        # go to 0 OUTSIDE the object mask. Pre-multiplied-black images alone don't teach
+        # this (a black background pixel is satisfied by a black-but-opaque Gaussian), so
+        # background floaters grow unpenalized. Supervising alpha directly DELETES them.
+        if (args.alpha_loss_lambda > 0 or args.alpha_obj_lambda > 0) and "mask" in batch:
+            m = batch["mask"].to(device, non_blocking=True)        # (H, W) in [0,1]
+            a = alphas[0, ..., 0]                                  # (H, W) rendered alpha
+            if args.alpha_loss_lambda > 0:
+                loss = loss + args.alpha_loss_lambda * (a * (1.0 - m)).mean()
+            if args.alpha_obj_lambda > 0:
+                loss = loss + args.alpha_obj_lambda * ((1.0 - a) * m).mean()
+
         # Opacity/scale regularization (essential for MCMC, harmless otherwise)
         if args.opacity_reg > 0:
             loss = loss + args.opacity_reg * torch.sigmoid(splats["opacities"]).mean()
@@ -1249,6 +1295,15 @@ def main():
     parser.add_argument("--vis_reg", type=float, default=0.0,
                         help="Visibility loss: push opacity->0 for Gaussians seen by "
                              "no training/pseudo camera (kills empty-space floaters)")
+    # Object-mask alpha supervision (kills background floaters on masked object scans)
+    parser.add_argument("--alpha_loss_lambda", type=float, default=0.0,
+                        help="Weight of L_bg = mean(rendered_alpha * (1-mask)): pushes "
+                             "rendered opacity ->0 OUTSIDE the object mask. Needs masks/ "
+                             "or masks_{factor}/ next to images. 0 = off.")
+    parser.add_argument("--alpha_obj_lambda", type=float, default=0.0,
+                        help="Optional: push alpha ->1 INSIDE the mask "
+                             "(mean((1-alpha)*mask)); fills see-through object holes. "
+                             "Use sparingly (can thicken thin parts). 0 = off.")
     # Anti-aliasing (Mip-Splatting)
     parser.add_argument("--antialiased",
                         action=argparse.BooleanOptionalAction, default=True)

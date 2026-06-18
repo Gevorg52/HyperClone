@@ -124,6 +124,34 @@ def _downsample_images(src_dir: str, dst_dir: str, factor: int) -> int:
     return len(image_files)
 
 
+def _export_masks(src_images: str, mask_dir: str, dst_dir: str, factor: int = 1) -> int:
+    """Write per-image object masks (stem-matched to the images) into dst_dir as
+    grayscale PNG, optionally downsampled by `factor` with NEAREST (preserves the
+    binary edge). Lets the trainer apply object-mask alpha supervision. Returns count."""
+    src = Path(src_images)
+    md = Path(mask_dir)
+    dst = Path(dst_dir)
+    dst.mkdir(parents=True, exist_ok=True)
+    image_files = sorted(
+        p for p in src.iterdir()
+        if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+    )
+
+    def _one(path: Path) -> int:
+        mf = md / (path.stem + ".png")
+        if not mf.is_file():
+            return 0
+        m = Image.open(mf).convert("L")
+        if factor > 1:
+            m = m.resize((round(m.width / factor), round(m.height / factor)), Image.NEAREST)
+        m.save(dst / (path.stem + ".png"))
+        return 1
+
+    workers = min(8, os.cpu_count() or 4)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return sum(pool.map(_one, image_files))
+
+
 # ---------------------------------------------------------------------------
 # Progress line parsing
 # ---------------------------------------------------------------------------
@@ -222,6 +250,8 @@ class GsplatBackend(TrainingBackend):
             "opacity_reg": 0.01,
             "scale_reg": 0.01,
             "vis_reg": 0.0,                # visibility loss (kill empty-space floaters)
+            "alpha_loss_lambda": 0.0,      # object-mask alpha sup. (kills bg floaters; ~0.1)
+            "alpha_obj_lambda": 0.0,       # push alpha->1 inside mask (off by default)
             "antialiased": True,           # Mip-Splatting anti-aliasing
             "pose_opt": True,              # SE(3) pose refinement
             "pose_opt_lr": 1e-5,
@@ -307,6 +337,14 @@ class GsplatBackend(TrainingBackend):
                 if not ds_dir.is_dir():
                     _downsample_images(str(images_dir), str(ds_dir), factor)
 
+        # --- Export object masks for alpha supervision (full-res + per factor) ---
+        if mask_dir and Path(mask_dir).is_dir():
+            _export_masks(str(src_images), mask_dir, str(data_dir / "masks"), factor=1)
+            for factor in factors:
+                if factor > 1:
+                    _export_masks(str(src_images), mask_dir,
+                                  str(data_dir / f"masks_{factor}"), factor=factor)
+
         return str(data_dir)
 
     # -----------------------------------------------------------------------
@@ -346,6 +384,8 @@ class GsplatBackend(TrainingBackend):
             "--opacity_reg", str(extra["opacity_reg"]),
             "--scale_reg", str(extra["scale_reg"]),
             "--vis_reg", str(extra.get("vis_reg", 0.0)),
+            "--alpha_loss_lambda", str(extra.get("alpha_loss_lambda", 0.0)),
+            "--alpha_obj_lambda", str(extra.get("alpha_obj_lambda", 0.0)),
         ]
 
         if extra["normalize_world_space"]:
