@@ -401,6 +401,39 @@ def run_recreate_handler(
     return result["report"], log, [], state
 
 
+def run_coverage_report(
+    state: PipelineState,
+    progress=gr.Progress(),
+) -> tuple[str, "object"]:
+    """Analyze the capture's angular coverage of the object (viewing hemisphere) and
+    report the gaps + a 'shoot these angles' re-capture guidance. The FAITHFUL way to
+    complete an object is to capture the missing angles — generative fill is plausible-
+    only and OOD-limited on real captures."""
+    if not state.training_data_dir:
+        raise gr.Error("No training data directory in state. Complete Stage 9 first.")
+    import numpy as np
+    import cv2
+    from core.training.gsplat_trainer import load_colmap_data
+    from core.enhancement.coverage import (
+        analyze_coverage, coverage_report, render_coverage_map, object_center_from_cameras,
+    )
+    progress(0.2, desc="Loading cameras...")
+    data = load_colmap_data(state.training_data_dir, factor=4, test_every=8, normalize=True)
+    n = len(data["camtoworlds"])
+    cen = np.stack([data["camtoworlds"][i][:3, 3] for i in range(n)])
+    fwd = np.stack([data["camtoworlds"][i][:3, 2] for i in range(n)])
+    progress(0.6, desc="Analyzing coverage...")
+    O = object_center_from_cameras(cen, fwd)
+    res = analyze_coverage(cen, O)
+    report = coverage_report(res)
+    out = Path(state.project_dir) / "enhancement"
+    out.mkdir(parents=True, exist_ok=True)
+    map_path = str(out / "coverage_map.png")
+    cv2.imwrite(map_path, render_coverage_map(res))
+    progress(1.0, desc="Coverage report ready.")
+    return report, map_path
+
+
 # ---------------------------------------------------------------------------
 # Tab builder
 # ---------------------------------------------------------------------------
@@ -518,6 +551,21 @@ def build_stage10_tab():
                 )
             rc_btn = gr.Button("Recreate Unseen (plausible)")
 
+        # --- Capture coverage / re-capture guidance (FAITHFUL completion) ---
+        with gr.Accordion("Capture Coverage — re-capture guidance (faithful)", open=False):
+            gr.Markdown(
+                "Analyze how completely the capture covers the object's viewing "
+                "hemisphere and report the **missing angles to shoot**. For a *complete, "
+                "faithful* object the honest fix is to capture the gaps — generative "
+                "fill of never-seen sides is plausible-only and degrades on real "
+                "captures (Objaverse-trained generators are out-of-distribution)."
+            )
+            cov_btn = gr.Button("Analyze Coverage")
+            with gr.Row():
+                cov_report = gr.Textbox(label="Coverage / re-capture report", lines=6,
+                                        interactive=False)
+                cov_map = gr.Image(label="Coverage map (azimuth × elevation)", height=240)
+
         # --- Output ---
         with gr.Row():
             stats_box = gr.Textbox(
@@ -551,6 +599,9 @@ def build_stage10_tab():
         "rc_views_slider": rc_views_slider,
         "rc_extend_slider": rc_extend_slider,
         "rc_btn": rc_btn,
+        "cov_btn": cov_btn,
+        "cov_report": cov_report,
+        "cov_map": cov_map,
         "stats_box": stats_box,
         "log_box": log_box,
         "gallery": gallery,
@@ -610,4 +661,11 @@ def wire_stage10(components: dict, state: gr.State):
         fn=run_recreate_handler,
         inputs=[c["rc_views_slider"], c["rc_extend_slider"], state],
         outputs=[c["stats_box"], c["log_box"], c["gallery"], state],
+    )
+
+    # Coverage / re-capture guidance
+    c["cov_btn"].click(
+        fn=run_coverage_report,
+        inputs=[state],
+        outputs=[c["cov_report"], c["cov_map"]],
     )

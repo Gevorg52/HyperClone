@@ -56,6 +56,16 @@ def _fib_hemisphere(n, min_elev_rad):
     return np.stack([r * np.cos(phi), r * np.sin(phi), z], 1)
 
 
+def object_center_from_cameras(cam_centers, forwards):
+    """Least-squares point closest to all camera viewing rays (the orbited object).
+    cam_centers (N,3), forwards (N,3) = camera +z (OpenCV). Robust for object scans."""
+    A = np.zeros((3, 3)); b = np.zeros(3)
+    for C, d in zip(np.asarray(cam_centers, float), np.asarray(forwards, float)):
+        d = d / (np.linalg.norm(d) + 1e-9)
+        P = np.eye(3) - np.outer(d, d); A += P; b += P @ C
+    return np.linalg.solve(A + 1e-6 * np.eye(3), b)
+
+
 def estimate_up(cam_centers, object_center):
     """Orbit-plane normal (smallest-variance PCA dir), signed toward the cameras."""
     c0 = cam_centers - cam_centers.mean(0)
