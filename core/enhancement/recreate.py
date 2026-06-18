@@ -27,7 +27,7 @@ from core.training.gsplat_trainer import load_image, render_splats
 from core.enhancement.autocomplete import (
     AutoCompleteConfig, _render, _as_gaussians, SH,
 )
-from core.enhancement.inpaint_backend import inpaint
+from core.enhancement.inpaint_backend import inpaint, DEFAULT_BACKEND
 
 SURFACE_PROMPT = ("seamless continuation of the existing surface, same material, "
                   "texture, color and lighting, photorealistic, no new objects")
@@ -71,7 +71,7 @@ def _infusion_complete(rgb_np, mask_np, depth, alpha, K, c2w, cfg, rdir, dev):
 
 
 def complete_view(splat, c2w, K, W, H, scene, work_dir,
-                  inpaint_backend="zimage", prompt=SURFACE_PROMPT,
+                  inpaint_backend=DEFAULT_BACKEND, prompt=SURFACE_PROMPT,
                   mask_np=None, cfg: AutoCompleteConfig = None, seed=0, dev="cuda"):
     """Inpaint a view's gap + InFusion-complete it. Returns dict with seed Gaussians,
     the auto/explicit mask, and rendered/inpainted previews (or None if no gap)."""
@@ -168,7 +168,7 @@ def run_recreate(checkpoint_dir, data_dir, output_dir, config=None, progress_cb=
         prog(0.05 + 0.6 * vi / max(len(views), 1), f"Recreating unseen view {vi+1}/{len(views)}...")
         b0 = load_image(data, 0); H, W = b0["image"].shape[:2]
         res = complete_view(base, c2w, K, W, H, scene, os.path.join(output_dir, f"nv{vi}"),
-                            inpaint_backend=cfg.extra.get("inpaint_backend", "zimage"),
+                            inpaint_backend=cfg.extra.get("inpaint_backend", DEFAULT_BACKEND),
                             prompt=prompt, cfg=cfg, dev=dev)
         if res is not None:
             seeds.append(res["seed"]); completed += 1

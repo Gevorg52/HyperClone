@@ -19,6 +19,9 @@ from typing import Optional
 
 _RUNNER = str(Path(__file__).resolve().parent / "inpaint_runner.py")
 _ENVS = r"C:\Users\gevor\anaconda3\envs"
+# HF cache lives on F: (system drive C: is space-constrained). The inpainter
+# subprocess must see it so it doesn't re-download / fail on a full C:.
+_HF_HOME = os.environ.get("HF_HOME", r"F:\hf_cache")
 
 
 @dataclass
@@ -37,11 +40,13 @@ INPAINT_BACKENDS: dict[str, InpaintBackendSpec] = {
         "zimage", os.path.join(_ENVS, "zimage", "python.exe"),
         "Tongyi-MAI/Z-Image-Turbo", steps=8, guidance=1.0,
         note="Apache-2.0, 6B, ungated — default; base-latent-blend inpaint"),
-    # Quality upgrade (opt-in): gated weights, needs FP8 on the 4090
+    # Quality upgrade: dedicated trained Fill model. Runs in the zimage env
+    # (diffusers 0.38 has FluxFillPipeline); the runner applies FP8 (optimum-quanto)
+    # + CPU offload to fit the 4090. Weights are GATED (accept BFL license + HF token).
     "flux-fill": InpaintBackendSpec(
-        "flux-fill", os.path.join(_ENVS, "flux", "python.exe"),
+        "flux-fill", os.path.join(_ENVS, "zimage", "python.exe"),
         "black-forest-labs/FLUX.1-Fill-dev", steps=28, guidance=30.0,
-        note="dedicated trained Fill model, best quality; gated + needs FP8 (not set up)"),
+        note="best quality (trained Fill); FP8 on 4090; gated weights (HF login needed)"),
     # Lightweight baseline (InFusion's default), fits 24GB FP16
     "sdxl": InpaintBackendSpec(
         "sdxl", os.path.join(_ENVS, "zimage", "python.exe"),
@@ -49,7 +54,9 @@ INPAINT_BACKENDS: dict[str, InpaintBackendSpec] = {
         note="OpenRAIL++, fits 24GB; baseline quality"),
 }
 
-DEFAULT_BACKEND = "zimage"
+# FLUX.1-Fill won the A/B decisively (continues surrounding material/geometry vs
+# Z-Image hallucinating an off-context blob). Z-Image stays as the ungated fallback.
+DEFAULT_BACKEND = "flux-fill"
 
 
 def get_spec(name: str) -> InpaintBackendSpec:
@@ -78,5 +85,7 @@ def inpaint(name: str, image_path: str, mask_path: str, out_path: str,
            "--guidance", str(spec.guidance), "--seed", str(seed)]
     if prompt:
         cmd += ["--prompt", prompt]
-    subprocess.run(cmd, check=True)
+    env = os.environ.copy()
+    env["HF_HOME"] = _HF_HOME
+    subprocess.run(cmd, check=True, env=env)
     return out_path

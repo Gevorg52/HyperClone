@@ -21,12 +21,30 @@ import torch
 from PIL import Image
 
 
+def _load_flux_fp8(model_id, dtype):
+    """FLUX.1-Fill at FP8 (optimum-quanto) + CPU offload -> fits the 4090's 24GB.
+    12B transformer + T5-XXL quantized to qfloat8; offload keeps only the active
+    module resident. Full BF16 would need ~96GB (the Pro 6000)."""
+    from optimum.quanto import freeze, qfloat8, quantize
+    from diffusers import FluxFillPipeline, FluxTransformer2DModel
+    from transformers import T5EncoderModel
+    tr = FluxTransformer2DModel.from_pretrained(model_id, subfolder="transformer", torch_dtype=dtype)
+    quantize(tr, weights=qfloat8); freeze(tr)
+    te2 = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder_2", torch_dtype=dtype)
+    quantize(te2, weights=qfloat8); freeze(te2)
+    pipe = FluxFillPipeline.from_pretrained(model_id, transformer=tr, text_encoder_2=te2, torch_dtype=dtype)
+    pipe.enable_model_cpu_offload()         # offload manages devices; do NOT .to(cuda)
+    return pipe
+
+
 def load_pipe(model_id, dtype):
-    """Load an inpainting pipeline. Z-Image by default; falls back across the
-    known diffusers inpaint classes so a different --model id still works."""
+    """Load an inpainting pipeline. FLUX.1-Fill gets the FP8 path; otherwise iterate
+    the known diffusers inpaint classes (Z-Image / Qwen / SDXL / Auto)."""
+    if "flux" in model_id.lower():
+        return _load_flux_fp8(model_id, dtype), "FluxFillPipeline(fp8)"
     import diffusers
-    for cls_name in ("ZImageInpaintPipeline", "FluxFillPipeline",
-                     "QwenImageInpaintPipeline", "AutoPipelineForInpainting"):
+    for cls_name in ("ZImageInpaintPipeline", "QwenImageInpaintPipeline",
+                     "AutoPipelineForInpainting"):
         cls = getattr(diffusers, cls_name, None)
         if cls is None:
             continue

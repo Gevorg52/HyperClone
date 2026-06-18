@@ -62,7 +62,7 @@ class AutoCompleteConfig:
     # trusted there (occluded). PLAUSIBLE not faithful; the accept/reject gate still
     # applies. Default off (Type-1 uses the real photo = faithful).
     inpaint_occluded: bool = False
-    inpaint_backend: str = "zimage"
+    inpaint_backend: str = "flux-fill"   # FLUX.1-Fill won the A/B; zimage = fallback
     device: str = "cuda"
     extra: dict = field(default_factory=dict)
 
