@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Laptop/table thread — results</title>
+<style>body{background:#111;color:#ddd;font:14px/1.5 system-ui,Segoe UI,Arial;margin:0;padding:26px 40px}
+h1{color:#fff;font-size:23px}h2{color:#7fd1ff;margin:30px 0 6px;font-size:18px}.cap{color:#9ab;margin:6px 0 2px;font-size:13px}
+img{max-width:100%;border:1px solid #333;border-radius:6px;background:#000;display:block}
+.box{background:#181818;border:1px solid #2a2a2a;border-radius:8px;padding:12px 16px;margin:10px 0}
+.win{color:#7CFC78}.lo{color:#ffa07a}</style></head><body>
+<h1>Improving the laptop splat — what worked, what didn't, and why</h1>
+
+<h2>1 · FLUX vs Z-Image (inpainter choice)</h2>
+<p class="cap">Masked region — original | masked | Z-Image | FLUX. FLUX continues the real material; Z-Image hallucinated an off-context blob.</p>
+<img src="ab_inpaint/ab.png"><p class="cap">Zoom (GT | Z-Image | FLUX):</p><img src="ab_inpaint/zoom.png">
+<div class="box win">→ FLUX.1-Fill is the default inpainter (FP8 on the 4090). The only dedicated trained Fill model.</div>
+
+<h2>2 · Generating a GENUINELY-MISSING surface (the good case)</h2>
+<p class="cap">Real photo | masked ("pretend the table bottom-half wasn't captured") | FLUX-generated continuation:</p>
+<img src="table/table_demo.png">
+<div class="box win">→ FLUX convincingly generates absent uniform surfaces (table/ground). This is the right use of generation.</div>
+
+<h2>3 · The fuzzy LID — capture-limited, NOT fixable faithfully</h2>
+<p class="cap">original | densified+re-textured (your anchors idea) | REAL photo — all three identical; the real photo itself is featureless.</p>
+<img src="densify_retex/compare.png">
+<div class="box lo">→ +1.08M anchors + re-texture vs real photos = LPIPS 0.3326→0.3310 (noise). The detail isn't in the footage (Cause B). The splat already matches reality; the lid IS smooth.</div>
+
+<h2>4 · Below the table / legs — the hardest case</h2>
+<p class="cap">Head-on (captured) | zoomed-out (red = empty/missing below & beside the table):</p>
+<img src="diag_back/back_view.png">
+<p class="cap">Forced fill attempt — before (red = below-table) | after (FLUX): the region is cluttered with never-seen floaters; InFusion can't build thin vertical legs.</p>
+<img src="headon/headon_fill.png">
+<div class="box lo">→ Legs were never captured + are thin vertical structure + cluttered by floaters → single-view inpaint can't do it. Needs re-capture or a 3D-consistent generator.</div>
+
+<h2>5 · Coverage map (why)</h2>
+<p class="cap">blue = under-observed / never-seen gaussians (background + below-table floaters); red = well-observed object surfaces.</p>
+<img src="diag_back/coverage.png">
+
+<h2>6 · For reference — where generation WORKS great: hole recovery</h2>
+<p class="cap">GPU scan, genuine hole — FULL | holed | auto-complete (detect→seed→reconstruct). +9 dB, beats original.</p>
+<img src="full_gpu/result.png">
+</body></html>

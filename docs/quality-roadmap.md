@@ -5,6 +5,86 @@ surface types across *many* clips. **Context: RESEARCH-ONLY** — license is not
 selection filter; we pick the strongest method and reimplement clean-licensed
 versions for our own OSS. License noted per method for that future port.
 
+## SESSION CHAPTER (June 2026, rev 4): completion, generation, and the imperfect-capture frontier
+
+A long build/validate session on *filling holes, adding detail, and generating
+missing views*. Everything below is empirically validated on our GPU + Laptop scans.
+
+### Shipped to the Stage-10 GUI (committed)
+- **Auto-complete holes** (`core/enhancement/autocomplete.py`): detect (err×WarpRF
+  multi-view-inconsistency + occlusion-aware coverage + alpha, edge-gated) → **InFusion
+  seed** (cold-start Gaussians where MCMC can't spawn) → **accept/reject gate** (commit
+  only if it improves agreement with the REAL photos on held-out neighbour views) →
+  **production-trainer reconstruction** (MCMC inject_noise + relocation + gated-LPIPS).
+  Validated: a genuine GPU hole 23.5→**32.6 dB** (beats original), floater-free.
+- **Pluggable 2D inpainter** (`inpaint_backend.py`/`inpaint_runner.py`): **FLUX.1-Fill
+  (FP8 on the 4090) is the default** — won the A/B vs Z-Image decisively (continues real
+  material vs Z-Image hallucinating an off-context blob). SDXL/Z-Image as fallbacks.
+- **Type-3 flows**: inpaint-fallback (occluded reference) + recreate-the-back (plausible).
+- **Detail-refine** (de-mush): gated-LPIPS multi-view + densification recovers detail
+  from the raw images for under-resolved fills.
+- **Capture Coverage report** (`coverage.py`): map cameras onto the object's viewing
+  hemisphere (centre via least-squares camera-ray convergence), report coverage % +
+  missing-angle gaps + a "shoot these angles" re-capture report + coverage map.
+
+### Validated learnings (the load-bearing rules)
+1. **Mush was the weak REFINER, not the seed.** Our hand-rolled detail-refine left fill
+   geometry stuck (no MCMC inject_noise/relocation). The REAL production trainer
+   reconstructs faithfully (laptop hole, vs GT photos: holed 0.46 → reconstructed
+   **0.325 LPIPS, beats the original 0.338**). FIX: InFusion = cold-start seed only; the
+   validated MCMC+gated-LPIPS trainer does the reconstruction.
+2. **Cause-A vs Cause-B (the detail dichotomy, information-theoretic).** Detail is
+   recoverable faithfully ONLY if it exists in ≥1 view (Cause A = geometry/sampling-
+   starved → anchors+re-texture/SR recover it). A textureless/dark/glossy surface
+   featureless in ALL views is Cause B = CAPTURE-LIMITED → more Gaussians only smooth,
+   any "detail" is hallucination. EMPIRICAL: +1.08M anchors + re-texture on the laptop
+   lid → −0.0016 LPIPS (noise) = Cause B confirmed; the splat already matches the photos.
+3. **Present-but-smooth vs genuinely-absent (the rule for WHEN to generate).** Generate
+   INTO emptiness (missing table/periphery — FLUX fills convincingly) = good; generate
+   OVER a present-but-smooth surface (the lid) = WRONG (invents texture that contradicts
+   reality). Demo'd both.
+4. **Coverage completeness = RE-CAPTURE, guided by Module 1.** Generative angle-fill is
+   plausible-only and OOD-limited on real captures (see critical review).
+
+### CRITICAL REVIEW — mistakes / things to re-examine
+- **EscherNet "OOD wall" verdict was CONFOUNDED — needs a second look.** The real-object
+  held-out-90°-wedge generated mostly BLANK/misframed output (PSNR 9.2). But blank =
+  object OUT OF FRAME = a FRAMING/normalization bug (EscherNet needs the object
+  normalized to ~unit size at a fixed radius/FOV/elevation convention; we recenter +
+  scale-to-radius but DO NOT normalize object SIZE, and only tried a blender-flip). So we
+  did NOT cleanly isolate OOD-appearance — the failure was dominated by an unfixed
+  framing bug. The OOD concern is real (Objaverse-trained; matches the early TRELLIS/
+  DiffGS finding) but plausible object-side generation may be achievable with PROPER
+  object normalization (+ maybe a per-object LoRA). RE-TEST before fully writing it off.
+- **MOTION BLUR is the biggest UN-EXPLORED lever for the real use case.** We diagnosed the
+  LAPTOP softness as defocus+codec (not motion) and ruled out BAD-Gaussians *for that
+  clip* — but the user's realistic captures are handheld ORBIT VIDEOS where motion blur
+  is inherent. We have NOT pursued deblur-3DGS. KEY INSIGHT: **blur-smeared detail IS in
+  the signal (Cause A) → motion-deblur recovers it FAITHFULLY**, unlike the Cause-B lid.
+  Imperfect captures have MORE faithful headroom than the near-perfect laptop did.
+- **Background-freeze TODO unbuilt.** Auto-complete's reconstruction retrains the WHOLE
+  splat (mild global-drift risk on already-good regions). A background-freeze (optimize
+  only seed + MCMC-densify the hole) would guarantee no-touch. Build for production.
+- **Coverage ↔ Difix-fusion not connected.** Coverage detects UNDER-observed (≠ unseen)
+  regions; Phase-1a coverage-gated Difix-fusion (validated +1 dB, in-prod) is the
+  faithful tool for exactly those. Wire coverage gaps → Difix-fusion for the
+  single-elevation-orbit case (the realistic capture).
+- **Frame selection unbuilt for video.** We have the blur diagnostic (var-of-Laplacian,
+  blur_report.py) but no sharpest-frame + coverage-balanced selection for video input.
+
+### Forward plan — "near-perfect object splat from an imperfect orbit video"
+Realistic input = handheld orbit video with motion blur + single-elevation coverage gaps
++ lower-res frames + textureless regions. Ranked levers (research synthesis pending):
+1. **Motion deblur for 3DGS** (BAD-Gaussians / Deblur-3DGS lineage) — faithful recovery
+   of blur-lost detail (Cause A). Likely the single biggest lever for orbit video.
+2. **Sharpest-frame + coverage-balanced frame selection** from video (cheap, big).
+3. **Coverage gaps → Difix-fusion (under-observed, faithful) + re-capture report (unseen).**
+4. **Selective super-resolution** for aliased-but-present detail (under-sampled, Cause A).
+5. **EscherNet proper-normalization retry** for plausible object-side completion.
+6. Background-freeze reconstruction for production safety.
+
+---
+
 ## FINAL RECOMMENDATION (research-backed, June 2026)
 
 **Root cause, confirmed at gsplat source level:** MCMC relocation samples
