@@ -297,6 +297,7 @@ def check_autocomplete() -> str:
 
 def run_autocomplete_handler(
     max_rounds: int,
+    inpaint_occluded: bool,
     state: PipelineState,
     progress=gr.Progress(),
 ) -> tuple[str, str, list, PipelineState]:
@@ -304,7 +305,8 @@ def run_autocomplete_handler(
 
     Only commits fills that improve agreement with the real photos (the accept/
     reject gate), so a complete splat is left unchanged. On success the refined
-    checkpoint/PLY supersede the Stage 9 results.
+    checkpoint/PLY supersede the Stage 9 results. With inpaint_occluded, holes whose
+    reference photo is occluded are filled with the inpainter (plausible) instead.
     """
     if not state.training_checkpoint:
         raise gr.Error("No training checkpoint. Complete Stage 9 first.")
@@ -315,7 +317,8 @@ def run_autocomplete_handler(
         run_autocomplete, AutoCompleteConfig, validate_environment,
     )
 
-    cfg = AutoCompleteConfig(max_rounds=int(max_rounds))
+    cfg = AutoCompleteConfig(max_rounds=int(max_rounds),
+                             inpaint_occluded=bool(inpaint_occluded))
     ok, msg = validate_environment(cfg)
     if not ok:
         raise gr.Error(f"Auto-complete not ready:\n{msg}")
@@ -349,6 +352,53 @@ def run_autocomplete_handler(
            if result.holes_filled > 0 else "Splat left unchanged (no holes to fix).")
     )
     return result.report, log, result.sample_renders, state
+
+
+def run_recreate_handler(
+    n_views: int,
+    extend_deg: int,
+    state: PipelineState,
+    progress=gr.Progress(),
+) -> tuple[str, str, list, PipelineState]:
+    """Recreate-the-back (PLAUSIBLE, not faithful): extend the orbit into unseen
+    angles, inpaint + complete each partial gap. Saves a separate `recreated.pt`
+    (does NOT supersede the faithful Stage-9 model — this is generated content)."""
+    if not state.training_checkpoint:
+        raise gr.Error("No training checkpoint. Complete Stage 9 first.")
+    if not state.training_data_dir:
+        raise gr.Error("Training data directory not set in state.")
+
+    from core.enhancement.recreate import run_recreate
+    from core.enhancement.autocomplete import AutoCompleteConfig, validate_environment
+    from core.enhancement.inpaint_backend import validate_backend
+
+    cfg = AutoCompleteConfig()
+    ok, msg = validate_environment(cfg)
+    if not ok:
+        raise gr.Error(f"Recreate not ready (InFusion):\n{msg}")
+    ok2, msg2 = validate_backend(cfg.inpaint_backend)
+    if not ok2:
+        raise gr.Error(f"Recreate not ready (inpainter):\n{msg2}")
+
+    out_dir = Path(state.project_dir) / "enhancement" / "recreate"
+    progress(0.02, desc="Starting recreate (plausible)...")
+    try:
+        result = run_recreate(
+            checkpoint_dir=state.training_checkpoint,
+            data_dir=state.training_data_dir,
+            output_dir=str(out_dir),
+            config=cfg,
+            n_views=int(n_views),
+            extend_deg=int(extend_deg),
+            progress_cb=lambda f, d: progress(f, desc=d),
+        )
+    except Exception as e:
+        tb = traceback.format_exc()
+        raise gr.Error(f"Recreate failed: {e}\n\n{tb}")
+
+    log = ("Recreate finished. Output is a separate plausible model — the faithful "
+           "Stage-9 model is unchanged. For faithful geometry, re-capture these angles.")
+    return result["report"], log, [], state
 
 
 # ---------------------------------------------------------------------------
@@ -435,10 +485,38 @@ def build_stage10_tab():
                     info="Each round fills (or rejects) the worst remaining hole.",
                 )
                 ac_check_btn = gr.Button("Check Auto-Complete Env", size="sm")
+            ac_inpaint_check = gr.Checkbox(
+                value=False,
+                label="Inpaint occluded holes (plausible, not faithful)",
+                info="When a hole's reference photo is occluded, fill it with the "
+                     "Z-Image inpainter instead of the real photo. The accept/reject "
+                     "gate still applies. Off = faithful-only.",
+            )
             ac_status = gr.Textbox(
                 label="Auto-Complete Status", lines=2, interactive=False,
             )
             ac_btn = gr.Button("Run Auto-Complete", variant="primary")
+
+        # --- Recreate unseen regions (plausible) ---
+        with gr.Accordion("Recreate Unseen Regions — plausible, NOT faithful", open=False):
+            gr.Markdown(
+                "Extend the captured orbit into **unseen** angles and generate "
+                "plausible geometry there (Z-Image inpaint → InFusion depth → seed). "
+                "**This is hallucinated content where no camera looked** — for faithful "
+                "geometry, re-capture those angles. Saves a separate `recreated.pt`; "
+                "the faithful Stage-9 model is left unchanged."
+            )
+            with gr.Row():
+                rc_views_slider = gr.Slider(
+                    minimum=2, maximum=24, value=8, step=2,
+                    label="Novel views", info="How many unseen viewpoints to attempt.",
+                )
+                rc_extend_slider = gr.Slider(
+                    minimum=10, maximum=90, value=30, step=5,
+                    label="Extend beyond orbit (deg)",
+                    info="How far past the captured arc to reach.",
+                )
+            rc_btn = gr.Button("Recreate Unseen (plausible)")
 
         # --- Output ---
         with gr.Row():
@@ -467,8 +545,12 @@ def build_stage10_tab():
         "distill_btn": distill_btn,
         "ac_rounds_slider": ac_rounds_slider,
         "ac_check_btn": ac_check_btn,
+        "ac_inpaint_check": ac_inpaint_check,
         "ac_status": ac_status,
         "ac_btn": ac_btn,
+        "rc_views_slider": rc_views_slider,
+        "rc_extend_slider": rc_extend_slider,
+        "rc_btn": rc_btn,
         "stats_box": stats_box,
         "log_box": log_box,
         "gallery": gallery,
@@ -519,6 +601,13 @@ def wire_stage10(components: dict, state: gr.State):
     )
     c["ac_btn"].click(
         fn=run_autocomplete_handler,
-        inputs=[c["ac_rounds_slider"], state],
+        inputs=[c["ac_rounds_slider"], c["ac_inpaint_check"], state],
+        outputs=[c["stats_box"], c["log_box"], c["gallery"], state],
+    )
+
+    # Recreate unseen (plausible)
+    c["rc_btn"].click(
+        fn=run_recreate_handler,
+        inputs=[c["rc_views_slider"], c["rc_extend_slider"], state],
         outputs=[c["stats_box"], c["log_box"], c["gallery"], state],
     )

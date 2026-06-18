@@ -58,6 +58,11 @@ class AutoCompleteConfig:
     # reconstruction (the production trainer)
     recon_steps: int = 5000
     lpips_lambda: float = 0.2
+    # Type-3 fallback: inpaint the reference RGB in the hole when the photo can't be
+    # trusted there (occluded). PLAUSIBLE not faithful; the accept/reject gate still
+    # applies. Default off (Type-1 uses the real photo = faithful).
+    inpaint_occluded: bool = False
+    inpaint_backend: str = "zimage"
     device: str = "cuda"
     extra: dict = field(default_factory=dict)
 
@@ -184,9 +189,14 @@ def _run_infusion(d, rdir, cfg, dev):
     os.makedirs(rdir, exist_ok=True)
     valid = (d["a"] > 0.5) & (d["depth"] > 1e-6)
     disp = torch.where(valid, 1.0 / d["depth"].clamp(min=1e-6), torch.zeros_like(d["depth"]))
-    cv2.imwrite(os.path.join(rdir, "rgb.png"),
+    rgb_p = os.path.join(rdir, "rgb.png")
+    cv2.imwrite(rgb_p,
                 cv2.cvtColor((d["photo"].cpu().numpy() * 255).astype(np.uint8), cv2.COLOR_RGB2BGR))
     cv2.imwrite(os.path.join(rdir, "mask.png"), d["mask"])
+    if getattr(cfg, "inpaint_occluded", False):
+        # reference photo can't be trusted in the hole (occluded) -> inpaint it first
+        from core.enhancement.inpaint_backend import inpaint
+        inpaint(cfg.inpaint_backend, rgb_p, os.path.join(rdir, "mask.png"), rgb_p)
     np.save(os.path.join(rdir, "disp.npy"), disp.cpu().numpy().astype(np.float32))
     np.save(os.path.join(rdir, "intri.npy"), d["K"].cpu().numpy().astype(np.float64))
     np.save(os.path.join(rdir, "c2w.npy"), d["c2w"].cpu().numpy().astype(np.float64))
