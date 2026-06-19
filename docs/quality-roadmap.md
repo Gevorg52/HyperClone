@@ -1,4 +1,4 @@
-# Apex Reality — Quality Roadmap (June 2026, rev 3)
+# Apex Reality — Quality Roadmap (June 2026, rev 5)
 
 **Goal:** general pipeline improvements so reconstructions are crisp on *all*
 surface types across *many* clips. **Context: RESEARCH-ONLY** — license is not a
@@ -82,6 +82,165 @@ Realistic input = handheld orbit video with motion blur + single-elevation cover
 4. **Selective super-resolution** for aliased-but-present detail (under-sampled, Cause A).
 5. **EscherNet proper-normalization retry** for plausible object-side completion.
 6. Background-freeze reconstruction for production safety.
+
+---
+
+## SESSION CHAPTER (June 2026, rev 5): imperfect-capture pipeline — BUILD + VALIDATE + HANDOFF
+
+This chapter is the **handoff record** for the "near-perfect object splat from an
+imperfect orbit video" work. It is self-contained: a successor can read this section
+alone and continue. Realistic input = handheld ORBIT VIDEO (motion blur + single-
+elevation coverage gaps + lower-res frames + textureless regions). The rev-4 forward
+plan above was researched (~40 arXiv IDs verified, all real) into a ranked program;
+this rev-5 chapter records what got BUILT, TESTED, and what remains.
+
+### The ranked program (research-backed, faithful-vs-plausible tagged)
+Order of operations is load-bearing: **sharp-frame select → masked SfM → joint-deblur
+train (deblur converges FIRST) → depth-reg → THEN coverage-gated generative fusion.**
+NEVER fuse a generative prior onto blurry-overfit Gaussians (a prior mistakes blur for
+low-freq texture and SOLIDIFIES it — arXiv 2512.10369).
+
+| # | Lever | Faithful? | Status | Commit |
+|---|---|---|---|---|
+| 0 | Sharpest-frame selection (var-of-Laplacian + min-gap) | ✅ | **SHIPPED** | `05657e3` |
+| 1 | **Joint motion-deblur** (BAD-Gaussians SE(3) B-spline port) — THE biggest lever | ✅ | **NOT STARTED** (big build; needs real blurry video to validate) | — |
+| 2 | Object-mask alpha loss (kills background floaters) | ✅ | **SHIPPED** | `99781f5` |
+| 3 | Sparse-depth supervision (SfM-point depth) | ✅ | **SHIPPED** | `5692d5b` |
+| 4 | SplatSuRe selective super-resolution | ✅(gated) | **RESEARCHED + VALIDATED → no SR headroom for orbits; harvest the GATE** | `2f602b8` |
+| 5 | SEVA (Stable Virtual Camera) wedge-fill (NOT EscherNet) + iFusion LoRA | ⚠️ plausible | NOT STARTED (gate to true gaps) | — |
+| 6 | GSFixer A/B vs our Difix loop | — | NOT STARTED | — |
+
+### SHIPPED this session — details, validation, how to use
+
+**#0 — Sharpest-frame selection** · `core/frame_select.py` · commit `05657e3`
+- `select_sharp_frames(paths, window=8, min_gap=3, keep_frac=1.0)` → picks the sharpest
+  frame per non-overlapping window (var-of-Laplacian) while enforcing a min index gap so
+  orbit COVERAGE is preserved. `extract_video_frames(video, out_dir, every)` for video in.
+- Run BEFORE COLMAP. Validated on the 305 Laptop frames: culls severe blur (min var 8),
+  selected-frame median sharpness **+34%** vs all-frame median. (Gain is modest on our
+  near-still scans — median var 344, already crisp; the real gain is on genuinely
+  motion-blurred handheld video.) CLI: `python core/frame_select.py <dir|video> [window]`.
+
+**#2 — Object-mask alpha loss** · `core/training/gsplat_trainer.py` + `gsplat_backend.py`
+· commit `99781f5`
+- THE GAP IT FIXES (verified at source): stock masking pre-multiplies images to a black
+  background but NEVER supervises rendered opacity — a black-but-opaque Gaussian
+  "satisfies" a black bg pixel, so background floaters grow unpenalized.
+- ADDS `L_bg = mean(alpha·(1−mask))` → pushes rendered opacity→0 OUTSIDE the object mask
+  (deletes floaters). Optional `alpha_obj_lambda` pushes alpha→1 inside (fills see-through
+  holes; use sparingly — can thicken thin parts).
+- Plumbing: `gsplat_backend._export_masks()` writes `masks/` + `masks_{factor}/` (NEAREST)
+  in `prepare_data`; trainer loads stem-matched masks, undistorts + ROI-crops them
+  IDENTICALLY to the image (stays pixel-aligned), applies the loss.
+- CLI: `--alpha_loss_lambda 0.1 --alpha_obj_lambda 0.0`. Default OFF.
+- Validated (`_infusion/val_alpha_loss.py`): loader alignment on real data confirmed; a
+  real Adam step drives background alpha **0.701 → 0.001** while object alpha is preserved
+  (1.000). NOTE: validated for MECHANISM + integration + no-harm; the QUALITY lift only
+  shows on scenes with visible background/floaters (our tightly-framed Laptop object fills
+  ~100% of frame → almost no background to test on). Production A/B awaits a scene with
+  real background.
+
+**#3 — Sparse-depth supervision** · `core/training/gsplat_trainer.py` + `gsplat_backend.py`
+· commit `5692d5b`
+- Free + faithful: supervises rendered expected-depth against the SfM points each view
+  observes. Per-view point observations are built once from the COLMAP point TRACKS
+  (`load_colmap_data` → `data["point_obs"]`, ~1820 pts/view on Laptop). At train time the
+  points are RE-PROJECTED with the view's own K+pose (so it matches the rendered grid
+  regardless of undistortion), rendered depth is sampled there via `grid_sample`, robust
+  L1 normalized by median depth (scale/resolution invariant).
+- Grounds geometry where the photometric signal is ambiguous (under-textured / sparse-view
+  captures). CLI: `--depth_lambda 0.1 --depth_start 2000`. Default OFF.
+- Validated: integrates cleanly (57 it/s, no perf hit), A/B NEUTRAL on the texture-rich
+  Laptop scene (22.05 vs 22.31 dB at 2500 steps — within short-run noise, as expected:
+  a complete texture-rich scene doesn't exercise it). Its lift is scene-dependent →
+  opt-in for the imperfect-capture case. SPARSE only; the mono-depth scale-invariant +
+  inconsistency-masked prior (In Depth We Trust, 2604.05715) is a heavier follow-up.
+
+**#4 — SplatSuRe selective super-resolution** · `_infusion/val_splatsure.py` · commit `2f602b8`
+- RESEARCH VERDICT: a splat trained on overlapping views IS ALREADY a multi-frame
+  super-resolver (sub-pixel fusion). Bolting a 2D single-image SR net onto each rendered
+  view CORRUPTS multi-view consistency (per-view-different hallucination → conflicting
+  gradients → mush) — now the published consensus. Faithful high-res = TRAIN AT TARGET RES
+  + Mip-Splatting (BOTH ALREADY ON in our trainer). SplatSuRe's real contribution is a
+  per-Gaussian GATE for where SR is even licensed. Paper code = Inria NON-COMMERCIAL
+  (re-implement math; research-only is fine for us anyway).
+- METRIC (re-implemented faithfully via gsplat `fully_fused_projection`, `eps2d=0` to drop
+  the 0.3 AA dilation exactly as the paper specifies): per-view 3σ screen radius
+  `r = 3·√(max eigenvalue of projected 2D cov)`; `ρ = r_max/r_min` over ≥3 observing views
+  (else score 0); `score = σ((ρ−1.1)/0.05)`. Low ρ≈1 = undersampled = SR headroom; high ρ
+  = some view saw it close = trust the fused splat.
+- VALIDATED on GPU_V4 (2M-GS dense orbit): **100% well-sampled, 0% SR headroom; heatmap
+  ALL BLUE.** Orbits self-supply multi-scale detail via BOTH distance variation (2.34×)
+  AND viewing-ANGLE foreshortening — even a tight ±3% constant-radius band stays 99.5%
+  well-sampled (ρ median 3.0). So selective generative SR adds ~nothing faithful for our
+  capture style → CONFIRMS "per-scene ceiling reached" (matches the paper's own dense-
+  trajectory MipNeRF360 result). The metric DOES discriminate (headroom 0.0→0.2→0.5% as
+  the band tightened) — it's just that orbits are intrinsically well-sampled.
+- ADOPTABLE WIN (not yet wired): fold the per-Gaussian ρ-score into the existing
+  coverage-gated fusion / accept-reject as a SHARPER per-Gaussian "under-constrained"
+  gate, replacing the coarse camera-hemisphere coverage gate. The 24.8% of Gaussians seen
+  by <3 views = back/occluded = exactly where generative completion (Difix/SEVA/inpaint)
+  is licensed. CLI to reproduce: `python _infusion/val_splatsure.py <ckpt.pt> <data_dir>
+  [factor] [n_views] [dist_band]`.
+
+### Validated capture insight (NEW, important for the playbook)
+An ORBIT inherently provides multi-SCALE sampling of every surface patch — not only via
+distance variation but via VIEWING-ANGLE foreshortening (a patch seen frontally projects
+large, grazing projects small). This is WHY dense orbits leave almost no faithful SR/
+detail headroom (the ρ analysis), and it reframes capture guidance: distance variation
+helps but is not strictly required for multi-scale fusion; ANGULAR coverage already
+delivers it. The genuine headroom is in regions seen by <3 views or only ever grazing/far
+(back, top, occluded) — the coverage-tool / ρ-gate targets.
+
+### Research synthesis (the strategic answer to "how do we drastically improve")
+- **Motion deblur (#1) is the single biggest FAITHFUL lever** for orbit video; blur-lost
+  detail is Cause-A (in the signal). Port BAD-Gaussians (arXiv 2403.11831, Apache-2.0,
+  already gsplat-based): SE(3) cubic B-spline in-exposure camera trajectory + N-subframe
+  averaging → synthesize the blurry image, supervise vs blurry input → underlying
+  Gaussians stay sharp. Composes with our `pose_opt`. Alts: DeblurGS (2404.11358, robust
+  to noisy COLMAP), CoMoGaussian (2503.05332, extreme blur). DON'T 2D-deblur-preprocess
+  (multi-view-inconsistent, corrupts depth — 2510.01640).
+- **EscherNet failure WAS a framing/normalization bug, confirmed (not a clean OOD wall).**
+  But the better tool is **SEVA / Stable Virtual Camera (2503.14489, open, 576p, fits the
+  4090)** — consumes COLMAP poses directly, no fragile object-crop. + iFusion (2312.17250)
+  per-object LoRA for glossy OOD. PLAUSIBLE → gate to true gaps only.
+- **GSFixer (2508.09667, open, DINOv2+VGGT geometry tokens)** benchmarks beat Difix3D+/
+  GenFusion on sparse-view → A/B vs our Difix loop. Watch ArtiFixer (2603.00492, NVIDIA
+  SIGGRAPH26, the real Difix successor, +1–3 dB, not-yet-open).
+
+### What a successor should do next (priority order)
+1. **Port BAD-Gaussians (#1)** — the big faithful lever. Needs: SE(3) B-spline trajectory
+   module + N-subframe render+average in the train loop + REAL motion-blurred orbit video
+   to validate (our existing scans are near-still and CANNOT prove a deblur win — capture
+   a blurry handheld clip first). Multi-day build; deserves its own focused session.
+2. **Wire the ρ-score gate** (#4 harvest) into `core/enhancement/autocomplete.py` /
+   coverage-gated fusion — replace the hemisphere coverage gate with the per-Gaussian
+   `ρ`/`<3-view` signal from `val_splatsure.py` (lift the metric into a reusable module).
+3. **Production A/B for #2 and #3** on a scene with real background + under-textured
+   regions (the Laptop/GPU scans don't exercise them) to measure the actual quality lift.
+4. **#5 SEVA** for true unseen gaps (gated by the accept/reject machinery), **#6 GSFixer**
+   A/B. Mono-depth prior as the heavier #3 follow-up.
+
+### Reproduce / key paths
+- Trainer: `core/training/gsplat_trainer.py` (CLI flags above) via `gsplat_backend.py`
+  (subprocess; `get_default_config()` exposes `alpha_loss_lambda`, `alpha_obj_lambda`,
+  `depth_lambda`, `depth_start`). Both default 0.0 → current production behaviour
+  UNCHANGED until opted in.
+- Validation scripts (in `_infusion/`, committed; binaries gitignored):
+  `val_alpha_loss.py`, `val_splatsure.py` (+ heatmap `splatsure_heat.png`).
+- Memory note: `imperfect-capture-pipeline.md` mirrors this chapter (build status inline).
+- Datasets: GPU_V4 (`_dataset/GPU_V4/.../gsplat_prod/`, 2M-GS factor-2 30k ckpt),
+  Laptop (`_dataset/Laptop/apex_images/training/gsplat_prod/`). NOTE: Laptop ckpts dir was
+  cleared; only PLY remains. Real per-image masks are NOT preserved on disk (images are
+  pre-multiplied black-bg) — `val_alpha_loss.py` derives silhouettes for testing only;
+  production masks come from the SAM 2.1 masking stage.
+
+### Honest limitations (do not over-claim)
+- #2/#3 are validated for mechanism + integration + no-harm, NOT for production quality
+  lift (our test scenes don't exercise their target regime). #4 is a "confirm + harvest the
+  metric" result, not a new capability. #0's gain is modest on near-still input. The one
+  genuinely transformative un-built lever is **#1 motion-deblur**, gated on capturing real
+  blurry orbit footage.
 
 ---
 
