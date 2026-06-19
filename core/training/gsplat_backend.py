@@ -252,6 +252,8 @@ class GsplatBackend(TrainingBackend):
             "vis_reg": 0.0,                # visibility loss (kill empty-space floaters)
             "alpha_loss_lambda": 0.0,      # object-mask alpha sup. (kills bg floaters; ~0.1)
             "alpha_obj_lambda": 0.0,       # push alpha->1 inside mask (off by default)
+            "depth_lambda": 0.0,           # sparse SfM-point depth supervision (~0.05-0.2)
+            "depth_start": 2000,           # step to start depth loss
             "antialiased": True,           # Mip-Splatting anti-aliasing
             "pose_opt": True,              # SE(3) pose refinement
             "pose_opt_lr": 1e-5,
@@ -386,6 +388,8 @@ class GsplatBackend(TrainingBackend):
             "--vis_reg", str(extra.get("vis_reg", 0.0)),
             "--alpha_loss_lambda", str(extra.get("alpha_loss_lambda", 0.0)),
             "--alpha_obj_lambda", str(extra.get("alpha_obj_lambda", 0.0)),
+            "--depth_lambda", str(extra.get("depth_lambda", 0.0)),
+            "--depth_start", str(extra.get("depth_start", 2000)),
         ]
 
         if extra["normalize_world_space"]:

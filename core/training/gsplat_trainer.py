@@ -261,8 +261,26 @@ def load_colmap_data(
 
     # 3D points
     pts = rec.points3D
-    points = np.array([pts[pid].xyz for pid in sorted(pts.keys())], dtype=np.float32)
-    points_rgb = np.array([pts[pid].color for pid in sorted(pts.keys())], dtype=np.uint8)
+    pid_sorted = sorted(pts.keys())
+    points = np.array([pts[pid].xyz for pid in pid_sorted], dtype=np.float32)
+    points_rgb = np.array([pts[pid].color for pid in pid_sorted], dtype=np.uint8)
+
+    # Per-view SfM observations (for sparse depth supervision) — for each image, the row
+    # indices (into `points`) of the 3D points it observes. Built by one pass over the
+    # point tracks; keyed by image name so it stays aligned to the name-sorted order.
+    point_obs = None
+    try:
+        from collections import defaultdict
+        imgid_to_name = {iid: im.name for iid, im in rec.images.items()}
+        by_name = defaultdict(list)
+        for row, pid in enumerate(pid_sorted):
+            for el in pts[pid].track.elements:
+                nm = imgid_to_name.get(el.image_id)
+                if nm is not None:
+                    by_name[nm].append(row)
+        point_obs = [np.asarray(by_name.get(nm, []), dtype=np.int64) for nm in image_names]
+    except Exception as e:
+        print(f"[Data] sparse-depth observations unavailable ({e}); depth_loss disabled")
 
     # Normalize
     if normalize:
@@ -301,6 +319,7 @@ def load_colmap_data(
         "camera_ids": camera_ids,
         "image_paths": image_paths,
         "mask_paths": mask_paths,
+        "point_obs": point_obs,
         "image_names": image_names,
         "imsize_dict": imsize_dict,
         "params_dict": params_dict,
@@ -950,6 +969,16 @@ def train(args):
         print(f"[Train] Visibility loss ON (vis_reg={args.vis_reg}): "
               f"{int(unseen_mask.sum())}/{unseen_mask.numel()} Gaussians seen by no camera")
 
+    # Sparse-depth supervision setup (rendered depth vs SfM points at observed pixels)
+    depth_obs = None
+    points_t = None
+    if args.depth_lambda > 0 and data_fine.get("point_obs") is not None:
+        depth_obs = data_fine["point_obs"]
+        points_t = torch.from_numpy(data_fine["points"]).float().to(device)
+        n_obs = int(np.median([len(o) for o in depth_obs]))
+        print(f"[Train] Sparse depth loss ON (depth_lambda={args.depth_lambda}, "
+              f"start={args.depth_start}): ~{n_obs} SfM points/view")
+
     running_loss = 0.0
     running_psnr = 0.0
     running_crop_l1 = None  # EMA of LPIPS-crop L1, for gated perceptual loss
@@ -987,9 +1016,10 @@ def train(args):
             bkgd = torch.zeros(3, device=device)
 
         geo_on = args.geo_reg and step >= args.geo_reg_start
+        depth_on = depth_obs is not None and step >= args.depth_start
         renders, alphas, info = render_splats(
             splats, w2c, K, W, H, args.sh_degree, bkgd, rasterize_mode,
-            render_mode="RGB+ED" if geo_on else "RGB",
+            render_mode="RGB+ED" if (geo_on or depth_on) else "RGB",
         )
         rendered = renders[0][..., :3].clamp(0.0, 1.0)  # (H, W, 3)
 
@@ -1037,6 +1067,35 @@ def train(args):
         if unseen_mask is not None:
             loss = loss + args.vis_reg * torch.sigmoid(
                 splats["opacities"][unseen_mask]).mean()
+
+        # Sparse-depth supervision — anchor rendered depth to the SfM points the view
+        # observes. Re-project points with THIS view's K+pose (so it matches the rendered
+        # grid regardless of undistortion), sample rendered depth there, robust L1.
+        # Faithful + free: grounds geometry where photometric loss is ambiguous.
+        if depth_on:
+            obs = depth_obs[int(idx)]
+            if len(obs) >= 16:
+                P = points_t[torch.from_numpy(obs).to(device)]          # (M, 3) world
+                Xc = P @ w2c[:3, :3].T + w2c[:3, 3]                     # (M, 3) camera
+                z = Xc[:, 2]
+                front = z > 1e-4
+                uv = (Xc[front] @ K.T)
+                u = uv[:, 0] / uv[:, 2]; v = uv[:, 1] / uv[:, 2]
+                zf = z[front]
+                inb = (u >= 0) & (u <= W - 1) & (v >= 0) & (v <= H - 1)
+                if inb.any():
+                    depth_map = renders[0][..., 3]                      # (H, W) expected depth
+                    gx = (u[inb] / (W - 1)) * 2 - 1
+                    gy = (v[inb] / (H - 1)) * 2 - 1
+                    grid = torch.stack([gx, gy], -1)[None, None]        # (1,1,K,2)
+                    d_r = torch.nn.functional.grid_sample(
+                        depth_map[None, None], grid, mode="bilinear",
+                        align_corners=True)[0, 0, 0]                    # (K,)
+                    zt = zf[inb]
+                    # scale by median GT depth so the weight is resolution/scene invariant
+                    sc = zt.median().detach() + 1e-6
+                    loss = loss + args.depth_lambda * (
+                        (d_r - zt).abs() / sc).mean()
 
         # Edge-aware geometric regularization — flattens textureless surfaces
         # (the "mushy black plastic" fix) without softening textured detail.
@@ -1304,6 +1363,13 @@ def main():
                         help="Optional: push alpha ->1 INSIDE the mask "
                              "(mean((1-alpha)*mask)); fills see-through object holes. "
                              "Use sparingly (can thicken thin parts). 0 = off.")
+    # Sparse-depth supervision (free, faithful: rendered depth vs SfM points)
+    parser.add_argument("--depth_lambda", type=float, default=0.0,
+                        help="Weight of sparse depth loss: L1(rendered_depth, SfM_point_z) "
+                             "at observed pixels. Grounds geometry in under-textured "
+                             "regions; free (uses existing SfM points). 0 = off.")
+    parser.add_argument("--depth_start", type=int, default=2000,
+                        help="Step to start depth loss (after coarse geometry forms)")
     # Anti-aliasing (Mip-Splatting)
     parser.add_argument("--antialiased",
                         action=argparse.BooleanOptionalAction, default=True)
