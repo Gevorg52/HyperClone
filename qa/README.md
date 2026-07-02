@@ -44,6 +44,21 @@ scorecard, reason printed).
 > corruption-checked merge; percentile-robust flicker guard; `--floater_jitter`
 > temporal positive control added and banked (`qa/GPU_V4_jitter/`).
 
+**Pose frame (`--normalize {auto,true,false}`, default true):** our own trainer
+checkpoints live in the NORMALIZED frame (default = unchanged behavior — all
+banked scorecards); foreign PLYs (e.g. 3DGRUT exports) live in the raw COLMAP
+frame and need `--normalize false` (`auto` probes the first held-out view under
+both frames and keeps the higher-PSNR one). An ALWAYS-ON degenerate-render check
+self-flags wrong-frame runs: first-view render-vs-GT PSNR < 9 dB or near-black →
+loud warning + `render_sanity: "suspect"` in the scorecard (thresholds
+EMPIRICAL: the 3DGRUT wedge PLY under the wrong frame renders a BRIGHT garbage
+blob at 7.7–7.8 dB / lum 0.45 — a black-frame check alone misses it — while the
+heaviest banked intentional corruption, floaters@0.01, stays at 12.5 dB).
+Verified 2026-07-02: GPU_V4 re-run byte-identical to the bank apart from the two
+new fields (`qa/_t_normcheck/`); foreign 3DGRUT PLY sane at 22.76 dB under
+`false` / flagged suspect at 7.75 dB under `true`; `auto` resolves to `false`
+(`qa/_t_foreignply_{false,true,auto}/`).
+
 ## scorer → environment mapping
 | scorer | env | how | model | direction |
 |---|---|---|---|---|

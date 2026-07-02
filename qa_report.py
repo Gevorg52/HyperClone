@@ -178,6 +178,33 @@ def to_bgr(t: torch.Tensor) -> np.ndarray:
     return np.ascontiguousarray(rgb[..., ::-1])   # RGB->BGR, contiguous for cv2
 
 
+def _render_probe(splats, data, idx, sh_degree, device):
+    """Render view `idx` and return (full-frame PSNR vs GT, mean luminance).
+    Used by --normalize auto (frame pick) and the always-on sanity check."""
+    from core.training.gsplat_trainer import load_image, render_splats
+    b = load_image(data, idx)
+    gt = b["image"].to(device)
+    H, W = gt.shape[:2]
+    viewmat = torch.linalg.inv(b["c2w"].to(device))
+    with torch.no_grad():
+        renders, _, _ = render_splats(splats, viewmat, b["K"].to(device), W, H,
+                                      sh_degree, torch.zeros(3, device=device),
+                                      "antialiased")
+        render = renders[0].clamp(0, 1)
+    mse = float(((render - gt) ** 2).mean())
+    psnr = 10.0 * float(np.log10(1.0 / (mse + 1e-10)))
+    return psnr, float(render.mean())
+
+
+def _first_split_index(data, wedge) -> int:
+    """First held-out view index for the current split (same math as main)."""
+    if wedge is not None:
+        n = len(data["image_names"])
+        lo = int(wedge[0] * n) if wedge[0] <= 1.0 else int(wedge[0])
+        return max(0, min(n - 1, lo))
+    return int(sorted(int(i) for i in data["test_indices"])[0])
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -214,6 +241,14 @@ def main():
                          "POSITIONS on every frame of the scorer clips (temporal "
                          "popping — positive control for raft_warp/flicker). "
                          "Requires --inject_floaters > 0.")
+    ap.add_argument("--normalize", choices=["auto", "true", "false"], default="true",
+                    help="pose frame for load_colmap_data. 'true' (default, "
+                         "unchanged behavior) = the trainer's NORMALIZED frame — "
+                         "correct for this project's own checkpoints. 'false' = "
+                         "raw COLMAP frame — required for foreign PLYs (e.g. "
+                         "3DGRUT exports), which render GARBAGE under normalized "
+                         "poses. 'auto' = probe the first held-out view under "
+                         "both frames and keep the higher-PSNR one.")
     ap.add_argument("--scorers", default="",
                     help="phase-2 external scorers to run (default OFF). Comma "
                          "list from {crossscore,nova,tsed,raft_warp,nvs_sqa,"
@@ -277,8 +312,27 @@ def main():
         corruption["blur_sigma"] = args.blur_sigma
         print(f"[QA] renders will be gaussian-blurred (sigma={args.blur_sigma})")
 
-    data = load_colmap_data(args.data_dir, factor=args.factor,
-                            test_every=test_every, normalize=True)
+    # pose frame: our own ckpts live in the trainer's NORMALIZED frame (true);
+    # foreign PLYs (3DGRUT exports etc.) live in the raw COLMAP frame (false).
+    # auto probes the first held-out view under both and keeps the better one.
+    if args.normalize == "auto":
+        best = None
+        for nm in (True, False):
+            d_try = load_colmap_data(args.data_dir, factor=args.factor,
+                                     test_every=test_every, normalize=nm)
+            p_idx = _first_split_index(d_try, wedge)
+            psnr, lum = _render_probe(splats, d_try, p_idx, args.sh_degree, device)
+            print(f"[QA] normalize probe: normalize={nm} -> view {p_idx} "
+                  f"PSNR {psnr:.2f} dB, mean lum {lum:.3f}")
+            if best is None or psnr > best[0]:
+                best = (psnr, nm, d_try)
+        normalize_used = best[1]
+        data = best[2]
+        print(f"[QA] --normalize auto resolved to {str(normalize_used).lower()}")
+    else:
+        normalize_used = (args.normalize == "true")
+        data = load_colmap_data(args.data_dir, factor=args.factor,
+                                test_every=test_every, normalize=normalize_used)
     if wedge is not None:
         n = len(data["image_names"])
         lo = int(wedge[0] * n) if wedge[0] <= 1.0 else int(wedge[0])
@@ -304,6 +358,7 @@ def main():
 
     view_scores = []
     psnrs, ssims, lpipss, obs_pcts = [], [], [], []
+    render_sanity = "ok"
 
     for vi, idx in enumerate(test_indices):
         b = load_image(data, idx)
@@ -319,6 +374,32 @@ def main():
                 torch.zeros(3, device=device), vcfg.rasterize_mode)
             render = renders[0].clamp(0, 1)
             alpha = alphas[0, ..., 0]
+
+        # ALWAYS-ON degenerate-render sanity check (first view, pre-blur): a
+        # near-black frame or render-vs-GT PSNR < 9 dB almost always means the
+        # splat lives in the OTHER pose frame (e.g. a raw-COLMAP-frame 3DGRUT
+        # PLY loaded under normalize=true). Thresholds are EMPIRICAL from the
+        # live footgun: the 3DGRUT wedge PLY under the wrong frame renders a
+        # BRIGHT garbage blob (lum 0.45 — the black-frame arm alone misses it)
+        # at 7.7-7.8 dB, while the heaviest banked intentional corruption
+        # (floaters@0.01) stays at 12.5 dB -> 9.0 splits them with margin.
+        # Warn LOUDLY + self-flag the scorecard; never error.
+        if vi == 0:
+            _mse = float(((render - gt) ** 2).mean())
+            _fpsnr = 10.0 * float(np.log10(1.0 / (_mse + 1e-10)))
+            _lum = float(render.mean())
+            if _lum < 0.01 or _fpsnr < 9.0:
+                render_sanity = "suspect"
+                bang = "!" * 78
+                print(f"\n{bang}\n"
+                      f"[QA] !! RENDER SANITY SUSPECT: first held-out render vs GT "
+                      f"PSNR {_fpsnr:.2f} dB, mean luminance {_lum:.4f}.\n"
+                      f"[QA] !! The splat likely lives in the OTHER pose frame "
+                      f"(current --normalize {args.normalize} -> "
+                      f"{str(normalize_used).lower()}).\n"
+                      f"[QA] !! For foreign PLYs (e.g. 3DGRUT exports) re-run with "
+                      f"--normalize false. Scorecard is flagged "
+                      f"render_sanity=suspect.\n{bang}\n", flush=True)
 
         secondary = None
         if n_obs is not None:
@@ -369,7 +450,9 @@ def main():
         masked_psnr=float(np.nanmean(psnrs)) if psnrs else float("nan"),
         masked_ssim=float(np.nanmean(ssims)) if ssims else float("nan"),
         masked_lpips=float(np.nanmean(lpipss)) if lpipss else float("nan"),
-        alpha_thresh=args.alpha_thresh, corruption=corruption, views=view_scores)
+        alpha_thresh=args.alpha_thresh,
+        normalize=str(normalize_used).lower(), render_sanity=render_sanity,
+        corruption=corruption, views=view_scores)
 
     # SceneContext hands the (possibly-corrupted) splats + poses to phase-2 scorers.
     _ctx = SceneContext(
@@ -425,6 +508,7 @@ def main():
     print(f"  masked PSNR     {card.masked_psnr:.3f}")
     print(f"  masked SSIM     {card.masked_ssim:.4f}")
     print(f"  masked LPIPS    {card.masked_lpips:.4f}  (lower=better)")
+    print(f"  normalize       {card.normalize}   render_sanity {card.render_sanity}")
     if corruption:
         print(f"  corruption      {corruption}")
     print(f"[QA] wrote {json_path}")

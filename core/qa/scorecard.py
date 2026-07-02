@@ -72,6 +72,13 @@ class Scorecard:
     masked_ssim: float
     masked_lpips: float
     alpha_thresh: float = 0.3
+    # pose frame used for load_colmap_data ("true" = the trainer's normalized
+    # frame; "false" = raw COLMAP frame, for foreign PLYs like 3DGRUT exports)
+    normalize: str = "true"
+    # "ok" | "suspect" — degenerate-first-render check (near-black render or
+    # render-vs-GT PSNR < ~5 dB usually means the splat lives in the OTHER pose
+    # frame; a garbage run is then self-flagging instead of silently plausible)
+    render_sanity: str = "ok"
     # corruption knobs used (0 == pristine); recorded so runs are self-describing
     corruption: Dict[str, Any] = field(default_factory=dict)
     # reserved for phase-2 scorers; all null in phase-1

@@ -1,0 +1,48 @@
+{
+  "alpha_thresh": 0.3,
+  "ckpt": "D:/REPOS/HYPERclone/artifixer-checkpoints/ply/laptop_base_3dgrut_wedge.ply",
+  "corruption": {},
+  "data_dir": "_dataset/Laptop/apex_images/training/gsplat_prod/data",
+  "factor": 2,
+  "masked_lpips": 0.328901,
+  "masked_psnr": 22.756657,
+  "masked_ssim": 0.838201,
+  "n_views": 2,
+  "normalize": "false",
+  "observed_area_pct": 100.0,
+  "render_sanity": "ok",
+  "scene": "laptop_wedge_3dgrut",
+  "scorers": {
+    "crossscore": null,
+    "flicker": null,
+    "nova": null,
+    "nvs_sqa": null,
+    "raft_warp": null,
+    "tsed": null
+  },
+  "split": "wedge:130:170",
+  "views": [
+    {
+      "gt": "views/v0130_gt.jpg",
+      "index": 130,
+      "masked_lpips": 0.319802,
+      "masked_psnr": 22.779882,
+      "masked_ssim": 0.841963,
+      "name": "frame_0131.jpg",
+      "observed_pct": 100.0,
+      "overlay": "views/v0130_overlay.png",
+      "render": "views/v0130_render.jpg"
+    },
+    {
+      "gt": "views/v0131_gt.jpg",
+      "index": 131,
+      "masked_lpips": 0.338,
+      "masked_psnr": 22.733431,
+      "masked_ssim": 0.834439,
+      "name": "frame_0132.jpg",
+      "observed_pct": 100.0,
+      "overlay": "views/v0131_overlay.png",
+      "render": "views/v0131_render.jpg"
+    }
+  ]
+}
