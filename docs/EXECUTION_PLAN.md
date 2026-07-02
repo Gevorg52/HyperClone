@@ -408,6 +408,15 @@ self-refit recovers ≥ half of any decimation loss.
 ═══════════════════════════════════════════════════════════════════════
 ### WP-X1 — Master-splat re-test (>3M) — after WP-Q2a — 1 day of runs
 ═══════════════════════════════════════════════════════════════════════
+> **STATUS: ✅ CLOSED 2026-07-02** (experiment-only, no code; evidence `_infusion/wpx1_RECORD.md` +
+> `qa/wpx1_cap*/`; DEVELOPER_NOTES §6 amended). **Verdict: 3M ceiling RE-CONFIRMED under stable
+> conditions; divergence mechanism FIXED.** 4-arm ladder (3/4/6/8M, identical recipe + erank,
+> seed 0): masked PSNR 25.05→24.86→24.03→21.16, monotonic dilution (dead Gaussians 31%→63%);
+> 8M trains to completion, no OOM (13.2 GB), CLEANEST floater metrics — failure mode changed from
+> catastrophic to benign. Mechanistic: 8M's sag recovered +3.5 dB when noise injection stopped at
+> refine_stop → residual >3M harm is MCMC-noise-driven. **One cheap untested lever remains: a
+> `--noise_lr` trainer flag** (gsplat default 5e5 was used; not exposed). Keep cap 3M; revisit
+> only with noise_lr exposed or on a capture that genuinely starves 3M.
 Re-run cap_max 4M/6M/8M on GPU_V4 WITH erank hinge + raised scale_reg (0.02) + lowered MCMC
 noise_lr, coarse-to-fine. The 8M divergence mechanism was giant-blob tile blowup [V] — erank +
 scale bound attack exactly that. Judge at fixed eval res by masked-LPIPS + floater metrics + VRAM.

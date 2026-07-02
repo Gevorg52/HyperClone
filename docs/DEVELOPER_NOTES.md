@@ -164,6 +164,20 @@ verification drop unregisterable frames).
 - **Raising `cap_max` above ~3M:** 8M *diverged* (PSNR 23→10 as count grew past 3M)
   and OOM'd (overlapping giant Gaussians → tile-intersection blowup, 33 GB). More
   Gaussians actively hurt this scene. 3M is near-optimal; budget is not the ceiling.
+  - **RE-TESTED 2026-07-02 (WP-X1, RTX PRO 6000 96 GB, WITH erank hinge 0.01@7k +
+    scale_reg 0.02, seed 0, full 30k C2F production recipe on GPU_V4; evidence:
+    `_infusion/wpx1_RECORD.md` + `qa/wpx1_cap{3,4,6,8}m/scorecard.json`):
+    the *divergence/OOM mechanism is FIXED* — 8M now trains to completion (no
+    collapse, 13.2 GB live-tensor peak, and the *fewest* needles/SOR/giants of
+    any arm) — but the **3M ceiling stands**: masked PSNR/SSIM/LPIPS degrade
+    monotonically with cap (LPIPS 0.4101→0.4105→0.4166→0.4503 at 3/4/6/8M; PSNR
+    −0.2/−1.0/−3.9 dB). Failure mode is now benign *dilution* (low-opacity dead
+    fraction 30.6%→63.2%), not blowup. Residual 8M harm is MCMC noise injection at
+    high caps: the 8M train-PSNR sag recovers +3.5 dB the moment noise stops at
+    refine_stop=25000 — so a lowered `noise_lr` (not exposed by our trainer; gsplat
+    default 5e5) is the one untested lever before any future >3M attempt. Verdict:
+    still do not raise cap_max above 3M for quality; >3M is merely *safe* now, and
+    only worth revisiting with a `noise_lr` flag or on a capture that starves 3M.
 - **Edge-aware depth-smoothness (`--geo_reg`):** zero effect on textureless mush —
   it's a *geometry* lever, the mush is lost *appearance* detail. Gradients verified
   to flow (not a no-op); just the wrong lever. Kept off by default.
