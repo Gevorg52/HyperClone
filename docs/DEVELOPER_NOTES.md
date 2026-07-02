@@ -33,7 +33,19 @@ is a self-contained subprocess (`core/training/gsplat_trainer.py`).
 
 ## 2. Environment & build (CRITICAL — read before touching CUDA code)
 
-- **There is NO named conda env.** The whole stack lives in the **anaconda `base`
+> ### ⚡ MACHINE MIGRATION — Blackwell RTX PRO 6000 / 96 GB (2026-06-29). This supersedes the 4090/conda details below.
+> Verified rebuilt + working on the new machine (see `docs/BLACKWELL_FRONTIER.md`, memory `blackwell-build`):
+> - **GPU:** RTX PRO 6000 Blackwell, **sm_120 / cap (12,0)**, 96 GB, driver 576.57.
+> - **Python:** **system Python 3.11** at `C:\Users\gevor\AppData\Local\Programs\Python\Python311\python.exe` — **NO conda on this machine** (the anaconda `base` below was the OLD 4090 box). All pip installs use a constraints file pinning torch to avoid clobbering it.
+> - **Torch:** **2.11.0+cu128** (cu128 build, `arch_list` includes sm_120) — pre-installed, drives the card, **do not reinstall**.
+> - **CUDA Toolkit:** **v12.9** only (`...\CUDA\v12.9`). ≥12.8 needed for native sm_120 cubins — satisfied.
+> - **MSVC:** VS2022 **BuildTools 14.44** — **no `-vcvars_ver` pin needed** now (the 14.34 pin was only for CUDA<12.4; we're on 12.9). Just `call vcvars64.bat`.
+> - **gsplat:** rebuilt **AOT v1.5.3 for sm_120** with `TORCH_CUDA_ARCH_LIST="12.0"`, `CUDA_HOME=...\v12.9`, `DISTUTILS_USE_SDK=1`. Verified: `from gsplat import csrc` + real rasterization (Mip-Splatting antialiased + MCMC) runs on the card. Build script: scratchpad `build_gsplat.bat`.
+> - **Installed + verified:** pycolmap **4.1.0**, hloc 1.5 (+lightglue, editable from `../Hierarchical-Localization`), kornia, imageio, torchmetrics+lpips (gated-LPIPS VGG cached), tensorly, opencv 4.13, gradio 6.11.
+> - **Native 24 MP training validated**: `--data_factor 1` (our loader reads full-res `images/` directly — NO stock-3DGS 1600px cap exists in our code). GPU_V4 24 MP: ~6.3 GB at 123k GS, headroom huge.
+> - **WSL2 Ubuntu-24.04 present** (for ArtiFixer's Linux/Docker env). **Docker NOT installed.**
+
+- **(OLD 4090 box — historical)** There is NO named conda env. The whole stack lives in the **anaconda `base`
   env** (`C:\Users\gevor\anaconda3`, **Python 3.11.5**). Activate:
   `& C:\Users\gevor\anaconda3\shell\condabin\conda-hook.ps1; conda activate base`.
 - **Torch:** 2.3.0+cu121. **CUDA toolkits installed:** v11.7, v11.8 (default

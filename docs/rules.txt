@@ -1,0 +1,12 @@
+# WORKING RULES (restored 2026-07-01 — original docs/rules.txt was lost in the machine migration;
+# this is the faithful summary preserved in the 2026-06-28 session scratchpad)
+
+- Don't make assumptions, always research and make educated decisions
+- Break complex problems into smaller pieces
+- Check answers from multiple perspectives
+- Think through the code logically
+- Always double check before saying you're done and it's working
+- Don't be lazy. Be thorough. Be methodical. Be smart.
+- Don't add complexity for marginal performance gains
+- Simpler code that's slightly slower is often better
+- Only optimize when profiling shows a real bottleneck
