@@ -23,7 +23,6 @@ Examples:
   python qa_report.py <ckpt> <data> --blur_sigma 2       --out qa/GPU_V4_blur
 """
 import argparse
-import math
 import os
 import random
 import sys
@@ -144,43 +143,12 @@ def _load_ply(path: str, device: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Corruption knobs (default off) — for the WP validation sensitivity check
+# Corruption knobs (default off) — for the WP validation sensitivity check.
+# Single source of truth: core/qa/corruptions.py (shared with the phase-2
+# scorer clip renderers, so there is exactly one copy of the math).
 # ---------------------------------------------------------------------------
 
-def inject_floaters(splats: dict, n: int, seed: int, opacity: float = 0.9,
-                    scale_frac: float = 0.01) -> dict:
-    """Add `n` random floater Gaussians at random positions within the scene bbox
-    (opacity ~`opacity`), returning a NEW splats dict. Deterministic (seeded CPU
-    RNG). Simulates cloud/floater corruption for the sensitivity gate.
-
-    Placement uses the ROBUST 1-99 percentile bbox of the Gaussian centers (the
-    full min/max bbox is blown up by a few far SfM outliers, so raw-bbox floaters
-    land in empty far space). Floater size = `scale_frac` x robust bbox diagonal,
-    so each is a visible blob (>>median splat) rather than an invisible speck."""
-    dev = splats["means"].device
-    g = torch.Generator().manual_seed(seed)                 # CPU generator (deterministic)
-    m = splats["means"].detach().cpu()
-    lo = torch.quantile(m, 0.01, dim=0)
-    hi = torch.quantile(m, 0.99, dim=0)
-    diag = float((hi - lo).norm())
-    pos = lo + (hi - lo) * torch.rand(n, 3, generator=g)
-    lin_scale = max(scale_frac * diag, 1e-6)                # visible blob size
-    scales = torch.full((n, 3), math.log(lin_scale))
-    quats = torch.zeros(n, 4); quats[:, 0] = 1.0            # identity rotation
-    opac = torch.full((n,), math.log(opacity / (1.0 - opacity)))
-    sh0 = (torch.rand(n, 1, 3, generator=g) - 0.5) * 0.5    # random-ish gray-ish color
-    Kc = splats["shN"].shape[1]
-    shN = torch.zeros(n, Kc, 3)
-    add = {"means": pos, "opacities": opac, "quats": quats, "scales": scales,
-           "sh0": sh0, "shN": shN}
-    return {k: torch.cat([splats[k], add[k].to(dev)], dim=0) for k in splats}
-
-
-def blur_render(render: torch.Tensor, sigma: float) -> torch.Tensor:
-    """Gaussian-blur an (H,W,3)[0,1] render (simulates a blurry/soft render)."""
-    a = render.detach().cpu().numpy()
-    b = cv2.GaussianBlur(a, (0, 0), sigmaX=float(sigma), sigmaY=float(sigma))
-    return torch.from_numpy(b).to(render.device)
+from core.qa.corruptions import inject_floaters, gaussian_blur as blur_render
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +209,21 @@ def main():
                     help="floater blob size as fraction of robust scene diagonal")
     ap.add_argument("--blur_sigma", type=float, default=0.0,
                     help="corruption: gaussian-blur renders, sigma px (default 0)")
+    ap.add_argument("--floater_jitter", action="store_true",
+                    help="corruption: re-randomize the injected floaters' "
+                         "POSITIONS on every frame of the scorer clips (temporal "
+                         "popping — positive control for raft_warp/flicker). "
+                         "Requires --inject_floaters > 0.")
+    ap.add_argument("--scorers", default="",
+                    help="phase-2 external scorers to run (default OFF). Comma "
+                         "list from {crossscore,nova,tsed,raft_warp,nvs_sqa,"
+                         "flicker} or 'all'. Empty = phase-1 behavior unchanged.")
+    ap.add_argument("--qa_python", default=None,
+                    help="python.exe of the qa venv (subprocess scorers). "
+                         "Default: D:/REPOS/HYPERclone/venvs/qa/Scripts/python.exe")
     args = ap.parse_args()
+    if args.floater_jitter and args.inject_floaters <= 0:
+        ap.error("--floater_jitter requires --inject_floaters > 0")
 
     # determinism
     random.seed(args.seed)
@@ -283,8 +265,13 @@ def main():
         corruption["inject_floaters"] = args.inject_floaters
         corruption["floater_scale"] = args.floater_scale
         corruption["floater_seed"] = args.seed
+        if args.floater_jitter:
+            # phase-1 held-out views keep the STATIC injection above; the phase-2
+            # clip renderers re-randomize floater positions per frame (popping).
+            corruption["floater_jitter"] = True
         print(f"[QA] injected {args.inject_floaters} floaters "
-              f"(scale_frac={args.floater_scale}) -> "
+              f"(scale_frac={args.floater_scale}"
+              f"{', jitter per clip frame' if args.floater_jitter else ''}) -> "
               f"{splats['means'].shape[0]:,} Gaussians")
     if args.blur_sigma > 0:
         corruption["blur_sigma"] = args.blur_sigma
@@ -384,13 +371,49 @@ def main():
         masked_lpips=float(np.nanmean(lpipss)) if lpipss else float("nan"),
         alpha_thresh=args.alpha_thresh, corruption=corruption, views=view_scores)
 
-    # SceneContext is built (not yet consumed) so phase-2 scorers plug in unchanged.
+    # SceneContext hands the (possibly-corrupted) splats + poses to phase-2 scorers.
     _ctx = SceneContext(
         scene=scene, ckpt=str(args.ckpt), data_dir=str(args.data_dir),
         factor=args.factor, sh_degree=args.sh_degree, device=device,
         out_dir=str(out_dir), data=data, splats=splats,
-        test_indices=test_indices, views=view_scores)
-    # from core.qa.scorecard import run_scorers; run_scorers(card, _ctx, PHASE2_SCORERS)
+        test_indices=test_indices, views=view_scores, corruption=corruption)
+
+    # Phase-2 external scorers (default OFF behind --scorers). In-process scorers
+    # (tsed/raft_warp/flicker) run here in the main env; subprocess scorers
+    # (crossscore/nova/nvs_sqa) shell out to the qa venv. Each result dict gets a
+    # "runtime_s"; a scorer failure is recorded, never fatal.
+    if args.scorers:
+        import json as _json
+        from core.qa.scorecard import run_scorers
+        from core.qa.scorers import build_scorers, ScorerConfig
+        names = [s.strip() for s in args.scorers.split(",") if s.strip()]
+        cfg = ScorerConfig()
+        if args.qa_python:
+            cfg.qa_python = args.qa_python
+        scorers = build_scorers(names, cfg)
+        # Merge: preserve previously-computed scorer values in this out_dir so a
+        # targeted re-run (e.g. --scorers nvs_sqa after a fix) never wipes the
+        # heavy ones — but ONLY if the prior scorecard's corruption matches this
+        # run's exactly. On mismatch the prior values were measured on a different
+        # model state: refuse to merge (fresh scorecard) and say why.
+        prior_path = out_dir / "scorecard.json"
+        if prior_path.exists():
+            try:
+                prior = _json.loads(prior_path.read_text(encoding="utf-8"))
+                prior_corr = prior.get("corruption") or {}
+                cur_corr = _json.loads(_json.dumps(corruption))  # JSON-normalized
+                if prior_corr == cur_corr:
+                    for k, v in (prior.get("scorers") or {}).items():
+                        if v is not None and k not in names:
+                            card.scorers[k] = v
+                else:
+                    print(f"[QA] NOT merging prior scorer values from {prior_path}: "
+                          f"corruption mismatch (prior={prior_corr} vs "
+                          f"current={cur_corr}) — starting a fresh scorecard.")
+            except Exception as e:
+                print(f"[QA] prior scorecard unreadable ({e}); fresh scorecard.")
+        print(f"[QA] running phase-2 scorers: {[s.name for s in scorers]}")
+        run_scorers(card, _ctx, scorers)
 
     json_path = out_dir / "scorecard.json"
     html_path = out_dir / "report.html"

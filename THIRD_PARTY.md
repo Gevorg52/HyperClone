@@ -49,6 +49,25 @@ Clones live at `D:\REPOS\HYPERclone\qa_repos\`; pinned/shadowing deps live in th
 `D:\REPOS\HYPERclone\venvs\qa` venv (never the main env). Integration code is
 ours under `core/qa/scorers/` + `core/qa/venv_drivers/` + `core/qa/vendor/`.
 
+**Pinned clone commits (verified 2026-07-02):**
+| repo | commit |
+|---|---|
+| ActiveVisionLab/CrossScore | `01cc66c8459b41ae86858e6663da267a39a319a5` |
+| stootaghaj/NOVA | `e01be9ad6ea7a2895b355dc232bc9df2b5129a03` |
+| VincentQQu/NVS-SQA | `8565fc1a921fcaf7df1108ac20f2f5b3bb09add9` |
+
+**Local patches to the CrossScore clone** (exist as uncommitted working-tree edits
+there; committable copies live in `tools/patches/`). After any re-clone, re-apply:
+```
+git -C D:/REPOS/HYPERclone/qa_repos/CrossScore apply \
+    D:/REPOS/HYPERclone/apex-sfm/tools/patches/crossscore_mkdir.patch \
+    D:/REPOS/HYPERclone/apex-sfm/tools/patches/crossscore_winpath.patch
+```
+- `crossscore_mkdir.patch` — `utils/io/images.py::metric_map_write` mkdir-before-write.
+- `crossscore_winpath.patch` — `utils/io/score_summariser.py` Windows `\\`→`/` path
+  normalisation (without it the summariser IndexErrors and no CSV is written).
+NOVA and NVS-SQA clones are UNMODIFIED (drivers import them read-only).
+
 ### CrossScore — `core/qa/scorers/crossscore.py`
 - **Source:** ActiveVisionLab/CrossScore (ECCV'24), BSD-3-Clause. Cloned as-is;
   ckpt `CrossScore-v1.0.0.ckpt` (123 MB in-repo LFS) used unmodified.
@@ -86,9 +105,11 @@ ours under `core/qa/scorers/` + `core/qa/venv_drivers/` + `core/qa/vendor/`.
   `utils.train_utils`, which drags in `qa_methods`→`skvideo` — a training-only dep
   that breaks under numpy 2) and replicate the encoder-load path. The 385→1 head
   was a pickled sklearn Ridge (sklearn<1.7 pickle); we loaded it ONCE and extracted
-  `coef_` (384) + `intercept_` (15.164) to `checkpoints/v0.0.1/regr/linear_head.npz`
-  so runtime is pure numpy (`jod = feat@coef + intercept`) — no sklearn dep, fully
-  deterministic. JOD is within-scene-delta only.
+  `coef_` (384) + `intercept_` (15.164) — VENDORED at
+  `core/qa/vendor/nvs_sqa_linear_head.npz` (in apex-sfm, so a re-clone of the
+  NVS-SQA repo cannot lose it) — so runtime is pure numpy
+  (`jod = feat@coef + intercept`): no sklearn dep, fully deterministic. JOD is
+  within-scene-delta only.
 - **Re-license:** CC0 (public domain).
 
 ### TSED — `core/qa/vendor/tsed_epipolar.py` (VENDORED ~100 lines)

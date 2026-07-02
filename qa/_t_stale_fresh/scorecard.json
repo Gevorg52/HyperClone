@@ -1,0 +1,138 @@
+{
+  "alpha_thresh": 0.3,
+  "ckpt": "_dataset/GPU_V4/apex_images/training/gsplat_prod/output/ckpts/ckpt_29999_rank0.pt",
+  "corruption": {
+    "floater_scale": 0.01,
+    "floater_seed": 0,
+    "inject_floaters": 2000
+  },
+  "data_dir": "_dataset/GPU_V4/apex_images/training/gsplat_prod/data",
+  "factor": 2,
+  "masked_lpips": 0.772591,
+  "masked_psnr": 10.70421,
+  "masked_ssim": 0.533886,
+  "n_views": 6,
+  "observed_area_pct": 100.0,
+  "scene": "GPU_V4",
+  "scorers": {
+    "crossscore": null,
+    "flicker": null,
+    "nova": {
+      "checkpoint_loaded": true,
+      "mean": 0.280123,
+      "median": 0.288142,
+      "n": 6,
+      "per_view": [
+        {
+          "cosine_distance": 0.338509,
+          "cosine_similarity": 0.661491,
+          "index": 0,
+          "ref_index": 1
+        },
+        {
+          "cosine_distance": 0.24926,
+          "cosine_similarity": 0.75074,
+          "index": 8,
+          "ref_index": 7
+        },
+        {
+          "cosine_distance": 0.222283,
+          "cosine_similarity": 0.777717,
+          "index": 16,
+          "ref_index": 17
+        },
+        {
+          "cosine_distance": 0.285312,
+          "cosine_similarity": 0.714688,
+          "index": 24,
+          "ref_index": 23
+        },
+        {
+          "cosine_distance": 0.290972,
+          "cosine_similarity": 0.709028,
+          "index": 32,
+          "ref_index": 33
+        },
+        {
+          "cosine_distance": 0.294404,
+          "cosine_similarity": 0.705596,
+          "index": 40,
+          "ref_index": 35
+        }
+      ],
+      "runtime_s": 14.41
+    },
+    "nvs_sqa": null,
+    "raft_warp": null,
+    "tsed": null
+  },
+  "split": "every8",
+  "views": [
+    {
+      "gt": "views/v0000_gt.jpg",
+      "index": 0,
+      "masked_lpips": 0.864637,
+      "masked_psnr": 10.205556,
+      "masked_ssim": 0.51434,
+      "name": "DSC00730.JPG",
+      "observed_pct": 100.0,
+      "overlay": "views/v0000_overlay.png",
+      "render": "views/v0000_render.jpg"
+    },
+    {
+      "gt": "views/v0008_gt.jpg",
+      "index": 8,
+      "masked_lpips": 0.724941,
+      "masked_psnr": 11.500983,
+      "masked_ssim": 0.562655,
+      "name": "DSC00738.JPG",
+      "observed_pct": 100.0,
+      "overlay": "views/v0008_overlay.png",
+      "render": "views/v0008_render.jpg"
+    },
+    {
+      "gt": "views/v0016_gt.jpg",
+      "index": 16,
+      "masked_lpips": 0.761195,
+      "masked_psnr": 11.325896,
+      "masked_ssim": 0.565383,
+      "name": "DSC00746.JPG",
+      "observed_pct": 100.0,
+      "overlay": "views/v0016_overlay.png",
+      "render": "views/v0016_render.jpg"
+    },
+    {
+      "gt": "views/v0024_gt.jpg",
+      "index": 24,
+      "masked_lpips": 0.7733,
+      "masked_psnr": 10.914048,
+      "masked_ssim": 0.555027,
+      "name": "DSC00754.JPG",
+      "observed_pct": 100.0,
+      "overlay": "views/v0024_overlay.png",
+      "render": "views/v0024_render.jpg"
+    },
+    {
+      "gt": "views/v0032_gt.jpg",
+      "index": 32,
+      "masked_lpips": 0.763984,
+      "masked_psnr": 10.228211,
+      "masked_ssim": 0.516127,
+      "name": "DSC00762.JPG",
+      "observed_pct": 100.0,
+      "overlay": "views/v0032_overlay.png",
+      "render": "views/v0032_render.jpg"
+    },
+    {
+      "gt": "views/v0040_gt.jpg",
+      "index": 40,
+      "masked_lpips": 0.747487,
+      "masked_psnr": 10.050565,
+      "masked_ssim": 0.489786,
+      "name": "DSC00770.JPG",
+      "observed_pct": 100.0,
+      "overlay": "views/v0040_overlay.png",
+      "render": "views/v0040_render.jpg"
+    }
+  ]
+}

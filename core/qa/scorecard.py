@@ -127,6 +127,10 @@ class SceneContext:
     splats: dict               # loaded gaussian params, renderable via render_splats
     test_indices: List[int]    # sorted held-out indices scored in phase-1
     views: List[ViewScore]     # phase-1 per-view records (with thumbnail paths)
+    # corruption knobs of THIS run (0/empty == pristine). Render-based scorers read
+    # blur_sigma so blur-type corruption stays direction-correct (splats already
+    # carry injected floaters); mirrors Scorecard.corruption.
+    corruption: Dict[str, Any] = field(default_factory=dict)
 
 
 @runtime_checkable
@@ -142,14 +146,30 @@ class Scorer(Protocol):
         ...
 
 
-def run_scorers(card: "Scorecard", ctx: "SceneContext", scorers) -> None:
-    """Run each scorer and merge its result into the reserved slot. Failures are
-    recorded (not fatal) so one missing checkpoint never sinks the scorecard."""
+def run_scorers(card: "Scorecard", ctx: "SceneContext", scorers,
+                verbose: bool = True) -> None:
+    """Run each scorer and merge its result into the reserved slot (the ONLY
+    scorer-driving loop — qa_report.py calls this). Each result dict gets a
+    "runtime_s". Failures are recorded (not fatal) so one missing checkpoint
+    never sinks the scorecard."""
+    import time
     for s in scorers:
+        t0 = time.time()
         try:
-            card.scorers[s.name] = s.score(ctx)
+            res = s.score(ctx)
+            if isinstance(res, dict):
+                res["runtime_s"] = round(time.time() - t0, 2)
+            card.scorers[s.name] = res
+            if verbose:
+                head = ({k: v for k, v in res.items() if not isinstance(v, list)}
+                        if isinstance(res, dict) else res)
+                rt = res.get("runtime_s") if isinstance(res, dict) else None
+                print(f"  [scorer] {s.name:11s} ok  ({rt}s)  -> {head}")
         except Exception as e:                        # pragma: no cover
-            card.scorers[s.name] = {"error": f"{type(e).__name__}: {e}"}
+            card.scorers[s.name] = {"error": f"{type(e).__name__}: {e}",
+                                    "runtime_s": round(time.time() - t0, 2)}
+            if verbose:
+                print(f"  [scorer] {s.name:11s} FAILED  {type(e).__name__}: {e}")
 
 
 # ---------------------------------------------------------------------------

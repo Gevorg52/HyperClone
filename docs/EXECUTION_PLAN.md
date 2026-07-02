@@ -92,7 +92,12 @@ is judged correctly. Within a track, order is load-bearing.
 > (floaters crater all metrics; blur correctly degrades ONLY LPIPS); sliver-robust masked LPIPS
 > (review-found crash fixed, wedge split verified end-to-end on a 45.2%-observed view). Baselines
 > banked: GPU_V4 masked 25.278/0.8514/0.4125 · Laptop 22.319/0.8120/0.3540 (`qa/README.md`).
-> Phase 2 (CrossScore/NOVA/TSED/RAFT/NVS-SQA scorers) NOT started — plug-in registry ready.
+> **PHASE 2 ✅ CLOSED 2026-07-02** (implement → review → fix → re-validate): all 6 scorers live
+> (crossscore/nova/tsed/raft_warp/nvs_sqa/flicker), byte-deterministic, every scorer has a
+> demonstrated TRUE POSITIVE (incl. `--floater_jitter` temporal control: RAFT 11× worse, TSED
+> 1.0→0.70). Review-found stale-render-cache bug FIXED (always-fresh staging, corruption-checked
+> merge). Clones hash-pinned + patches in `tools/patches/`. venv `D:\REPOS\HYPERclone\venvs\qa`;
+> full 6-scorer scorecard ≈3.5 min/scene. Gate table: `qa/README.md`.
 **Goal:** replace bare held-out-GT LPIPS with a visibility-split suite; new module
 `core/qa/` + CLI `qa_report.py` producing a per-scene scorecard (JSON + HTML strip).
 

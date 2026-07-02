@@ -1,0 +1,24 @@
+diff --git a/utils/io/score_summariser.py b/utils/io/score_summariser.py
+index fc34972..fe12e21 100644
+--- a/utils/io/score_summariser.py
++++ b/utils/io/score_summariser.py
+@@ -170,6 +170,10 @@ class SummaryWriterPredictedOnline:
+     def update(self, batch_input, batch_output):
+         """Store per frame scores to rows for each batch."""
+         query_img_paths = batch_input["item_paths"]["query/img"]  # (B,)
++        # apex-sfm adoption fix (Windows): this summariser assumes '/'-separated
++        # paths everywhere, but get_paths' os.path.join emits '\\' on Windows ->
++        # split('/')[-6] later IndexErrors. Normalise to '/' and re-join with '/'.
++        query_img_paths = [str(p).replace("\\", "/") for p in query_img_paths]
+         ref_types = [t for t in batch_output.keys() if t.startswith("score_map")]
+ 
+         if len(ref_types) != 1:
+@@ -182,7 +186,7 @@ class SummaryWriterPredictedOnline:
+ 
+             scene_names = [p.split("/")[-5] for p in query_img_paths]
+ 
+-            rendered_dirs = [os.path.join(*p.split("/")[:-2]) for p in query_img_paths]
++            rendered_dirs = ["/".join(p.split("/")[:-2]) for p in query_img_paths]
+             image_names = [p.split("/")[-1] for p in query_img_paths]
+             image_names = [n.replace("frame_", "") for n in image_names]
+ 
