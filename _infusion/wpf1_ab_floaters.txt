@@ -1,0 +1,5 @@
+
+model           Gaussians  floater indicators (lower=cleaner; compare vs base)
+
+off             1,000,000  needle 91.16%  SOR-outlier  0.02%  giant 10.98%  low-opa  10.5%  med-opa 0.047  mean-erank 1.475
+on              1,000,000  needle 90.48%  SOR-outlier  0.01%  giant 10.42%  low-opa  10.0%  med-opa 0.048  mean-erank 1.488

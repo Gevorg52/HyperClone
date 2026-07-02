@@ -30,6 +30,11 @@ Project-specific additions (from six months of validated practice):
 - Every lever ships **default-OFF** behind a CLI flag; current production behavior unchanged until opted in.
 - Every WP has a **validation gate** — do not advance past a failing gate; record results (incl.
   negative) in the relevant doc.
+- **GATE EVIDENCE RULE (added 2026-07-02 after two audit gaps): every number in a gate claim must
+  be PERSISTED to a committable artifact at measurement time** (scorecard JSON, a `*_RECORD.md`
+  outside gitignored dirs, or a metrics JSON + the script that produced it). A/B records must
+  include both arms' full argv + seed. "I computed it ad hoc" does not close a gate — reviewers
+  verify from repo state only.
 - Add losses ONE at a time with per-loss logging; keep a no-priors A/B baseline.
 - Judge perceptual work by LPIPS/region-metrics/visual, never PSNR alone; judge FILL by the WP0
   visibility-split suite, never by GT metrics on unobserved regions.
@@ -189,6 +194,15 @@ existing ckpts show reduced aliasing/dilation artifacts (visual + RAFT warp-err 
 ═══════════════════════════════════════════════════════════════════════
 ### WP-F1 — MoGe-2 prior cache (SHARED INFRASTRUCTURE) — 1–2 days
 ═══════════════════════════════════════════════════════════════════════
+> **STATUS: ✅ CLOSED 2026-07-02** (implement → review [gate initially invalid: evidence not
+> persisted — origin of the §0 GATE EVIDENCE RULE] → fix → re-validate; all numbers reproduced
+> bit-for-bit). `core/priors.py` + caches for Laptop/GPU_V4 (per-view alignment, 1.1–1.4%
+> residuals, pixel-alignment independently re-derived by review) + `--mono_depth_lambda` consumer.
+> **A/B (Laptop 15k, seed 0): held-out depth residuals −72% med / −87% p90 vs SfM sparse on
+> held-out views at not-worse masked-LPIPS (0.3546→0.3540)** — the geometry foundation for WP-F3/F4.
+> Evidence: `_infusion/wpf1_AB_RECORD.md` + `qa/wpf1_ab_{off,on}/`. Caveats recorded: pose_opt=false
+> in both arms; depth metric reads as "agrees better with SfM on unseen views", not GT depth.
+> Priors stored in the undistorted training frame; conf channel is a heuristic until F3.
 Install: `pip install git+https://github.com/microsoft/MoGe.git` (keep its pinned
 `utils3d @ 3fab839`). Pure PyTorch/SDPA, numpy≥2 OK, Windows-clean, MIT (code+weights) [V].
 Model: **`Ruicheng/moge-2-vitl-normal`** (metric depth + normals).

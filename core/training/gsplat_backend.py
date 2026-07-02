@@ -257,6 +257,9 @@ class GsplatBackend(TrainingBackend):
             "alpha_obj_lambda": 0.0,       # push alpha->1 inside mask (off by default)
             "depth_lambda": 0.0,           # sparse SfM-point depth supervision (~0.05-0.2)
             "depth_start": 2000,           # step to start depth loss
+            "mono_depth_lambda": 0.0,      # dense MoGe-2 prior depth sup. (WP-F1; ~0.05)
+            "mono_depth_start": 2000,      # step to start mono-depth loss (fine phase)
+            "mono_depth_use_weight": True, # scale by per-view align depth_weight
             "antialiased": True,           # Mip-Splatting anti-aliasing
             "pose_opt": True,              # SE(3) pose refinement
             "pose_opt_lr": 1e-5,
@@ -395,7 +398,13 @@ class GsplatBackend(TrainingBackend):
             "--alpha_obj_lambda", str(extra.get("alpha_obj_lambda", 0.0)),
             "--depth_lambda", str(extra.get("depth_lambda", 0.0)),
             "--depth_start", str(extra.get("depth_start", 2000)),
+            "--mono_depth_lambda", str(extra.get("mono_depth_lambda", 0.0)),
+            "--mono_depth_start", str(extra.get("mono_depth_start", 2000)),
         ]
+        # mono-depth per-view weighting (BooleanOptionalAction on the trainer)
+        args.append("--mono_depth_use_weight"
+                    if extra.get("mono_depth_use_weight", True)
+                    else "--no-mono_depth_use_weight")
 
         # erank_end: optional cutoff step (None = flag omitted = no cutoff)
         if extra.get("erank_end") is not None:

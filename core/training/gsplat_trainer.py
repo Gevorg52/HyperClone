@@ -447,6 +447,21 @@ def load_image(data: dict, index: int) -> dict:
     }
     if mask is not None:
         out["mask"] = torch.from_numpy(mask).float()  # (H, W) in [0,1]
+
+    # Dense mono-depth prior (WP-F1): aligned MoGe-2 depth is stored already in
+    # the undistorted+cropped training frame, so it drops in without any remap.
+    # inf = invalid (masked in the loss). Only attached if the shape matches the
+    # (post-undistort) rendered frame — a mismatch means wrong factor -> skip.
+    if data.get("load_priors"):
+        stem = os.path.splitext(os.path.basename(data["image_paths"][index]))[0]
+        ppath = os.path.join(data["prior_dir"], "depth", stem + ".npy")
+        if os.path.isfile(ppath):
+            pd = np.load(ppath)
+            if pd.shape[:2] == image.shape[:2]:
+                out["prior_depth"] = torch.from_numpy(pd.astype(np.float32))
+                rel, dw = data.get("prior_align", {}).get(stem, (False, 0.0))
+                out["prior_reliable"] = bool(rel)
+                out["prior_weight"] = float(dw)
     return out
 
 
@@ -494,6 +509,8 @@ class Prefetcher:
                 batch["image"] = batch["image"].pin_memory()
                 if "mask" in batch:
                     batch["mask"] = batch["mask"].pin_memory()
+                if "prior_depth" in batch:
+                    batch["prior_depth"] = batch["prior_depth"].pin_memory()
             except RuntimeError:
                 pass
             while not self._stop.is_set():
@@ -1061,11 +1078,78 @@ def train(args):
         print(f"[Train] Sparse depth loss ON (depth_lambda={args.depth_lambda}, "
               f"start={args.depth_start}): ~{n_obs} SfM points/view")
 
+    # Dense mono-depth supervision setup (WP-F1) — load the per-view reliability
+    # + depth_weight from the MoGe-2 prior cache; flag load_priors so load_image
+    # pulls the aligned prior-depth map (fine resolution) into each batch.
+    if args.mono_depth_lambda > 0:
+        prior_dir = Path(args.data_dir) / "priors"
+        align_path = prior_dir / "align.json"
+        if not align_path.is_file():
+            print(f"[Train] WARNING: --mono_depth_lambda set but no prior cache at "
+                  f"{align_path}; mono-depth loss DISABLED. Build it with "
+                  f"`python -m core.priors {args.data_dir} --factor {args.data_factor}`.")
+            args.mono_depth_lambda = 0.0
+        else:
+            aj = json.loads(align_path.read_text(encoding="utf-8"))
+            # The cache stores maps at ONE resolution; a factor mismatch would
+            # silently no-op the loss (per-batch shape check skips every view),
+            # so it is a hard error, not a warning.
+            cache_factor = int(aj.get("meta", {}).get("factor", -1))
+            if cache_factor != args.data_factor:
+                raise SystemExit(
+                    f"[Train] ERROR: prior cache at {prior_dir} was built at "
+                    f"factor {cache_factor} but --data_factor={args.data_factor}. "
+                    f"Rebuild it: `python -m core.priors {args.data_dir} "
+                    f"--factor {args.data_factor}`")
+            prior_align = {k: (bool(v["reliable"]), float(v["depth_weight"]))
+                           for k, v in aj["images"].items()}
+            n_rel = sum(1 for r, _ in prior_align.values() if r)
+            # Count train views that will ACTUALLY load a prior (file present
+            # + stored shape matches this camera's post-undistort frame).
+            # Zero coverage = misbuilt cache -> hard error instead of printing
+            # "Mono-depth loss ON" while silently supervising nothing.
+            n_covered = 0
+            for ti in train_indices:
+                ti = int(ti)
+                stem = os.path.splitext(
+                    os.path.basename(data_fine["image_paths"][ti]))[0]
+                dpath = prior_dir / "depth" / f"{stem}.npy"
+                if not dpath.is_file():
+                    continue
+                try:  # mmap reads only the npy header (cheap)
+                    shp = np.load(dpath, mmap_mode="r").shape
+                except Exception:
+                    continue
+                wh = data_fine["imsize_dict"].get(data_fine["camera_ids"][ti])
+                if wh is not None and tuple(shp[:2]) != (wh[1], wh[0]):
+                    continue
+                n_covered += 1
+            if n_covered == 0:
+                raise SystemExit(
+                    f"[Train] ERROR: --mono_depth_lambda is set but 0/"
+                    f"{len(train_indices)} train views have a usable prior in "
+                    f"{prior_dir / 'depth'} (missing files or wrong resolution). "
+                    f"Rebuild it: `python -m core.priors {args.data_dir} "
+                    f"--factor {args.data_factor}`")
+            # priors are at data_factor (fine) resolution -> only the fine
+            # dataset loads them (coarse phase renders at coarse_factor), so
+            # the loss cannot start before the fine phase begins.
+            args.mono_depth_start = max(args.mono_depth_start, coarse_until + 1)
+            data_fine["load_priors"] = True
+            data_fine["prior_dir"] = str(prior_dir)
+            data_fine["prior_align"] = prior_align
+            print(f"[Train] Mono-depth loss ON (mono_depth_lambda="
+                  f"{args.mono_depth_lambda}, start={args.mono_depth_start}, "
+                  f"use_weight={args.mono_depth_use_weight}): mode={aj['meta']['mode']}, "
+                  f"{n_rel}/{len(prior_align)} views reliable, "
+                  f"{n_covered}/{len(train_indices)} train views covered")
+
     running_loss = 0.0
     running_psnr = 0.0
     running_crop_l1 = None  # EMA of LPIPS-crop L1, for gated perceptual loss
     running_wd_tex = None   # EMA of GT-crop texture energy, for gated WD
     running_erank = None    # EMA of erank hinge term, for per-loss logging
+    running_mono = None     # EMA of mono-depth term, for per-loss logging
     t0 = time.time()
 
     # Background image prefetch (overlaps disk I/O + decode with GPU compute)
@@ -1104,9 +1188,13 @@ def train(args):
 
         geo_on = args.geo_reg and step >= args.geo_reg_start
         depth_on = depth_obs is not None and step >= args.depth_start
+        # Mono-depth is fine-phase only (priors are at data_factor res); the
+        # prior_depth key is present only for the fine dataset's batches.
+        mono_on = (args.mono_depth_lambda > 0 and step >= args.mono_depth_start
+                   and "prior_depth" in batch)
         renders, alphas, info = render_splats(
             splats, w2c, K, W, H, args.sh_degree, bkgd, rasterize_mode,
-            render_mode="RGB+ED" if (geo_on or depth_on) else "RGB",
+            render_mode="RGB+ED" if (geo_on or depth_on or mono_on) else "RGB",
         )
         rendered = renders[0][..., :3].clamp(0.0, 1.0)  # (H, W, 3)
 
@@ -1194,6 +1282,25 @@ def train(args):
                     sc = zt.median().detach() + 1e-6
                     loss = loss + args.depth_lambda * (
                         (d_r - zt).abs() / sc).mean()
+
+        # Dense monocular-depth supervision (WP-F1) — aligned MoGe-2 prior depth
+        # vs rendered expected-depth, over valid∩reliable pixels only. Normalized
+        # by the median prior depth (scale/resolution invariant, exactly like the
+        # sparse --depth_lambda loss). inf = invalid in the prior; the isfinite
+        # mask is what stops inf from poisoning the loss/grads.
+        if mono_on and batch.get("prior_reliable", False):
+            prior_d = batch["prior_depth"].to(device, non_blocking=True)   # (H,W)
+            pv = torch.isfinite(prior_d)
+            if bool(pv.any()):
+                rendered_depth = renders[0][..., 3]                         # (H,W)
+                pvd = prior_d[pv]
+                sc = pvd.median().detach() + 1e-6
+                mono_term = ((rendered_depth[pv] - pvd).abs() / sc).mean()
+                w = (float(batch.get("prior_weight", 1.0))
+                     if args.mono_depth_use_weight else 1.0)
+                loss = loss + args.mono_depth_lambda * w * mono_term
+                running_mono = (mono_term.item() if running_mono is None
+                                else 0.95 * running_mono + 0.05 * mono_term.item())
 
         # Edge-aware geometric regularization — flattens textureless surfaces
         # (the "mushy black plastic" fix) without softening textured detail.
@@ -1321,10 +1428,12 @@ def train(args):
             mem = torch.cuda.max_memory_allocated() / 1024**2
             erank_str = (f" | erank={running_erank:.3e}"
                          if running_erank is not None else "")
+            mono_str = (f" | mono={running_mono:.4f}"
+                        if running_mono is not None else "")
             print(
                 f"step={step} | loss={running_loss:.6f} | psnr={running_psnr:.2f} "
                 f"| #GS={n_gs} | mem={mem:.0f}MB | {steps_per_sec:.1f} it/s | eta={eta:.0f}s"
-                f"{erank_str}"
+                f"{erank_str}{mono_str}"
             )
             sys.stdout.flush()
 
@@ -1490,6 +1599,21 @@ def main():
                              "regions; free (uses existing SfM points). 0 = off.")
     parser.add_argument("--depth_start", type=int, default=2000,
                         help="Step to start depth loss (after coarse geometry forms)")
+    # Dense monocular-depth supervision (WP-F1): aligned MoGe-2 prior depth vs
+    # rendered expected-depth, masked by validity ∩ per-view reliability. Prior
+    # cache built by `python -m core.priors <data_dir> --factor N`.
+    parser.add_argument("--mono_depth_lambda", type=float, default=0.0,
+                        help="Weight of dense masked mono-depth loss "
+                             "L1(aligned MoGe prior depth, rendered depth) over "
+                             "valid-and-reliable pixels, normalized by median prior "
+                             "depth (scale/res invariant). Needs priors/ cache. 0 = off.")
+    parser.add_argument("--mono_depth_start", type=int, default=2000,
+                        help="Step to start mono-depth loss (fine phase only; "
+                             "priors are at data_factor resolution)")
+    parser.add_argument("--mono_depth_use_weight",
+                        action=argparse.BooleanOptionalAction, default=True,
+                        help="Scale the per-view mono-depth loss by the "
+                             "alignment-residual depth_weight from align.json")
     # Anti-aliasing (Mip-Splatting)
     parser.add_argument("--antialiased",
                         action=argparse.BooleanOptionalAction, default=True)
