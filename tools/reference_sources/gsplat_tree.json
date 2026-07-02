@@ -1,0 +1,1461 @@
+{
+  "sha": "937e29912570c372bed6747a5c9bf85fed877bae",
+  "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/937e29912570c372bed6747a5c9bf85fed877bae",
+  "tree": [
+    {
+      "path": ".clang-format",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5686985b0765419ea466d93b06c3d55fb86a3f78",
+      "size": 118,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/5686985b0765419ea466d93b06c3d55fb86a3f78"
+    },
+    {
+      "path": ".clangd_template",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "46740aae9ce24820536ea0c67cdaf0ccb7302a0c",
+      "size": 663,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/46740aae9ce24820536ea0c67cdaf0ccb7302a0c"
+    },
+    {
+      "path": ".github",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "6908bc705d7e4a0cefed68d1372ecd7f996392b2",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/6908bc705d7e4a0cefed68d1372ecd7f996392b2"
+    },
+    {
+      "path": ".github/workflows",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "162e65127f0c7e6fd589f49fdb0684996f779b6b",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/162e65127f0c7e6fd589f49fdb0684996f779b6b"
+    },
+    {
+      "path": ".github/workflows/building.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0a3dbc1dd40c42e5e49b48140dcf3e86e0277cce",
+      "size": 5728,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/0a3dbc1dd40c42e5e49b48140dcf3e86e0277cce"
+    },
+    {
+      "path": ".github/workflows/core_tests.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a4db904fcc502c19fdabfa89390165a4d9dcf538",
+      "size": 770,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/a4db904fcc502c19fdabfa89390165a4d9dcf538"
+    },
+    {
+      "path": ".github/workflows/cuda",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "a2386b52f6f3eab21c7766fbbe28481b11968a2a",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/a2386b52f6f3eab21c7766fbbe28481b11968a2a"
+    },
+    {
+      "path": ".github/workflows/cuda/Linux-env.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e8d8acb804c3b56d15328e575ee6c9060891dad6",
+      "size": 1808,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/e8d8acb804c3b56d15328e575ee6c9060891dad6"
+    },
+    {
+      "path": ".github/workflows/cuda/Linux.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0a049edc123b83ba1ea340091b104c89c47fd945",
+      "size": 2540,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/0a049edc123b83ba1ea340091b104c89c47fd945"
+    },
+    {
+      "path": ".github/workflows/cuda/Windows-env.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3d2bef38c8f32fa207d243c90bba7792972ccc76",
+      "size": 2022,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/3d2bef38c8f32fa207d243c90bba7792972ccc76"
+    },
+    {
+      "path": ".github/workflows/cuda/Windows.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e9e2bff6d9d9ced7310615755d1052133c5eb295",
+      "size": 2992,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/e9e2bff6d9d9ced7310615755d1052133c5eb295"
+    },
+    {
+      "path": ".github/workflows/doc.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c70c1060b421b83e744656cd9fc88061a3a67858",
+      "size": 2875,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/c70c1060b421b83e744656cd9fc88061a3a67858"
+    },
+    {
+      "path": ".github/workflows/generate_simple_index_pages.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bb053717586e72f6afe7a929bd788cff4e3059d0",
+      "size": 5134,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/bb053717586e72f6afe7a929bd788cff4e3059d0"
+    },
+    {
+      "path": ".github/workflows/generate_simple_index_pages.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "17b3397dd9dbf759f0e655058327d0d167597fb2",
+      "size": 1357,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/17b3397dd9dbf759f0e655058327d0d167597fb2"
+    },
+    {
+      "path": ".github/workflows/publish.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ab0d2893da4b7dfd49c4a3ea79964b0a53a0aec3",
+      "size": 3566,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/ab0d2893da4b7dfd49c4a3ea79964b0a53a0aec3"
+    },
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8ccecea2283d462ea7007d2d8849c9a163c1104f",
+      "size": 1430,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/8ccecea2283d462ea7007d2d8849c9a163c1104f"
+    },
+    {
+      "path": ".gitmodules",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "faa3f17a4f65476094fa1551a48530564dfb12d1",
+      "size": 129,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/faa3f17a4f65476094fa1551a48530564dfb12d1"
+    },
+    {
+      "path": "CITATION.bib",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "07a5eb9dcc0ca24cfe4eff8d3c030dc844cfe169",
+      "size": 517,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/07a5eb9dcc0ca24cfe4eff8d3c030dc844cfe169"
+    },
+    {
+      "path": "EXPLORATION.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "91fd54b2fb1fafe24c850eab52d96e823b7fee24",
+      "size": 3208,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/91fd54b2fb1fafe24c850eab52d96e823b7fee24"
+    },
+    {
+      "path": "LICENSE",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1dc520ba6aa1ff169e95250cf0398beb3757590a",
+      "size": 11345,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/1dc520ba6aa1ff169e95250cf0398beb3757590a"
+    },
+    {
+      "path": "MANIFEST.in",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "16e9cc94bcbc9b157e1f35ddc83b1cef712beeaa",
+      "size": 104,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/16e9cc94bcbc9b157e1f35ddc83b1cef712beeaa"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a73d09527a771c4b2af4da508c09fbd0b8d17065",
+      "size": 6026,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/a73d09527a771c4b2af4da508c09fbd0b8d17065"
+    },
+    {
+      "path": "assets",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "02609967c623f287de80dffe4b53d1afa804ccbf",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/02609967c623f287de80dffe4b53d1afa804ccbf"
+    },
+    {
+      "path": "assets/test_garden.npz",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "837feca907cb44ccf242bef727d17ef3597a593c",
+      "size": 2083288,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/837feca907cb44ccf242bef727d17ef3597a593c"
+    },
+    {
+      "path": "docs",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "8bdda2b12fa3d43ace0cbe4f93a31b969e3d0ebc",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/8bdda2b12fa3d43ace0cbe4f93a31b969e3d0ebc"
+    },
+    {
+      "path": "docs/3dgut.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "34a5e9a1e6e0ee23c5c0816a8649678ba3bf422e",
+      "size": 2683,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/34a5e9a1e6e0ee23c5c0816a8649678ba3bf422e"
+    },
+    {
+      "path": "docs/DEV.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f24242b18a01c296de7076242f4ff09e6728e7ee",
+      "size": 4422,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/f24242b18a01c296de7076242f4ff09e6728e7ee"
+    },
+    {
+      "path": "docs/INSTALL_WIN.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4ad098a8047848ceacd609ef322cf426dc3adeee",
+      "size": 4166,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/4ad098a8047848ceacd609ef322cf426dc3adeee"
+    },
+    {
+      "path": "docs/Makefile",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "92dd33a1a44470e1405a20c617694fd174086fcc",
+      "size": 639,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/92dd33a1a44470e1405a20c617694fd174086fcc"
+    },
+    {
+      "path": "docs/batch.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7eebb25412045e2ec2ab41bf46952a9d377d7180",
+      "size": 1839,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/7eebb25412045e2ec2ab41bf46952a9d377d7180"
+    },
+    {
+      "path": "docs/requirements.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "765c0fc51d79a03b12782294fcc0274cf7b53aa3",
+      "size": 84,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/765c0fc51d79a03b12782294fcc0274cf7b53aa3"
+    },
+    {
+      "path": "docs/source",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "0bd6dee5e046e618e63c18cc8e14d31473db1440",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/0bd6dee5e046e618e63c18cc8e14d31473db1440"
+    },
+    {
+      "path": "docs/source/_templates",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "cc67259adea3371adf58e32126b992df0addda7a",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/cc67259adea3371adf58e32126b992df0addda7a"
+    },
+    {
+      "path": "docs/source/_templates/sidebar",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f46c3039b1d1503a8d6d5ebafb01598c6d9ee1b6",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/f46c3039b1d1503a8d6d5ebafb01598c6d9ee1b6"
+    },
+    {
+      "path": "docs/source/_templates/sidebar/brand.html",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "18cc909468c28b30f43716b622a1066a8707a066",
+      "size": 3014,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/18cc909468c28b30f43716b622a1066a8707a066"
+    },
+    {
+      "path": "docs/source/apis",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "b3ccd1c11fd9cf8eceb548d4d4290e3ae2263b46",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/b3ccd1c11fd9cf8eceb548d4d4290e3ae2263b46"
+    },
+    {
+      "path": "docs/source/apis/compression.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f4fc8e198f8b9519f97267650d764ea741676306",
+      "size": 1625,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/f4fc8e198f8b9519f97267650d764ea741676306"
+    },
+    {
+      "path": "docs/source/apis/rasterization.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ec44b8430d23ede39ed665b533b2542e7bb3b827",
+      "size": 3138,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/ec44b8430d23ede39ed665b533b2542e7bb3b827"
+    },
+    {
+      "path": "docs/source/apis/strategy.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8f6c5dba9ed23c4f35f3c793cd889945cf85d80b",
+      "size": 2857,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/8f6c5dba9ed23c4f35f3c793cd889945cf85d80b"
+    },
+    {
+      "path": "docs/source/apis/utils.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cc839dabee64ec545f545715eb0de97a9ed9d797",
+      "size": 832,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/cc839dabee64ec545f545715eb0de97a9ed9d797"
+    },
+    {
+      "path": "docs/source/assets",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d3cc80893fd6bca1d60395f22d2e3919cb7e1593",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/d3cc80893fd6bca1d60395f22d2e3919cb7e1593"
+    },
+    {
+      "path": "docs/source/assets/square.gif",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "210eed3c1da94db94c5c3e393f97cc09dde5fa8c",
+      "size": 3475855,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/210eed3c1da94db94c5c3e393f97cc09dde5fa8c"
+    },
+    {
+      "path": "docs/source/assets/training.gif",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "78e5bbadb686ce48ae7f74c68a112aec3e744c37",
+      "size": 21189221,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/78e5bbadb686ce48ae7f74c68a112aec3e744c37"
+    },
+    {
+      "path": "docs/source/assets/viewer_garden_480p.mp4",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4beaa2143eabb40a974f7567b6ee455b3785bb2a",
+      "size": 697351,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/4beaa2143eabb40a974f7567b6ee455b3785bb2a"
+    },
+    {
+      "path": "docs/source/conf.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8e0b716d0cf1145b978bf3376720b87abe96b04d",
+      "size": 1387,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/8e0b716d0cf1145b978bf3376720b87abe96b04d"
+    },
+    {
+      "path": "docs/source/conventions",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f809881885340547c09953977f67674867cf4bc1",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/f809881885340547c09953977f67674867cf4bc1"
+    },
+    {
+      "path": "docs/source/conventions/data_conventions.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0011cc44b811739f8afa65109706c7a6c7436aea",
+      "size": 1008,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/0011cc44b811739f8afa65109706c7a6c7436aea"
+    },
+    {
+      "path": "docs/source/examples",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3fef80056fb1c0a817c06068648c19e081d6bd21",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/3fef80056fb1c0a817c06068648c19e081d6bd21"
+    },
+    {
+      "path": "docs/source/examples/colmap.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f715a2c1e07a021338fbfba90c54291775e2dc2e",
+      "size": 1302,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/f715a2c1e07a021338fbfba90c54291775e2dc2e"
+    },
+    {
+      "path": "docs/source/examples/image.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1d5026dfe8134c5672ae3991c02cb8531f180658",
+      "size": 727,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/1d5026dfe8134c5672ae3991c02cb8531f180658"
+    },
+    {
+      "path": "docs/source/examples/large_scale.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3288eb512a99f5cb4c47c7608b4a96003b2fe8b3",
+      "size": 2525,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/3288eb512a99f5cb4c47c7608b4a96003b2fe8b3"
+    },
+    {
+      "path": "docs/source/index.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c123ef1e15b39a4e171a0ec464e1a1d8e6a0fd5a",
+      "size": 4096,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/c123ef1e15b39a4e171a0ec464e1a1d8e6a0fd5a"
+    },
+    {
+      "path": "docs/source/migration",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "4e22db48242a42561a3150475a640900f6843fa0",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/4e22db48242a42561a3150475a640900f6843fa0"
+    },
+    {
+      "path": "docs/source/migration/migration_inria.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "932efc385ce4edd3cdf9072745d1764e8963a0a1",
+      "size": 2001,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/932efc385ce4edd3cdf9072745d1764e8963a0a1"
+    },
+    {
+      "path": "docs/source/migration/migration_legacy.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "eb1f11f6ae62049177485f1b53501889c3a8955f",
+      "size": 4298,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/eb1f11f6ae62049177485f1b53501889c3a8955f"
+    },
+    {
+      "path": "docs/source/references.bib",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0462171ac71b91b8a803f73b6d346856048609c1",
+      "size": 806,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/0462171ac71b91b8a803f73b6d346856048609c1"
+    },
+    {
+      "path": "docs/source/tests",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e601838a43c11fec65ba5393f8adc72fc4e80447",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/e601838a43c11fec65ba5393f8adc72fc4e80447"
+    },
+    {
+      "path": "docs/source/tests/eval.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "49c13525edaeaca9a5b387a4b727994e4b9ed8e1",
+      "size": 15971,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/49c13525edaeaca9a5b387a4b727994e4b9ed8e1"
+    },
+    {
+      "path": "docs/source/tests/profile.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "526bea1548cf407493d73c52521fbd498ccfdd07",
+      "size": 8119,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/526bea1548cf407493d73c52521fbd498ccfdd07"
+    },
+    {
+      "path": "docs/source/tests/tests.rst",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "44b3ab8d4cc60a4f3851db1015e591dfd9139284",
+      "size": 437,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/44b3ab8d4cc60a4f3851db1015e591dfd9139284"
+    },
+    {
+      "path": "examples",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "7d42977ff21b5cd81c0cd6d984880adb336db69d",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/7d42977ff21b5cd81c0cd6d984880adb336db69d"
+    },
+    {
+      "path": "examples/benchmarks",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "185fd96e484a5cdc4d05a4600a445fecbc17269b",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/185fd96e484a5cdc4d05a4600a445fecbc17269b"
+    },
+    {
+      "path": "examples/benchmarks/3dgut",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "5f2a0c9a98aa6cda2a17c4cdc6ecb8914ffaa27a",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/5f2a0c9a98aa6cda2a17c4cdc6ecb8914ffaa27a"
+    },
+    {
+      "path": "examples/benchmarks/3dgut/mcmc.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bbbe0c0939fb06b37bb433a3ccd729a6dadef247",
+      "size": 1577,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/bbbe0c0939fb06b37bb433a3ccd729a6dadef247"
+    },
+    {
+      "path": "examples/benchmarks/3dgut/mcmc_zipnerf.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "934820b0e8e1732da0a05a0c2532caa9fd604b05",
+      "size": 1611,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/934820b0e8e1732da0a05a0c2532caa9fd604b05"
+    },
+    {
+      "path": "examples/benchmarks/basic.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6b043c567af462e5a27b874da68573b43ce5a1e5",
+      "size": 1402,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/6b043c567af462e5a27b874da68573b43ce5a1e5"
+    },
+    {
+      "path": "examples/benchmarks/basic_2dgs.sh",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "04d3d8fd4c2c199885f9829f3f630d73da0db31f",
+      "size": 1336,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/04d3d8fd4c2c199885f9829f3f630d73da0db31f"
+    },
+    {
+      "path": "examples/benchmarks/basic_4gpus.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "01b0c2c18b303281f28c06debee8b70d9b6de9bd",
+      "size": 1237,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/01b0c2c18b303281f28c06debee8b70d9b6de9bd"
+    },
+    {
+      "path": "examples/benchmarks/bilarf",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e5a57aab07a25d7809ada84881f40c60112964a9",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/e5a57aab07a25d7809ada84881f40c60112964a9"
+    },
+    {
+      "path": "examples/benchmarks/bilarf/mcmc_bilarf.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "044628032a944803de8ea398caa25ff3e38bab1a",
+      "size": 660,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/044628032a944803de8ea398caa25ff3e38bab1a"
+    },
+    {
+      "path": "examples/benchmarks/compression",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "5fc2c2901dbcb6ad9e954d000aedc1ade3215f75",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/5fc2c2901dbcb6ad9e954d000aedc1ade3215f75"
+    },
+    {
+      "path": "examples/benchmarks/compression/mcmc.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "274185842259fb2b78f95322c645c7154bb39254",
+      "size": 1670,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/274185842259fb2b78f95322c645c7154bb39254"
+    },
+    {
+      "path": "examples/benchmarks/compression/mcmc_tt.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "34d9f5ea7d1bc185704260d503bf124e0eaf0217",
+      "size": 1425,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/34d9f5ea7d1bc185704260d503bf124e0eaf0217"
+    },
+    {
+      "path": "examples/benchmarks/compression/results",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "848634e984986cb2f19791f66d9c57fbc6602e44",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/848634e984986cb2f19791f66d9c57fbc6602e44"
+    },
+    {
+      "path": "examples/benchmarks/compression/results/MipNeRF360.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "faf69be9f30950c2728e7f1ec625dda6578e63f8",
+      "size": 195,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/faf69be9f30950c2728e7f1ec625dda6578e63f8"
+    },
+    {
+      "path": "examples/benchmarks/compression/results/TanksAndTemples.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5845808d9564cda4b026b51819b13a9fc9f39f31",
+      "size": 196,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/5845808d9564cda4b026b51819b13a9fc9f39f31"
+    },
+    {
+      "path": "examples/benchmarks/compression/summarize_stats.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5efa729fe39485184ca771a80a16ee11355b3ff4",
+      "size": 1278,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/5efa729fe39485184ca771a80a16ee11355b3ff4"
+    },
+    {
+      "path": "examples/benchmarks/fisheye",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "27aaeb27acd97683ee2d86728e6bdde5216e6199",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/27aaeb27acd97683ee2d86728e6bdde5216e6199"
+    },
+    {
+      "path": "examples/benchmarks/fisheye/mcmc_zipnerf.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "97202fdaa5ee80d6ad2914c80583031d27cfc02c",
+      "size": 1532,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/97202fdaa5ee80d6ad2914c80583031d27cfc02c"
+    },
+    {
+      "path": "examples/benchmarks/fisheye/mcmc_zipnerf_undistorted.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "92aded9c9da708f63ce7c683adfe099eb57feea0",
+      "size": 1540,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/92aded9c9da708f63ce7c683adfe099eb57feea0"
+    },
+    {
+      "path": "examples/benchmarks/mcmc.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0eaa5c8bbe0cc91238152ad89540dc3e452869bd",
+      "size": 1499,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/0eaa5c8bbe0cc91238152ad89540dc3e452869bd"
+    },
+    {
+      "path": "examples/datasets",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "a6398173eb5653d58cfe265441efacec9e12dd13",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/a6398173eb5653d58cfe265441efacec9e12dd13"
+    },
+    {
+      "path": "examples/datasets/colmap.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6c21f2c663b60d9dc38471a9963a3b5d092e5ed2",
+      "size": 18447,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/6c21f2c663b60d9dc38471a9963a3b5d092e5ed2"
+    },
+    {
+      "path": "examples/datasets/download_dataset.py",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "520e97d1e9e6db0bea48195760bc2ac84dc424c8",
+      "size": 3991,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/520e97d1e9e6db0bea48195760bc2ac84dc424c8"
+    },
+    {
+      "path": "examples/datasets/normalize.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "681623b311625065744813f565666e9a8154a33c",
+      "size": 4650,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/681623b311625065744813f565666e9a8154a33c"
+    },
+    {
+      "path": "examples/datasets/traj.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9e8a2d69dc969e78d5ea019465fe39c10618cf5c",
+      "size": 9447,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/9e8a2d69dc969e78d5ea019465fe39c10618cf5c"
+    },
+    {
+      "path": "examples/gsplat_viewer.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e47d75a83f0423b1dab11dbbf75d28b37f6bda07",
+      "size": 9675,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/e47d75a83f0423b1dab11dbbf75d28b37f6bda07"
+    },
+    {
+      "path": "examples/gsplat_viewer_2dgs.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d9b258cd2d63fa5901f22c5bf46b832506bc297a",
+      "size": 8356,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/d9b258cd2d63fa5901f22c5bf46b832506bc297a"
+    },
+    {
+      "path": "examples/image_fitting.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "434b7869b87d034de2149e49eb64172e4cffd2c9",
+      "size": 5978,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/434b7869b87d034de2149e49eb64172e4cffd2c9"
+    },
+    {
+      "path": "examples/lib_bilagrid.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1b10a204569a6480ac345401a8efcfaf154bc321",
+      "size": 22151,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/1b10a204569a6480ac345401a8efcfaf154bc321"
+    },
+    {
+      "path": "examples/requirements.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ea0a940ea796e486aa68e8fc284ee01cb5a27662",
+      "size": 677,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/ea0a940ea796e486aa68e8fc284ee01cb5a27662"
+    },
+    {
+      "path": "examples/simple_trainer.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6a30be737b5c9af53a140f64faf499d8d4d0933f",
+      "size": 49728,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/6a30be737b5c9af53a140f64faf499d8d4d0933f"
+    },
+    {
+      "path": "examples/simple_trainer_2dgs.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fcca59933bc339bf83e5bc674833a463bf493658",
+      "size": 39698,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/fcca59933bc339bf83e5bc674833a463bf493658"
+    },
+    {
+      "path": "examples/simple_viewer.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b46746c639f6a6c81e81672dc8318e0804dd2b23",
+      "size": 8933,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/b46746c639f6a6c81e81672dc8318e0804dd2b23"
+    },
+    {
+      "path": "examples/simple_viewer_2dgs.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3cd108d1d0c4ab4ff602b61dbe91d8629cf30bcb",
+      "size": 5732,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/3cd108d1d0c4ab4ff602b61dbe91d8629cf30bcb"
+    },
+    {
+      "path": "examples/simple_viewer_3dgut.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "231ca2ecac6dc4c1705c373c37d547736ff60740",
+      "size": 9599,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/231ca2ecac6dc4c1705c373c37d547736ff60740"
+    },
+    {
+      "path": "examples/utils.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "80f8e35f364aa884af00106b352631cc04b10d43",
+      "size": 7519,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/80f8e35f364aa884af00106b352631cc04b10d43"
+    },
+    {
+      "path": "formatter.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e2747f78415bc5784839b75521c92475d80c397a",
+      "size": 309,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/e2747f78415bc5784839b75521c92475d80c397a"
+    },
+    {
+      "path": "gsplat",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d339cc040d3f15534c99aa1218849f8adcf1dc18",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/d339cc040d3f15534c99aa1218849f8adcf1dc18"
+    },
+    {
+      "path": "gsplat/__init__.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "27c7b0a9c59ab8efa8af6a55fed6aba5f08baa3f",
+      "size": 1633,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/27c7b0a9c59ab8efa8af6a55fed6aba5f08baa3f"
+    },
+    {
+      "path": "gsplat/_helper.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "86bca0520f55f9dfd41b6aa25ccad117982991fe",
+      "size": 1992,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/86bca0520f55f9dfd41b6aa25ccad117982991fe"
+    },
+    {
+      "path": "gsplat/compression",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "b87fbf4a3187417ce99a9c837903b3bcfa0b198c",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/b87fbf4a3187417ce99a9c837903b3bcfa0b198c"
+    },
+    {
+      "path": "gsplat/compression/__init__.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8078908482b8b17c493911b17221a61676504120",
+      "size": 44,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/8078908482b8b17c493911b17221a61676504120"
+    },
+    {
+      "path": "gsplat/compression/png_compression.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0c5010cc070991e52d03c201613b2c1f205d1f19",
+      "size": 13584,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/0c5010cc070991e52d03c201613b2c1f205d1f19"
+    },
+    {
+      "path": "gsplat/compression/sort.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c3d0f8bbede2e0030fe42cbdacd311b5171ad39c",
+      "size": 1618,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/c3d0f8bbede2e0030fe42cbdacd311b5171ad39c"
+    },
+    {
+      "path": "gsplat/cuda",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "2b1ccfb91696682e5077969e820c70c03af605d6",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/2b1ccfb91696682e5077969e820c70c03af605d6"
+    },
+    {
+      "path": "gsplat/cuda/__init__.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "size": 0,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "path": "gsplat/cuda/_backend.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3b6faeefe995ef2a3eb1a2dbbaf6c65d9f501e60",
+      "size": 8578,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/3b6faeefe995ef2a3eb1a2dbbaf6c65d9f501e60"
+    },
+    {
+      "path": "gsplat/cuda/_torch_impl.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "29888d3de6c16b941a72c37856bfc8672443051b",
+      "size": 29248,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/29888d3de6c16b941a72c37856bfc8672443051b"
+    },
+    {
+      "path": "gsplat/cuda/_torch_impl_2dgs.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "96ae8695e40846a0dc81420ee3ed094de5b0da3b",
+      "size": 12105,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/96ae8695e40846a0dc81420ee3ed094de5b0da3b"
+    },
+    {
+      "path": "gsplat/cuda/_wrapper.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "286685ff9fc3f195168bda4158fb4bff674d7498",
+      "size": 85727,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/286685ff9fc3f195168bda4158fb4bff674d7498"
+    },
+    {
+      "path": "gsplat/cuda/csrc",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "72019ba38d7310351b16f2bebda70a5afe8b834a",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/72019ba38d7310351b16f2bebda70a5afe8b834a"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Adam.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b88b3074d4fa069387af940d6f77b4cd14c60424",
+      "size": 1314,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/b88b3074d4fa069387af940d6f77b4cd14c60424"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Adam.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "640907728c81549d1ca1f2be1e66ec71e14c717e",
+      "size": 461,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/640907728c81549d1ca1f2be1e66ec71e14c717e"
+    },
+    {
+      "path": "gsplat/cuda/csrc/AdamCUDA.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d75f8127301ce27790ad0bfb6c0b7e295e2f4d79",
+      "size": 2840,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/d75f8127301ce27790ad0bfb6c0b7e295e2f4d79"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Intersect.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b4d0febb099b144f4abf906cb6cfca1d3fee3f0e",
+      "size": 5573,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/b4d0febb099b144f4abf906cb6cfca1d3fee3f0e"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Intersect.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "801b7e96103e0b30226942f334c38d2e0d858489",
+      "size": 1719,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/801b7e96103e0b30226942f334c38d2e0d858489"
+    },
+    {
+      "path": "gsplat/cuda/csrc/IntersectTile.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "85ab99450b9cfb7dcee7e3b5b7023391fbc02c1d",
+      "size": 13738,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/85ab99450b9cfb7dcee7e3b5b7023391fbc02c1d"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Null.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "32a9e093de9ea62dc365b16c91617e459ff02943",
+      "size": 818,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/32a9e093de9ea62dc365b16c91617e459ff02943"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Null.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cb105c2fa3a72a9ac72b157236e6c3bb8174f04f",
+      "size": 639,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/cb105c2fa3a72a9ac72b157236e6c3bb8174f04f"
+    },
+    {
+      "path": "gsplat/cuda/csrc/NullCUDA.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0df07f56c17e9712771d5517d231a376e95312db",
+      "size": 2073,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/0df07f56c17e9712771d5517d231a376e95312db"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Projection.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d319b7a13239d709d2dc248c7d9cb1632e4c3b6e",
+      "size": 30963,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/d319b7a13239d709d2dc248c7d9cb1632e4c3b6e"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Projection.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a4b388b038939b4fb0ff273218e6048289af7f2e",
+      "size": 11791,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/a4b388b038939b4fb0ff273218e6048289af7f2e"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Projection2DGS.cuh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d26a63971645517319c568e3fe8a27af605fb4b0",
+      "size": 3551,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/d26a63971645517319c568e3fe8a27af605fb4b0"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Projection2DGSFused.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9d6e1c55173499ddc1455c829cb6ecb2e3593caa",
+      "size": 19245,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/9d6e1c55173499ddc1455c829cb6ecb2e3593caa"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Projection2DGSPacked.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4667dc770e48024f1b15616ebec30b1de40754ce",
+      "size": 19321,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/4667dc770e48024f1b15616ebec30b1de40754ce"
+    },
+    {
+      "path": "gsplat/cuda/csrc/ProjectionEWA3DGSFused.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "09997d04a344c1f5c00a2f17bbf94132aa110a87",
+      "size": 21422,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/09997d04a344c1f5c00a2f17bbf94132aa110a87"
+    },
+    {
+      "path": "gsplat/cuda/csrc/ProjectionEWA3DGSPacked.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6a36854c4ae3f7c518bf36b2bd6a9a89d9da657b",
+      "size": 28145,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/6a36854c4ae3f7c518bf36b2bd6a9a89d9da657b"
+    },
+    {
+      "path": "gsplat/cuda/csrc/ProjectionEWASimple.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0c12c38c410824fd7daf65858251adb422a45050",
+      "size": 8629,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/0c12c38c410824fd7daf65858251adb422a45050"
+    },
+    {
+      "path": "gsplat/cuda/csrc/ProjectionUT3DGSFused.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d292a03fc022febfb0c8c80ec5270772455319f8",
+      "size": 12607,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/d292a03fc022febfb0c8c80ec5270772455319f8"
+    },
+    {
+      "path": "gsplat/cuda/csrc/QuatScaleToCovar.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "85ff63473e9456cd25cabad1eeeeaa4db59fe83b",
+      "size": 2722,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/85ff63473e9456cd25cabad1eeeeaa4db59fe83b"
+    },
+    {
+      "path": "gsplat/cuda/csrc/QuatScaleToCovar.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7a703a5894561911b6bca551a98ada6c800d28c6",
+      "size": 823,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/7a703a5894561911b6bca551a98ada6c800d28c6"
+    },
+    {
+      "path": "gsplat/cuda/csrc/QuatScaleToCovarCUDA.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "017dcaff92db67b8d68a28b80ad61193248aa90e",
+      "size": 8149,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/017dcaff92db67b8d68a28b80ad61193248aa90e"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Rasterization.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "69fdbbb6603ab45b9a089a2f3534f6fed3eb63fa",
+      "size": 40672,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/69fdbbb6603ab45b9a089a2f3534f6fed3eb63fa"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Rasterization.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "aa09959e36720e8e876ef451d92e5569782c459e",
+      "size": 12646,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/aa09959e36720e8e876ef451d92e5569782c459e"
+    },
+    {
+      "path": "gsplat/cuda/csrc/RasterizeToIndices2DGS.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b4856093ab194d273d69e3fcf642fae5ba7470ce",
+      "size": 11207,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/b4856093ab194d273d69e3fcf642fae5ba7470ce"
+    },
+    {
+      "path": "gsplat/cuda/csrc/RasterizeToIndices3DGS.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a46ede76806826041584608e7084f916d184e0b6",
+      "size": 9868,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/a46ede76806826041584608e7084f916d184e0b6"
+    },
+    {
+      "path": "gsplat/cuda/csrc/RasterizeToPixels2DGSBwd.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a483d9a075c153e7c97e3fa3072666c1af1e8468",
+      "size": 36982,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/a483d9a075c153e7c97e3fa3072666c1af1e8468"
+    },
+    {
+      "path": "gsplat/cuda/csrc/RasterizeToPixels2DGSFwd.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9f84dc5b0022ca9960f36d5ce16ecf2073e10488",
+      "size": 24675,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/9f84dc5b0022ca9960f36d5ce16ecf2073e10488"
+    },
+    {
+      "path": "gsplat/cuda/csrc/RasterizeToPixels3DGSBwd.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7f1c0252cd8c3035b3060fb914cc36538b6a06d9",
+      "size": 17930,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/7f1c0252cd8c3035b3060fb914cc36538b6a06d9"
+    },
+    {
+      "path": "gsplat/cuda/csrc/RasterizeToPixels3DGSFwd.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b78a8736c03dad926eca598cfe971fa33e282559",
+      "size": 12257,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/b78a8736c03dad926eca598cfe971fa33e282559"
+    },
+    {
+      "path": "gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGSBwd.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4c21f61665ed39b654f7cbf965a20e6dd7c902c2",
+      "size": 26415,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/4c21f61665ed39b654f7cbf965a20e6dd7c902c2"
+    },
+    {
+      "path": "gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGSFwd.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b4d138866fc7a1edef6c8bb1608fe340d49fc088",
+      "size": 20373,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/b4d138866fc7a1edef6c8bb1608fe340d49fc088"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Relocation.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5d47bdd91d3b2ddbdfe8d084c196c870a42261a7",
+      "size": 1056,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/5d47bdd91d3b2ddbdfe8d084c196c870a42261a7"
+    },
+    {
+      "path": "gsplat/cuda/csrc/Relocation.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a768d7c1dbc81f48a284b0a58714ee7dcd27d1ee",
+      "size": 395,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/a768d7c1dbc81f48a284b0a58714ee7dcd27d1ee"
+    },
+    {
+      "path": "gsplat/cuda/csrc/RelocationCUDA.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d2314b91a1c326c8b931379251a43318ca88b740",
+      "size": 2553,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/d2314b91a1c326c8b931379251a43318ca88b740"
+    },
+    {
+      "path": "gsplat/cuda/csrc/SphericalHarmonics.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "91e5a8a65a50358061b152fa68ff099d46a3bea0",
+      "size": 2546,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/91e5a8a65a50358061b152fa68ff099d46a3bea0"
+    },
+    {
+      "path": "gsplat/cuda/csrc/SphericalHarmonics.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "664a6e31bc0121c7028ced1b041f29295f694d45",
+      "size": 842,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/664a6e31bc0121c7028ced1b041f29295f694d45"
+    },
+    {
+      "path": "gsplat/cuda/csrc/SphericalHarmonicsCUDA.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4fd67d69bdbd15b699cad1081ae26153c3aed423",
+      "size": 19981,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/4fd67d69bdbd15b699cad1081ae26153c3aed423"
+    },
+    {
+      "path": "gsplat/cuda/csrc/third_party",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "a59e55d19c0a194ccc74cd5617b9e090ff00476c",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/a59e55d19c0a194ccc74cd5617b9e090ff00476c"
+    },
+    {
+      "path": "gsplat/cuda/csrc/third_party/glm",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "33b4a621a697a305bc3a7610d290677b96beb181"
+    },
+    {
+      "path": "gsplat/cuda/ext.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7f7298c03b97625431f3bfc5e81bd7cfdc72a860",
+      "size": 4645,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/7f7298c03b97625431f3bfc5e81bd7cfdc72a860"
+    },
+    {
+      "path": "gsplat/cuda/include",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3e527ff7814824bab3f3232dc24fa0cfefd763d5",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/3e527ff7814824bab3f3232dc24fa0cfefd763d5"
+    },
+    {
+      "path": "gsplat/cuda/include/Cameras.cuh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "61a28f1f58c060fd7134bee1193694ec2f42def8",
+      "size": 51604,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/61a28f1f58c060fd7134bee1193694ec2f42def8"
+    },
+    {
+      "path": "gsplat/cuda/include/Cameras.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f99a937c8ab197a30a8db42dbb6b963374f678f3",
+      "size": 1880,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/f99a937c8ab197a30a8db42dbb6b963374f678f3"
+    },
+    {
+      "path": "gsplat/cuda/include/Common.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a2ac38fc1bfade00692cd772ceb36c735b8abcfb",
+      "size": 1954,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/a2ac38fc1bfade00692cd772ceb36c735b8abcfb"
+    },
+    {
+      "path": "gsplat/cuda/include/Ops.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3638a13c196b32511a382ac4036372e2f5c84bf1",
+      "size": 22776,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/3638a13c196b32511a382ac4036372e2f5c84bf1"
+    },
+    {
+      "path": "gsplat/cuda/include/Utils.cuh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2809d93f0f17e6eecf13f451456a142a3fcff997",
+      "size": 23386,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/2809d93f0f17e6eecf13f451456a142a3fcff997"
+    },
+    {
+      "path": "gsplat/distributed.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cab559df58dd325561d242a4aa8b2fa43318180f",
+      "size": 12947,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/cab559df58dd325561d242a4aa8b2fa43318180f"
+    },
+    {
+      "path": "gsplat/exporter.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b395283ac171bbb5db3198d110d7b1c6d97fb0fc",
+      "size": 18690,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/b395283ac171bbb5db3198d110d7b1c6d97fb0fc"
+    },
+    {
+      "path": "gsplat/optimizers",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "eb37b10d8ba7b2e5f8303bceac396bda0acf2418",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/eb37b10d8ba7b2e5f8303bceac396bda0acf2418"
+    },
+    {
+      "path": "gsplat/optimizers/__init__.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6be9896c0d92fc80b2db78933365f5c75439fa53",
+      "size": 42,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/6be9896c0d92fc80b2db78933365f5c75439fa53"
+    },
+    {
+      "path": "gsplat/optimizers/selective_adam.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "02f66281f2bbbad87831949d0415347ab8cec797",
+      "size": 2940,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/02f66281f2bbbad87831949d0415347ab8cec797"
+    },
+    {
+      "path": "gsplat/profile.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "669d363fbc48c1b37a95bcdce8247648305d11f2",
+      "size": 1411,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/669d363fbc48c1b37a95bcdce8247648305d11f2"
+    },
+    {
+      "path": "gsplat/relocation.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8abd9aeeaae91727f6c5fd02aaf400feaea98492",
+      "size": 1607,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/8abd9aeeaae91727f6c5fd02aaf400feaea98492"
+    },
+    {
+      "path": "gsplat/rendering.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2054fed2e33fdffa8965beef0871a52a2227965c",
+      "size": 71778,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/2054fed2e33fdffa8965beef0871a52a2227965c"
+    },
+    {
+      "path": "gsplat/strategy",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "99548d4254c3080f378ba2bc35a9cba7da82c18d",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/99548d4254c3080f378ba2bc35a9cba7da82c18d"
+    },
+    {
+      "path": "gsplat/strategy/__init__.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "305dc81296fb441087dbeb5ba6308b5eb75531c5",
+      "size": 95,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/305dc81296fb441087dbeb5ba6308b5eb75531c5"
+    },
+    {
+      "path": "gsplat/strategy/base.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0d6e61f30641d12a27ef02cc0c03511894c140e7",
+      "size": 1488,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/0d6e61f30641d12a27ef02cc0c03511894c140e7"
+    },
+    {
+      "path": "gsplat/strategy/default.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "49e677d9209b6a55633b2e9754a7145a6e744717",
+      "size": 13773,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/49e677d9209b6a55633b2e9754a7145a6e744717"
+    },
+    {
+      "path": "gsplat/strategy/mcmc.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c07e17376b0a12ab2112c59ac76d7459d78f7529",
+      "size": 6630,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/c07e17376b0a12ab2112c59ac76d7459d78f7529"
+    },
+    {
+      "path": "gsplat/strategy/ops.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "83c90a25efe056ad16c3ae04894b9563bf2ef795",
+      "size": 13476,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/83c90a25efe056ad16c3ae04894b9563bf2ef795"
+    },
+    {
+      "path": "gsplat/utils.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e5669295895e464c6077992c2570cdc1a793e429",
+      "size": 11868,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/e5669295895e464c6077992c2570cdc1a793e429"
+    },
+    {
+      "path": "gsplat/version.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a06ff4e08777642c97011d6c993690dba5a7a02f",
+      "size": 22,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/a06ff4e08777642c97011d6c993690dba5a7a02f"
+    },
+    {
+      "path": "profiling",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "388c369252601785df07ee7c1ff67ebbbd251e50",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/388c369252601785df07ee7c1ff67ebbbd251e50"
+    },
+    {
+      "path": "profiling/batch.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6aaae54a73e4e28a564cd2fc0c721da80f68e281",
+      "size": 7877,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/6aaae54a73e4e28a564cd2fc0c721da80f68e281"
+    },
+    {
+      "path": "profiling/main.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e8d7c24ecbf51f9762ee3e238daf7e9698e150b3",
+      "size": 11853,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/e8d7c24ecbf51f9762ee3e238daf7e9698e150b3"
+    },
+    {
+      "path": "setup.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f152008e5f35604b38e0ec6c98e8e17c525c1bcb",
+      "size": 4601,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/f152008e5f35604b38e0ec6c98e8e17c525c1bcb"
+    },
+    {
+      "path": "tests",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "a80d9c721815ecc74a121cb46ab8e52368527c8d",
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/trees/a80d9c721815ecc74a121cb46ab8e52368527c8d"
+    },
+    {
+      "path": "tests/_test_distributed.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ae03f9c98149fb79d07a13fa96b90ccb25373176",
+      "size": 3643,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/ae03f9c98149fb79d07a13fa96b90ccb25373176"
+    },
+    {
+      "path": "tests/test_2dgs.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "788c9111964ac0cd61f7a5c4aa0af638e8a0e9b8",
+      "size": 13658,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/788c9111964ac0cd61f7a5c4aa0af638e8a0e9b8"
+    },
+    {
+      "path": "tests/test_basic.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fd15933a02e2fbfdd6156c0467e2e2d775e95c9e",
+      "size": 22145,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/fd15933a02e2fbfdd6156c0467e2e2d775e95c9e"
+    },
+    {
+      "path": "tests/test_compression.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c52ae33c1ec2bfedba7e146dfc4b0168b72c0479",
+      "size": 1110,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/c52ae33c1ec2bfedba7e146dfc4b0168b72c0479"
+    },
+    {
+      "path": "tests/test_ftheta.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fa09b6dbbfadf653da3d3887bfd074982937f653",
+      "size": 3663,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/fa09b6dbbfadf653da3d3887bfd074982937f653"
+    },
+    {
+      "path": "tests/test_rasterization.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "50247a0fc9dda410e13155d303aadf1aed0ef53f",
+      "size": 2947,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/50247a0fc9dda410e13155d303aadf1aed0ef53f"
+    },
+    {
+      "path": "tests/test_strategy.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "031154152675c4dd3a7fabaf0dd49895b9d6080c",
+      "size": 4543,
+      "url": "https://api.github.com/repos/nerfstudio-project/gsplat/git/blobs/031154152675c4dd3a7fabaf0dd49895b9d6080c"
+    }
+  ],
+  "truncated": false
+}

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+SRC="$HOME/artifixer-prep/laptop720_artifixer_dyn/artifixer-14b/distilled_views_reconstructed_colmap_auto12_evenly_spaced_sink7/laptop720/frames/batch_0000"
+DST="/mnt/d/REPOS/HYPERclone/artifixer-checkpoints/laptop720_dyn_sample"
+mkdir -p "$DST/pred" "$DST/rendered" "$DST/gt"
+cp "$SRC/pred/"*.png "$DST/pred/"
+cp "$SRC/rendered/"*.png "$DST/rendered/"
+cp "$SRC/gt/"*.png "$DST/gt/"
+echo "pred:     $(ls "$DST/pred" | wc -l)"
+echo "rendered: $(ls "$DST/rendered" | wc -l)"
+echo "gt:       $(ls "$DST/gt" | wc -l)"
+ls "$DST/pred"

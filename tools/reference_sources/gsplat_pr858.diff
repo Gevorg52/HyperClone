@@ -1,0 +1,1126 @@
+diff --git a/examples/benchmarks/3dgut/mcmc_zipnerf.sh b/examples/benchmarks/3dgut/mcmc_zipnerf.sh
+index 934820b0e..572838ad1 100644
+--- a/examples/benchmarks/3dgut/mcmc_zipnerf.sh
++++ b/examples/benchmarks/3dgut/mcmc_zipnerf.sh
+@@ -16,7 +16,7 @@ do
+         --strategy.cap-max $CAP_MAX \
+         --opacity_reg 0.001 \
+         --init_scale 0.5 \
+-        --use_bilateral_grid \
++        --post_processing bilateral_grid \
+         --render_traj_path $RENDER_TRAJ_PATH \
+         --camera_model fisheye \
+         --data_dir $SCENE_DIR/$SCENE/ \
+@@ -29,7 +29,7 @@ do
+             --strategy.cap-max $CAP_MAX \
+             --opacity_reg 0.001 \
+             --init_scale 0.5 \
+-            --use_bilateral_grid \
++            --post_processing bilateral_grid \
+             --render_traj_path $RENDER_TRAJ_PATH \
+             --camera_model fisheye \
+             --data_dir $SCENE_DIR/$SCENE/ \
+diff --git a/examples/benchmarks/bilarf/mcmc_bilarf.sh b/examples/benchmarks/bilarf/mcmc_bilarf.sh
+index 044628032..b9c32a5d9 100644
+--- a/examples/benchmarks/bilarf/mcmc_bilarf.sh
++++ b/examples/benchmarks/bilarf/mcmc_bilarf.sh
+@@ -14,7 +14,7 @@ do
+ 
+     # train without eval
+     CUDA_VISIBLE_DEVICES=0 python simple_trainer.py mcmc --disable_viewer --data_factor $DATA_FACTOR \
+-        --use_bilateral_grid \
++        --post_processing bilateral_grid \
+         --render_traj_path $RENDER_TRAJ_PATH \
+         --data_dir $SCENE_DIR/$SCENE/ \
+         --result_dir $RESULT_DIR/$SCENE/
+diff --git a/examples/benchmarks/fisheye/mcmc_zipnerf.sh b/examples/benchmarks/fisheye/mcmc_zipnerf.sh
+index 97202fdaa..f8b4ad751 100644
+--- a/examples/benchmarks/fisheye/mcmc_zipnerf.sh
++++ b/examples/benchmarks/fisheye/mcmc_zipnerf.sh
+@@ -15,7 +15,7 @@ do
+         --strategy.cap-max $CAP_MAX \
+         --opacity_reg 0.001 \
+         --init_scale 0.5 \
+-        --use_bilateral_grid \
++        --post_processing bilateral_grid \
+         --render_traj_path $RENDER_TRAJ_PATH \
+         --camera_model fisheye \
+         --data_dir $SCENE_DIR/$SCENE/ \
+@@ -27,7 +27,7 @@ do
+             --strategy.cap-max $CAP_MAX \
+             --opacity_reg 0.001 \
+             --init_scale 0.5 \
+-            --use_bilateral_grid \
++            --post_processing bilateral_grid \
+             --render_traj_path $RENDER_TRAJ_PATH \
+             --camera_model fisheye \
+             --data_dir $SCENE_DIR/$SCENE/ \
+diff --git a/examples/benchmarks/fisheye/mcmc_zipnerf_undistorted.sh b/examples/benchmarks/fisheye/mcmc_zipnerf_undistorted.sh
+index 92aded9c9..49b46090e 100644
+--- a/examples/benchmarks/fisheye/mcmc_zipnerf_undistorted.sh
++++ b/examples/benchmarks/fisheye/mcmc_zipnerf_undistorted.sh
+@@ -15,7 +15,7 @@ do
+         --strategy.cap-max $CAP_MAX \
+         --opacity_reg 0.001 \
+         --init_scale 0.5 \
+-        --use_bilateral_grid \
++        --post_processing bilateral_grid \
+         --render_traj_path $RENDER_TRAJ_PATH \
+         --camera_model pinhole \
+         --data_dir $SCENE_DIR/$SCENE/ \
+@@ -27,7 +27,7 @@ do
+             --strategy.cap-max $CAP_MAX \
+             --opacity_reg 0.001 \
+             --init_scale 0.5 \
+-            --use_bilateral_grid \
++            --post_processing bilateral_grid \
+             --render_traj_path $RENDER_TRAJ_PATH \
+             --camera_model pinhole \
+             --data_dir $SCENE_DIR/$SCENE/ \
+diff --git a/examples/datasets/colmap.py b/examples/datasets/colmap.py
+index 6c21f2c66..20be6273a 100644
+--- a/examples/datasets/colmap.py
++++ b/examples/datasets/colmap.py
+@@ -1,5 +1,6 @@
+ import json
+ import os
++from pathlib import Path
+ from typing import Any, Dict, List, Optional
+ 
+ import cv2
+@@ -11,6 +12,7 @@
+ from tqdm import tqdm
+ from typing_extensions import assert_never
+ 
++from exif import compute_exposure_from_exif
+ from .normalize import (
+     align_principal_axes,
+     similarity_from_cameras,
+@@ -62,11 +64,13 @@ def __init__(
+         factor: int = 1,
+         normalize: bool = False,
+         test_every: int = 8,
++        load_exposure: bool = False,
+     ):
+         self.data_dir = data_dir
+         self.factor = factor
+         self.normalize = normalize
+         self.test_every = test_every
++        self.load_exposure = load_exposure
+ 
+         colmap_dir = os.path.join(data_dir, "sparse/0/")
+         if not os.path.exists(colmap_dir):
+@@ -259,6 +263,39 @@ def __init__(
+         self.point_indices = point_indices  # Dict[str, np.ndarray], image_name -> [M,]
+         self.transform = transform  # np.ndarray, (4, 4)
+ 
++        # Create 0-based contiguous camera indices from COLMAP camera_ids.
++        # This is useful for camera-based embeddings/modules.
++        unique_camera_ids = sorted(set(camera_ids))
++        self.camera_id_to_idx = {cid: idx for idx, cid in enumerate(unique_camera_ids)}
++        self.camera_indices = [self.camera_id_to_idx[cid] for cid in camera_ids]
++        self.num_cameras = len(unique_camera_ids)
++
++        # Load EXIF exposure data if requested.
++        # Always read from original (non-downscaled) images since PNG doesn't support EXIF.
++        if load_exposure:
++            exposure_values: List[Optional[float]] = []
++            for image_name in tqdm(image_names, desc="Loading EXIF exposure"):
++                original_path = Path(colmap_image_dir) / image_name
++                exposure_values.append(compute_exposure_from_exif(original_path))
++
++            # Compute mean across all valid exposures and subtract
++            valid_exposures = [e for e in exposure_values if e is not None]
++            if valid_exposures:
++                exposure_mean = sum(valid_exposures) / len(valid_exposures)
++                self.exposure_values: List[Optional[float]] = [
++                    (e - exposure_mean) if e is not None else None
++                    for e in exposure_values
++                ]
++                print(
++                    f"[Parser] Loaded exposure for {len(valid_exposures)}/{len(exposure_values)} images "
++                    f"(mean={exposure_mean:.3f} EV)"
++                )
++            else:
++                self.exposure_values = [None] * len(exposure_values)
++                print("[Parser] No valid EXIF exposure data found in any image.")
++        else:
++            self.exposure_values = [None] * len(image_paths)
++
+         # load one image to check the size. In the case of tanksandtemples dataset, the
+         # intrinsics stored in COLMAP corresponds to 2x upsampled images.
+         actual_image = imageio.imread(self.image_paths[0])[..., :3]
+@@ -404,10 +441,18 @@ def __getitem__(self, item: int) -> Dict[str, Any]:
+             "camtoworld": torch.from_numpy(camtoworlds).float(),
+             "image": torch.from_numpy(image).float(),
+             "image_id": item,  # the index of the image in the dataset
++            "camera_idx": self.parser.camera_indices[
++                index
++            ],  # 0-based contiguous camera index
+         }
+         if mask is not None:
+             data["mask"] = torch.from_numpy(mask).bool()
+ 
++        # Add exposure if available for this image
++        exposure = self.parser.exposure_values[index]
++        if exposure is not None:
++            data["exposure"] = torch.tensor(exposure, dtype=torch.float32)
++
+         if self.load_depths:
+             # projected points to image plane to get depths
+             worldtocams = np.linalg.inv(camtoworlds)
+diff --git a/examples/exif.py b/examples/exif.py
+new file mode 100644
+index 000000000..570917dcc
+--- /dev/null
++++ b/examples/exif.py
+@@ -0,0 +1,106 @@
++from __future__ import annotations
++
++import math
++from pathlib import Path
++from typing import Dict, List, Optional
++
++import piexif  # type: ignore
++
++
++def _extract_shutter_time(exif: Dict) -> Optional[float]:
++    # EXIF tag IDs (decimal)
++    TAG_EXPOSURE_TIME = 33434  # ExposureTime (seconds)
++    TAG_SHUTTER_SPEED_VALUE = 37377  # ShutterSpeedValue (APEX Tv)
++    exif_ifd = exif.get("Exif") if isinstance(exif.get("Exif"), dict) else {}
++
++    if TAG_EXPOSURE_TIME in exif_ifd:
++        num, den = exif_ifd[TAG_EXPOSURE_TIME]
++        seconds = num / den
++        if seconds > 0.0 and math.isfinite(seconds):
++            return seconds
++
++    if TAG_SHUTTER_SPEED_VALUE in exif_ifd:
++        num, den = exif_ifd[TAG_SHUTTER_SPEED_VALUE]
++        tv = num / den
++        seconds = math.pow(2.0, -tv)
++        if seconds > 0.0 and math.isfinite(seconds):
++            return seconds
++
++    return None
++
++
++def _extract_aperture_fnumber(exif: Dict) -> Optional[float]:
++    # EXIF tag IDs (decimal)
++    TAG_FNUMBER = 33437  # FNumber (f-number)
++    TAG_APERTURE_VALUE = 37378  # ApertureValue (APEX Av)
++    exif_ifd = exif.get("Exif") if isinstance(exif.get("Exif"), dict) else {}
++
++    if TAG_FNUMBER in exif_ifd:
++        num, den = exif_ifd[TAG_FNUMBER]
++        fnum = num / den
++        if fnum > 0.0 and math.isfinite(fnum):
++            return fnum
++
++    if TAG_APERTURE_VALUE in exif_ifd:
++        num, den = exif_ifd[TAG_APERTURE_VALUE]
++        av = num / den
++        fnum = math.pow(2.0, av / 2.0)
++        if fnum > 0.0 and math.isfinite(fnum):
++            return fnum
++
++    return None
++
++
++def _extract_iso(exif: Dict) -> Optional[float]:
++    # EXIF tag IDs (decimal)
++    # PhotographicSensitivity / ISOSpeedRatings
++    TAG_PHOTOGRAPHIC_SENSITIVITY = 34855
++    TAG_STANDARD_OUTPUT_SENSITIVITY = 34857  # StandardOutputSensitivity (SOS)
++    TAG_RECOMMENDED_EXPOSURE_INDEX = 34858  # RecommendedExposureIndex (REI)
++    TAG_ISO_SPEED = 34859  # ISOSpeed
++    exif_ifd = exif.get("Exif") if isinstance(exif.get("Exif"), dict) else {}
++
++    candidates: List[int] = [
++        TAG_PHOTOGRAPHIC_SENSITIVITY,
++        TAG_RECOMMENDED_EXPOSURE_INDEX,
++        TAG_STANDARD_OUTPUT_SENSITIVITY,
++        TAG_ISO_SPEED,
++    ]
++
++    for tag in candidates:
++        if tag in exif_ifd:
++            value = float(exif_ifd[tag])
++            if value > 0.0 and math.isfinite(value):
++                return value
++
++    return None
++
++
++def compute_exposure_from_exif(path: Path) -> Optional[float]:
++    """Return exposure in EV stops (log2 of relative exposure) or None if unavailable.
++
++    Relative exposure is computed as (seconds / f^2 * ISO) then converted via log2.
++    Returns None if the file format doesn't support EXIF (e.g., PNG).
++    """
++    try:
++        exif = piexif.load(str(path))
++    except piexif.InvalidImageDataError:
++        # File format doesn't support EXIF (e.g., PNG)
++        return None
++    shutter_s = _extract_shutter_time(exif)
++    aperture_f = _extract_aperture_fnumber(exif)
++    iso_value = _extract_iso(exif)
++
++    # If none of the components are available, we cannot compute exposure
++    if shutter_s is None and aperture_f is None and iso_value is None:
++        return None
++
++    # Use available components; treat missing ones as 1 for exposure calculation
++    seconds = shutter_s if shutter_s is not None else 1.0
++    f_number = aperture_f if aperture_f is not None else 1.0
++    iso = iso_value if iso_value is not None else 1.0
++
++    rel_exposure = (seconds / (f_number * f_number)) * iso
++    if rel_exposure <= 0.0 or not math.isfinite(rel_exposure):
++        return None
++    return math.log2(rel_exposure)
+diff --git a/examples/lib_bilagrid.py b/examples/lib_bilagrid.py
+index 1b10a2045..67e8c5850 100644
+--- a/examples/lib_bilagrid.py
++++ b/examples/lib_bilagrid.py
+@@ -53,79 +53,6 @@
+ tl.set_backend("pytorch")
+ 
+ 
+-def color_correct(
+-    img: torch.Tensor, ref: torch.Tensor, num_iters: int = 5, eps: float = 0.5 / 255
+-) -> torch.Tensor:
+-    """
+-    Warp `img` to match the colors in `ref_img` using iterative color matching.
+-
+-    This function performs color correction by warping the colors of the input image
+-    to match those of a reference image. It uses a least squares method to find a
+-    transformation that maps the input image's colors to the reference image's colors.
+-
+-    The algorithm iteratively solves a system of linear equations, updating the set of
+-    unsaturated pixels in each iteration. This approach helps handle non-linear color
+-    transformations and reduces the impact of clipping.
+-
+-    Args:
+-        img (torch.Tensor): Input image to be color corrected. Shape: [..., num_channels]
+-        ref (torch.Tensor): Reference image to match colors. Shape: [..., num_channels]
+-        num_iters (int, optional): Number of iterations for the color matching process.
+-                                   Default is 5.
+-        eps (float, optional): Small value to determine the range of unclipped pixels.
+-                               Default is 0.5 / 255.
+-
+-    Returns:
+-        torch.Tensor: Color corrected image with the same shape as the input image.
+-
+-    Note:
+-        - Both input and reference images should be in the range [0, 1].
+-        - The function works with any number of channels, but typically used with 3 (RGB).
+-    """
+-    if img.shape[-1] != ref.shape[-1]:
+-        raise ValueError(
+-            f"img's {img.shape[-1]} and ref's {ref.shape[-1]} channels must match"
+-        )
+-    num_channels = img.shape[-1]
+-    img_mat = img.reshape([-1, num_channels])
+-    ref_mat = ref.reshape([-1, num_channels])
+-
+-    def is_unclipped(z):
+-        return (z >= eps) & (z <= 1 - eps)  # z \in [eps, 1-eps].
+-
+-    mask0 = is_unclipped(img_mat)
+-    # Because the set of saturated pixels may change after solving for a
+-    # transformation, we repeatedly solve a system `num_iters` times and update
+-    # our estimate of which pixels are saturated.
+-    for _ in range(num_iters):
+-        # Construct the left hand side of a linear system that contains a quadratic
+-        # expansion of each pixel of `img`.
+-        a_mat = []
+-        for c in range(num_channels):
+-            a_mat.append(img_mat[:, c : (c + 1)] * img_mat[:, c:])  # Quadratic term.
+-        a_mat.append(img_mat)  # Linear term.
+-        a_mat.append(torch.ones_like(img_mat[:, :1]))  # Bias term.
+-        a_mat = torch.cat(a_mat, dim=-1)
+-        warp = []
+-        for c in range(num_channels):
+-            # Construct the right hand side of a linear system containing each color
+-            # of `ref`.
+-            b = ref_mat[:, c]
+-            # Ignore rows of the linear system that were saturated in the input or are
+-            # saturated in the current corrected color estimate.
+-            mask = mask0[:, c] & is_unclipped(img_mat[:, c]) & is_unclipped(b)
+-            ma_mat = torch.where(mask[:, None], a_mat, torch.zeros_like(a_mat))
+-            mb = torch.where(mask, b, torch.zeros_like(b))
+-            w = torch.linalg.lstsq(ma_mat, mb, rcond=-1)[0]
+-            assert torch.all(torch.isfinite(w))
+-            warp.append(w)
+-        warp = torch.stack(warp, dim=-1)
+-        # Apply the warp to update img_mat.
+-        img_mat = torch.clip(torch.matmul(a_mat, warp), 0, 1)
+-    corrected_img = torch.reshape(img_mat, img.shape)
+-    return corrected_img
+-
+-
+ def bilateral_grid_tv_loss(model, config):
+     """Computes total variations of bilateral grids."""
+     total_loss = 0.0
+diff --git a/examples/requirements.txt b/examples/requirements.txt
+index ea0a940ea..7655634f5 100644
+--- a/examples/requirements.txt
++++ b/examples/requirements.txt
+@@ -15,6 +15,7 @@ torchmetrics[image]
+ opencv-python
+ tyro>=0.8.8
+ Pillow
++piexif
+ tensorboard
+ tensorly
+ pyyaml
+@@ -22,3 +23,4 @@ matplotlib
+ git+https://github.com/rahul-goel/fused-ssim@328dc9836f513d00c4b5bc38fe30478b4435cbb5
+ git+https://github.com/harry7557558/fused-bilagrid@90f9788e57d3545e3a033c1038bb9986549632fe
+ splines
++ppisp @ git+https://github.com/nv-tlabs/ppisp@v1.0.0
+diff --git a/examples/simple_trainer.py b/examples/simple_trainer.py
+index 3f73f0e5f..4e05b20a8 100644
+--- a/examples/simple_trainer.py
++++ b/examples/simple_trainer.py
+@@ -15,6 +15,7 @@
+ import tyro
+ import viser
+ import yaml
++from gsplat.color_correct import color_correct_affine, color_correct_quadratic
+ from datasets.colmap import Dataset, Parser
+ from datasets.traj import (
+     generate_ellipse_path_z,
+@@ -67,6 +68,8 @@ class Config:
+     normalize_world_space: bool = True
+     # Camera model
+     camera_model: Literal["pinhole", "ortho", "fisheye"] = "pinhole"
++    # Load EXIF exposure metadata from images (if available)
++    load_exposure: bool = True
+ 
+     # Port for the viewer server
+     port: int = 8080
+@@ -163,10 +166,22 @@ class Config:
+     # Regularization for appearance optimization as weight decay
+     app_opt_reg: float = 1e-6
+ 
+-    # Enable bilateral grid. (experimental)
+-    use_bilateral_grid: bool = False
++    # Post-processing method for appearance correction (experimental)
++    post_processing: Optional[Literal["bilateral_grid", "ppisp"]] = None
++    # Use fused implementation for bilateral grid (only applies when post_processing="bilateral_grid")
++    bilateral_grid_fused: bool = False
+     # Shape of the bilateral grid (X, Y, W)
+     bilateral_grid_shape: Tuple[int, int, int] = (16, 16, 8)
++    # Enable PPISP controller
++    ppisp_use_controller: bool = True
++    # Use controller distillation in PPISP (only applies when post_processing="ppisp" and ppisp_use_controller=True)
++    ppisp_controller_distillation: bool = True
++    # Controller activation ratio for PPISP (only applies when post_processing="ppisp" and ppisp_use_controller=True)
++    ppisp_controller_activation_num_steps: int = 25_000
++    # Color correction method for cc_* metrics (only applies when post_processing is set)
++    color_correct_method: Literal["affine", "quadratic"] = "affine"
++    # Compute color-corrected metrics (cc_psnr, cc_ssim, cc_lpips) during evaluation
++    use_color_correction_metric: bool = False
+ 
+     # Enable depth loss. (experimental)
+     depth_loss: bool = False
+@@ -184,9 +199,6 @@ class Config:
+     with_ut: bool = False
+     with_eval3d: bool = False
+ 
+-    # Whether use fused-bilateral grid
+-    use_fused_bilagrid: bool = False
+-
+     def adjust_steps(self, factor: float):
+         self.eval_steps = [int(i * factor) for i in self.eval_steps]
+         self.save_steps = [int(i * factor) for i in self.save_steps]
+@@ -204,6 +216,10 @@ def adjust_steps(self, factor: float):
+             strategy.refine_start_iter = int(strategy.refine_start_iter * factor)
+             strategy.refine_stop_iter = int(strategy.refine_stop_iter * factor)
+             strategy.refine_every = int(strategy.refine_every * factor)
++            if strategy.noise_injection_stop_iter >= 0:
++                strategy.noise_injection_stop_iter = int(
++                    strategy.noise_injection_stop_iter * factor
++                )
+         else:
+             assert_never(strategy)
+ 
+@@ -337,6 +353,7 @@ def __init__(
+             factor=cfg.data_factor,
+             normalize=cfg.normalize_world_space,
+             test_every=cfg.test_every,
++            load_exposure=cfg.load_exposure,
+         )
+         self.trainset = Dataset(
+             self.parser,
+@@ -348,6 +365,21 @@ def __init__(
+         self.scene_scale = self.parser.scene_scale * 1.1 * cfg.global_scale
+         print("Scene scale:", self.scene_scale)
+ 
++        if self.parser.num_cameras > 1 and cfg.batch_size != 1:
++            raise ValueError(
++                f"When using multiple cameras ({self.parser.num_cameras} found), batch_size must be 1, "
++                f"but got batch_size={cfg.batch_size}."
++            )
++        if cfg.post_processing == "ppisp" and cfg.batch_size != 1:
++            raise ValueError(
++                f"PPISP post-processing requires batch_size=1, got batch_size={cfg.batch_size}"
++            )
++        if cfg.post_processing is not None and world_size > 1:
++            raise ValueError(
++                f"Post-processing ({cfg.post_processing}) requires single-GPU training, "
++                f"but world_size={world_size}."
++            )
++
+         # Model
+         feature_dim = 32 if cfg.app_opt else None
+         self.splats, self.optimizers = create_splats_with_optimizers(
+@@ -438,21 +470,40 @@ def __init__(
+             if world_size > 1:
+                 self.app_module = DDP(self.app_module)
+ 
+-        self.bil_grid_optimizers = []
+-        if cfg.use_bilateral_grid:
+-            self.bil_grids = BilateralGrid(
++        self.post_processing_module = None
++        if cfg.post_processing == "bilateral_grid":
++            self.post_processing_module = BilateralGrid(
+                 len(self.trainset),
+                 grid_X=cfg.bilateral_grid_shape[0],
+                 grid_Y=cfg.bilateral_grid_shape[1],
+                 grid_W=cfg.bilateral_grid_shape[2],
+             ).to(self.device)
+-            self.bil_grid_optimizers = [
++        elif cfg.post_processing == "ppisp":
++            ppisp_config = PPISPConfig(
++                use_controller=cfg.ppisp_use_controller,
++                controller_distillation=cfg.ppisp_controller_distillation,
++                controller_activation_ratio=cfg.ppisp_controller_activation_num_steps
++                / cfg.max_steps,
++            )
++            self.post_processing_module = PPISP(
++                num_cameras=self.parser.num_cameras,
++                num_frames=len(self.trainset),
++                config=ppisp_config,
++            ).to(self.device)
++
++        self.post_processing_optimizers = []
++        if cfg.post_processing == "bilateral_grid":
++            self.post_processing_optimizers = [
+                 torch.optim.Adam(
+-                    self.bil_grids.parameters(),
++                    self.post_processing_module.parameters(),
+                     lr=2e-3 * math.sqrt(cfg.batch_size),
+                     eps=1e-15,
+                 ),
+             ]
++        elif cfg.post_processing == "ppisp":
++            self.post_processing_optimizers = (
++                self.post_processing_module.create_optimizers()
++            )
+ 
+         # Losses & Metrics.
+         self.ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(self.device)
+@@ -480,6 +531,24 @@ def __init__(
+                 mode="training",
+             )
+ 
++        # Track if Gaussians are frozen (for controller distillation)
++        self._gaussians_frozen = False
++
++    def freeze_gaussians(self):
++        """Freeze all Gaussian parameters for controller distillation.
++
++        This prevents Gaussians from being updated by any loss (including regularization)
++        while the controller learns to predict per-frame corrections.
++        """
++        if self._gaussians_frozen:
++            return
++
++        for name, param in self.splats.items():
++            param.requires_grad = False
++
++        self._gaussians_frozen = True
++        print("[Distillation] Gaussian parameters frozen")
++
+     def rasterize_splats(
+         self,
+         camtoworlds: Tensor,
+@@ -489,6 +558,9 @@ def rasterize_splats(
+         masks: Optional[Tensor] = None,
+         rasterize_mode: Optional[Literal["classic", "antialiased"]] = None,
+         camera_model: Optional[Literal["pinhole", "ortho", "fisheye"]] = None,
++        frame_idcs: Optional[Tensor] = None,
++        camera_idcs: Optional[Tensor] = None,
++        exposure: Optional[Tensor] = None,
+         **kwargs,
+     ) -> Tuple[Tensor, Tensor, Dict]:
+         means = self.splats["means"]  # [N, 3]
+@@ -541,6 +613,47 @@ def rasterize_splats(
+         )
+         if masks is not None:
+             render_colors[~masks] = 0
++
++        if self.cfg.post_processing is not None:
++            # Create pixel coordinates [H, W, 2] with +0.5 center offset
++            pixel_y, pixel_x = torch.meshgrid(
++                torch.arange(height, device=self.device) + 0.5,
++                torch.arange(width, device=self.device) + 0.5,
++                indexing="ij",
++            )
++            pixel_coords = torch.stack([pixel_x, pixel_y], dim=-1)  # [H, W, 2]
++
++            # Split RGB from extra channels (e.g. depth) for post-processing
++            rgb = render_colors[..., :3]
++            extra = render_colors[..., 3:] if render_colors.shape[-1] > 3 else None
++
++            if self.cfg.post_processing == "bilateral_grid":
++                if frame_idcs is not None:
++                    grid_xy = (
++                        pixel_coords / torch.tensor([width, height], device=self.device)
++                    ).unsqueeze(0)
++                    rgb = slice(
++                        self.post_processing_module,
++                        grid_xy.expand(rgb.shape[0], -1, -1, -1),
++                        rgb,
++                        frame_idcs.unsqueeze(-1),
++                    )["rgb"]
++            elif self.cfg.post_processing == "ppisp":
++                camera_idx = camera_idcs.item() if camera_idcs is not None else None
++                frame_idx = frame_idcs.item() if frame_idcs is not None else None
++                rgb = self.post_processing_module(
++                    rgb=rgb,
++                    pixel_coords=pixel_coords,
++                    resolution=(width, height),
++                    camera_idx=camera_idx,
++                    frame_idx=frame_idx,
++                    exposure_prior=exposure,
++                )
++
++            render_colors = (
++                torch.cat([rgb, extra], dim=-1) if extra is not None else rgb
++            )
++
+         return render_colors, render_alphas, info
+ 
+     def train(self):
+@@ -570,22 +683,30 @@ def train(self):
+                     self.pose_optimizers[0], gamma=0.01 ** (1.0 / max_steps)
+                 )
+             )
+-        if cfg.use_bilateral_grid:
+-            # bilateral grid has a learning rate schedule. Linear warmup for 1000 steps.
++        # Post-processing module has a learning rate schedule
++        if cfg.post_processing == "bilateral_grid":
++            # Linear warmup + exponential decay
+             schedulers.append(
+                 torch.optim.lr_scheduler.ChainedScheduler(
+                     [
+                         torch.optim.lr_scheduler.LinearLR(
+-                            self.bil_grid_optimizers[0],
++                            self.post_processing_optimizers[0],
+                             start_factor=0.01,
+                             total_iters=1000,
+                         ),
+                         torch.optim.lr_scheduler.ExponentialLR(
+-                            self.bil_grid_optimizers[0], gamma=0.01 ** (1.0 / max_steps)
++                            self.post_processing_optimizers[0],
++                            gamma=0.01 ** (1.0 / max_steps),
+                         ),
+                     ]
+                 )
+             )
++        elif cfg.post_processing == "ppisp":
++            ppisp_schedulers = self.post_processing_module.create_schedulers(
++                self.post_processing_optimizers,
++                max_optimization_iters=max_steps,
++            )
++            schedulers.extend(ppisp_schedulers)
+ 
+         trainloader = torch.utils.data.DataLoader(
+             self.trainset,
+@@ -607,6 +728,15 @@ def train(self):
+                 self.viewer.lock.acquire()
+                 tic = time.time()
+ 
++            # Freeze Gaussians when PPISP controller distillation starts
++            if (
++                cfg.post_processing == "ppisp"
++                and cfg.ppisp_use_controller
++                and cfg.ppisp_controller_distillation
++                and step >= cfg.ppisp_controller_activation_num_steps
++            ):
++                self.freeze_gaussians()
++
+             try:
+                 data = next(trainloader_iter)
+             except StopIteration:
+@@ -621,6 +751,9 @@ def train(self):
+             )
+             image_ids = data["image_id"].to(device)
+             masks = data["mask"].to(device) if "mask" in data else None  # [1, H, W]
++            exposure = (
++                data["exposure"].to(device) if "exposure" in data else None
++            )  # [B,]
+             if cfg.depth_loss:
+                 points = data["points"].to(device)  # [1, M, 2]
+                 depths_gt = data["depths"].to(device)  # [1, M]
+@@ -648,26 +781,15 @@ def train(self):
+                 image_ids=image_ids,
+                 render_mode="RGB+ED" if cfg.depth_loss else "RGB",
+                 masks=masks,
++                frame_idcs=image_ids,
++                camera_idcs=data["camera_idx"].to(device),
++                exposure=exposure,
+             )
+             if renders.shape[-1] == 4:
+                 colors, depths = renders[..., 0:3], renders[..., 3:4]
+             else:
+                 colors, depths = renders, None
+ 
+-            if cfg.use_bilateral_grid:
+-                grid_y, grid_x = torch.meshgrid(
+-                    (torch.arange(height, device=self.device) + 0.5) / height,
+-                    (torch.arange(width, device=self.device) + 0.5) / width,
+-                    indexing="ij",
+-                )
+-                grid_xy = torch.stack([grid_x, grid_y], dim=-1).unsqueeze(0)
+-                colors = slice(
+-                    self.bil_grids,
+-                    grid_xy.expand(colors.shape[0], -1, -1, -1),
+-                    colors,
+-                    image_ids.unsqueeze(-1),
+-                )["rgb"]
+-
+             if cfg.random_bkgd:
+                 bkgd = torch.rand(1, 3, device=device)
+                 colors = colors + bkgd * (1.0 - alphas)
+@@ -705,9 +827,16 @@ def train(self):
+                 disp_gt = 1.0 / depths_gt  # [1, M]
+                 depthloss = F.l1_loss(disp, disp_gt) * self.scene_scale
+                 loss += depthloss * cfg.depth_lambda
+-            if cfg.use_bilateral_grid:
+-                tvloss = 10 * total_variation_loss(self.bil_grids.grids)
+-                loss += tvloss
++            if cfg.post_processing == "bilateral_grid":
++                post_processing_reg_loss = 10 * total_variation_loss(
++                    self.post_processing_module.grids
++                )
++                loss += post_processing_reg_loss
++            elif cfg.post_processing == "ppisp":
++                post_processing_reg_loss = (
++                    self.post_processing_module.get_regularization_loss()
++                )
++                loss += post_processing_reg_loss
+ 
+             # regularizations
+             if cfg.opacity_reg > 0.0:
+@@ -744,8 +873,12 @@ def train(self):
+                 self.writer.add_scalar("train/mem", mem, step)
+                 if cfg.depth_loss:
+                     self.writer.add_scalar("train/depthloss", depthloss.item(), step)
+-                if cfg.use_bilateral_grid:
+-                    self.writer.add_scalar("train/tvloss", tvloss.item(), step)
++                if cfg.post_processing is not None:
++                    self.writer.add_scalar(
++                        "train/post_processing_reg_loss",
++                        post_processing_reg_loss.item(),
++                        step,
++                    )
+                 if cfg.tb_save_image:
+                     canvas = torch.cat([pixels, colors], dim=2).detach().cpu().numpy()
+                     canvas = canvas.reshape(-1, *canvas.shape[2:])
+@@ -777,6 +910,8 @@ def train(self):
+                         data["app_module"] = self.app_module.module.state_dict()
+                     else:
+                         data["app_module"] = self.app_module.state_dict()
++                if self.post_processing_module is not None:
++                    data["post_processing"] = self.post_processing_module.state_dict()
+                 torch.save(
+                     data, f"{self.ckpt_dir}/ckpt_{step}_rank{self.world_rank}.pt"
+                 )
+@@ -853,7 +988,7 @@ def train(self):
+             for optimizer in self.app_optimizers:
+                 optimizer.step()
+                 optimizer.zero_grad(set_to_none=True)
+-            for optimizer in self.bil_grid_optimizers:
++            for optimizer in self.post_processing_optimizers:
+                 optimizer.step()
+                 optimizer.zero_grad(set_to_none=True)
+             for scheduler in schedulers:
+@@ -924,6 +1059,9 @@ def eval(self, step: int, stage: str = "val"):
+             masks = data["mask"].to(device) if "mask" in data else None
+             height, width = pixels.shape[1:3]
+ 
++            # Exposure metadata is available for any image with EXIF data (train or val)
++            exposure = data["exposure"].to(device) if "exposure" in data else None
++
+             torch.cuda.synchronize()
+             tic = time.time()
+             colors, _, _ = self.rasterize_splats(
+@@ -935,6 +1073,9 @@ def eval(self, step: int, stage: str = "val"):
+                 near_plane=cfg.near_plane,
+                 far_plane=cfg.far_plane,
+                 masks=masks,
++                frame_idcs=None,  # For novel views, pass None (no per-frame parameters available)
++                camera_idcs=data["camera_idx"].to(device),
++                exposure=exposure,
+             )  # [1, H, W, 3]
+             torch.cuda.synchronize()
+             ellipse_time += max(time.time() - tic, 1e-10)
+@@ -956,8 +1097,12 @@ def eval(self, step: int, stage: str = "val"):
+                 metrics["psnr"].append(self.psnr(colors_p, pixels_p))
+                 metrics["ssim"].append(self.ssim(colors_p, pixels_p))
+                 metrics["lpips"].append(self.lpips(colors_p, pixels_p))
+-                if cfg.use_bilateral_grid:
+-                    cc_colors = color_correct(colors, pixels)
++                # Compute color-corrected metrics for fair comparison across methods
++                if cfg.use_color_correction_metric:
++                    if cfg.color_correct_method == "affine":
++                        cc_colors = color_correct_affine(colors, pixels)
++                    else:
++                        cc_colors = color_correct_quadratic(colors, pixels)
+                     cc_colors_p = cc_colors.permute(0, 3, 1, 2)  # [1, 3, H, W]
+                     metrics["cc_psnr"].append(self.psnr(cc_colors_p, pixels_p))
+                     metrics["cc_ssim"].append(self.ssim(cc_colors_p, pixels_p))
+@@ -973,7 +1118,7 @@ def eval(self, step: int, stage: str = "val"):
+                     "num_GS": len(self.splats["means"]),
+                 }
+             )
+-            if cfg.use_bilateral_grid:
++            if cfg.use_color_correction_metric:
+                 print(
+                     f"PSNR: {stats['psnr']:.3f}, SSIM: {stats['ssim']:.4f}, LPIPS: {stats['lpips']:.3f} "
+                     f"CC_PSNR: {stats['cc_psnr']:.3f}, CC_SSIM: {stats['cc_ssim']:.4f}, CC_LPIPS: {stats['cc_lpips']:.3f} "
+@@ -1068,6 +1213,37 @@ def render_traj(self, step: int):
+         writer.close()
+         print(f"Video saved to {video_dir}/traj_{step}.mp4")
+ 
++    @torch.no_grad()
++    def export_ppisp_reports(self) -> None:
++        """Export PPISP visualization reports (PDF) and parameter JSON."""
++        if self.cfg.post_processing != "ppisp":
++            return
++        print("Exporting PPISP reports...")
++
++        # Compute frames per camera from training dataset
++        num_cameras = self.parser.num_cameras
++        frames_per_camera = [0] * num_cameras
++        for idx in self.trainset.indices:
++            cam_idx = self.parser.camera_indices[idx]
++            frames_per_camera[cam_idx] += 1
++
++        # Generate camera names from COLMAP camera IDs
++        # camera_id_to_idx maps COLMAP ID -> 0-based index
++        idx_to_camera_id = {v: k for k, v in self.parser.camera_id_to_idx.items()}
++        camera_names = [f"camera_{idx_to_camera_id[i]}" for i in range(num_cameras)]
++
++        # Export reports
++        output_dir = Path(self.cfg.result_dir) / "ppisp_reports"
++        pdf_paths = export_ppisp_report(
++            self.post_processing_module,
++            frames_per_camera,
++            output_dir,
++            camera_names=camera_names,
++        )
++        print(f"PPISP reports saved to {output_dir}")
++        for path in pdf_paths:
++            print(f"  - {path.name}")
++
+     @torch.no_grad()
+     def run_compression(self, step: int):
+         """Entry for running compression."""
+@@ -1160,6 +1336,27 @@ def _viewer_render_fn(
+ 
+ 
+ def main(local_rank: int, world_rank, world_size: int, cfg: Config):
++    # Import post-processing modules based on configuration
++    # These imports must be here (not in __main__) for distributed workers
++    if cfg.post_processing == "bilateral_grid":
++        global BilateralGrid, slice, total_variation_loss
++        if cfg.bilateral_grid_fused:
++            from fused_bilagrid import (
++                BilateralGrid,
++                slice,
++                total_variation_loss,
++            )
++        else:
++            from lib_bilagrid import (
++                BilateralGrid,
++                slice,
++                total_variation_loss,
++            )
++    elif cfg.post_processing == "ppisp":
++        global PPISP, PPISPConfig, export_ppisp_report
++        from ppisp import PPISP, PPISPConfig
++        from ppisp.report import export_ppisp_report
++
+     if world_size > 1 and not cfg.disable_viewer:
+         cfg.disable_viewer = True
+         if world_rank == 0:
+@@ -1175,6 +1372,10 @@ def main(local_rank: int, world_rank, world_size: int, cfg: Config):
+         ]
+         for k in runner.splats.keys():
+             runner.splats[k].data = torch.cat([ckpt["splats"][k] for ckpt in ckpts])
++        if runner.post_processing_module is not None:
++            pp_state = ckpts[0].get("post_processing")
++            if pp_state is not None:
++                runner.post_processing_module.load_state_dict(pp_state)
+         step = ckpts[0]["step"]
+         runner.eval(step=step)
+         runner.render_traj(step=step)
+@@ -1182,6 +1383,7 @@ def main(local_rank: int, world_rank, world_size: int, cfg: Config):
+             runner.run_compression(step=step)
+     else:
+         runner.train()
++        runner.export_ppisp_reports()
+ 
+     if not cfg.disable_viewer:
+         runner.viewer.complete()
+@@ -1225,25 +1427,6 @@ def main(local_rank: int, world_rank, world_size: int, cfg: Config):
+     cfg = tyro.extras.overridable_config_cli(configs)
+     cfg.adjust_steps(cfg.steps_scaler)
+ 
+-    # Import BilateralGrid and related functions based on configuration
+-    if cfg.use_bilateral_grid or cfg.use_fused_bilagrid:
+-        if cfg.use_fused_bilagrid:
+-            cfg.use_bilateral_grid = True
+-            from fused_bilagrid import (
+-                BilateralGrid,
+-                color_correct,
+-                slice,
+-                total_variation_loss,
+-            )
+-        else:
+-            cfg.use_bilateral_grid = True
+-            from lib_bilagrid import (
+-                BilateralGrid,
+-                color_correct,
+-                slice,
+-                total_variation_loss,
+-            )
+-
+     # try import extra dependencies
+     if cfg.compression == "png":
+         try:
+diff --git a/gsplat/__init__.py b/gsplat/__init__.py
+index 27c7b0a9c..f661c8d9c 100644
+--- a/gsplat/__init__.py
++++ b/gsplat/__init__.py
+@@ -1,5 +1,6 @@
+ import warnings
+ 
++from .color_correct import color_correct_affine, color_correct_quadratic
+ from .compression import PngCompression
+ from .cuda._torch_impl import accumulate
+ from .cuda._torch_impl_2dgs import accumulate_2dgs
+@@ -32,6 +33,8 @@
+ from .version import __version__
+ 
+ all = [
++    "color_correct_affine",
++    "color_correct_quadratic",
+     "PngCompression",
+     "DefaultStrategy",
+     "MCMCStrategy",
+diff --git a/gsplat/color_correct.py b/gsplat/color_correct.py
+new file mode 100644
+index 000000000..7794769ec
+--- /dev/null
++++ b/gsplat/color_correct.py
+@@ -0,0 +1,134 @@
++"""Color correction utilities for post-processing evaluation."""
++
++import torch
++
++
++def color_correct_quadratic(
++    img: torch.Tensor, ref: torch.Tensor, num_iters: int = 5, eps: float = 0.5 / 255
++) -> torch.Tensor:
++    """
++    Warp `img` to match the colors in `ref_img` using iterative color matching.
++
++    This function performs color correction by warping the colors of the input image
++    to match those of a reference image. It uses a least squares method to find a
++    transformation that maps the input image's colors to the reference image's colors.
++
++    The algorithm iteratively solves a system of linear equations, updating the set of
++    unsaturated pixels in each iteration. This approach helps handle non-linear color
++    transformations and reduces the impact of clipping.
++
++    Adapted from the implementation at:
++    https://github.com/google-research/multinerf
++
++    Args:
++        img (torch.Tensor): Input image to be color corrected. Shape: [..., num_channels]
++        ref (torch.Tensor): Reference image to match colors. Shape: [..., num_channels]
++        num_iters (int, optional): Number of iterations for the color matching process.
++                                   Default is 5.
++        eps (float, optional): Small value to determine the range of unclipped pixels.
++                               Default is 0.5 / 255.
++
++    Returns:
++        torch.Tensor: Color corrected image with the same shape as the input image.
++
++    Note:
++        - Both input and reference images should be in the range [0, 1].
++        - The function works with any number of channels, but typically used with 3 (RGB).
++    """
++    if img.shape[-1] != ref.shape[-1]:
++        raise ValueError(
++            f"img's {img.shape[-1]} and ref's {ref.shape[-1]} channels must match"
++        )
++    num_channels = img.shape[-1]
++    img_mat = img.reshape([-1, num_channels])
++    ref_mat = ref.reshape([-1, num_channels])
++
++    def is_unclipped(z):
++        return (z >= eps) & (z <= 1 - eps)  # z \in [eps, 1-eps].
++
++    mask0 = is_unclipped(img_mat)
++    # Because the set of saturated pixels may change after solving for a
++    # transformation, we repeatedly solve a system `num_iters` times and update
++    # our estimate of which pixels are saturated.
++    for _ in range(num_iters):
++        # Construct the left hand side of a linear system that contains a quadratic
++        # expansion of each pixel of `img`.
++        a_mat = []
++        for c in range(num_channels):
++            # Quadratic term.
++            a_mat.append(img_mat[:, c : (c + 1)] * img_mat[:, c:])
++        a_mat.append(img_mat)  # Linear term.
++        a_mat.append(torch.ones_like(img_mat[:, :1]))  # Bias term.
++        a_mat = torch.cat(a_mat, dim=-1)
++        warp = []
++        for c in range(num_channels):
++            # Construct the right hand side of a linear system containing each color
++            # of `ref`.
++            b = ref_mat[:, c]
++            # Ignore rows of the linear system that were saturated in the input or are
++            # saturated in the current corrected color estimate.
++            mask = mask0[:, c] & is_unclipped(img_mat[:, c]) & is_unclipped(b)
++            ma_mat = torch.where(mask[:, None], a_mat, torch.zeros_like(a_mat))
++            mb = torch.where(mask, b, torch.zeros_like(b))
++            w = torch.linalg.lstsq(ma_mat, mb, rcond=-1)[0]
++            assert torch.all(torch.isfinite(w))
++            warp.append(w)
++        warp = torch.stack(warp, dim=-1)
++        # Apply the warp to update img_mat.
++        img_mat = torch.clip(torch.matmul(a_mat, warp), 0, 1)
++    corrected_img = torch.reshape(img_mat, img.shape)
++    return corrected_img
++
++
++def color_correct_affine(img: torch.Tensor, ref: torch.Tensor) -> torch.Tensor:
++    """
++    Warp `img` to match the colors in `ref` using per-channel affine transformation.
++
++    This function computes a per-channel affine best fit (a * ref + b = img) from the reference
++    to the input image, then applies the inverse mapping to correct the input image
++    back to match the reference.
++
++    Adapted from the implementation at:
++    https://github.com/google-research/multinerf
++
++    Args:
++        img (torch.Tensor): Input image to be color corrected. Shape: [..., num_channels]
++        ref (torch.Tensor): Reference image to match colors. Shape: [..., num_channels]
++
++    Returns:
++        torch.Tensor: Color corrected image with the same shape as the input image.
++
++    Note:
++        - Both input and reference images should be in the range [0, 1].
++        - The function works with any number of channels, but typically used with 3 (RGB).
++    """
++    if img.shape[-1] != ref.shape[-1]:
++        raise ValueError(
++            f"img's {img.shape[-1]} and ref's {ref.shape[-1]} channels must match"
++        )
++    num_channels = img.shape[-1]
++    img_mat = img.reshape([-1, num_channels])  # [N, C]
++    ref_mat = ref.reshape([-1, num_channels])  # [N, C]
++
++    # Compute per-channel means
++    ref_mean = ref_mat.mean(dim=0)  # [C]
++    img_mean = img_mat.mean(dim=0)  # [C]
++    ref_img_mean = (ref_mat * img_mat).mean(dim=0)  # [C]
++    ref_ref_mean = (ref_mat * ref_mat).mean(dim=0)  # [C]
++
++    # Best fit affine: a * ref + b = img (mapping ref -> img)
++    # slope a = Cov(ref, img) / Var(ref)
++    var_ref = ref_ref_mean - ref_mean * ref_mean
++    # Clamp variance away from zero to avoid division by zero / NaN
++    var_ref = torch.clamp(var_ref, min=1e-8)
++    a = (ref_img_mean - ref_mean * img_mean) / var_ref
++    b = img_mean - a * ref_mean
++
++    # Inverse mapping: corrected = (img - b) / a to map img back to match ref
++    # Clamp 'a' away from zero to avoid NaN
++    a = torch.where(a.abs() < 1e-8, torch.ones_like(a), a)
++    corrected_mat = (img_mat - b) / a
++    corrected_mat = torch.clip(corrected_mat, 0, 1)
++
++    corrected_img = torch.reshape(corrected_mat, img.shape)
++    return corrected_img
+diff --git a/gsplat/strategy/mcmc.py b/gsplat/strategy/mcmc.py
+index c07e17376..72a822818 100644
+--- a/gsplat/strategy/mcmc.py
++++ b/gsplat/strategy/mcmc.py
+@@ -26,6 +26,8 @@ class MCMCStrategy(Strategy):
+         noise_lr (float): MCMC samping noise learning rate. Default to 5e5.
+         refine_start_iter (int): Start refining GSs after this iteration. Default to 500.
+         refine_stop_iter (int): Stop refining GSs after this iteration. Default to 25_000.
++        noise_injection_stop_iter (int): Stop injecting noise after this iteration. Default to -1 (never stop).
++            Use this to stop noise injection during controller distillation while keeping refine_stop_iter separate.
+         refine_every (int): Refine GSs every this steps. Default to 100.
+         min_opacity (float): GSs with opacity below this value will be pruned. Default to 0.005.
+         verbose (bool): Whether to print verbose information. Default to False.
+@@ -50,6 +52,7 @@ class MCMCStrategy(Strategy):
+     noise_lr: float = 5e5
+     refine_start_iter: int = 500
+     refine_stop_iter: int = 25_000
++    noise_injection_stop_iter: int = -1
+     refine_every: int = 100
+     min_opacity: float = 0.005
+     verbose: bool = False
+@@ -139,10 +142,19 @@ def step_post_backward(
+ 
+             torch.cuda.empty_cache()
+ 
+-        # add noise to GSs
+-        inject_noise_to_position(
+-            params=params, optimizers=optimizers, state={}, scaler=lr * self.noise_lr
++        # add noise to GSs (stop after noise_injection_stop_iter if set)
++        noise_stop = (
++            self.noise_injection_stop_iter
++            if self.noise_injection_stop_iter >= 0
++            else float("inf")
+         )
++        if step < noise_stop:
++            inject_noise_to_position(
++                params=params,
++                optimizers=optimizers,
++                state={},
++                scaler=lr * self.noise_lr,
++            )
+ 
+     @torch.no_grad()
+     def _relocate_gs(
+diff --git a/setup.py b/setup.py
+index c0ba3c480..ce7bcd7c0 100644
+--- a/setup.py
++++ b/setup.py
+@@ -130,7 +130,7 @@ def get_extensions():
+             "pytest==7.1.2",
+             "pytest-xdist==2.5.0",
+             "typeguard>=2.13.3",
+-            "pyyaml==6.0",
++            "pyyaml>=6.0.1",
+             "build",
+             "twine",
+         ],

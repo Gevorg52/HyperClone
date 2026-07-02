@@ -1,0 +1,212 @@
+{
+  "sha": "df33809f7b3b20ac06de088dfc871b144b8fb54d",
+  "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/trees/df33809f7b3b20ac06de088dfc871b144b8fb54d",
+  "tree": [
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5e9e93a56248a27307cd94190a33cc305134cd6d",
+      "size": 132,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/5e9e93a56248a27307cd94190a33cc305134cd6d"
+    },
+    {
+      "path": "ATTRIBUTIONS.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6cf9b95201b588a011bc8e8223c654af7ee30de7",
+      "size": 13977,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/6cf9b95201b588a011bc8e8223c654af7ee30de7"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "691718e3c44a63578e6c9f006b1ed78ad5cb2f66",
+      "size": 2483,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/691718e3c44a63578e6c9f006b1ed78ad5cb2f66"
+    },
+    {
+      "path": "LICENSE",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f1028b03f802ff78808bed43c563b75fb3e05601",
+      "size": 10785,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/f1028b03f802ff78808bed43c563b75fb3e05601"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fe49e9126bd89769c0b2cd0de776205661641443",
+      "size": 5950,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/fe49e9126bd89769c0b2cd0de776205661641443"
+    },
+    {
+      "path": "ppisp",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3e8f07e2a70f0923d1478c8bb6fda265a32263db",
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/trees/3e8f07e2a70f0923d1478c8bb6fda265a32263db"
+    },
+    {
+      "path": "ppisp/__init__.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6f28a17b9b6ec3ecea51e5799ee0d405a56a0c22",
+      "size": 33562,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/6f28a17b9b6ec3ecea51e5799ee0d405a56a0c22"
+    },
+    {
+      "path": "ppisp/_version.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a955fdae12bdf32b79296a3a6dd424aac3843677",
+      "size": 22,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/a955fdae12bdf32b79296a3a6dd424aac3843677"
+    },
+    {
+      "path": "ppisp/bindings.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5c7df2a0f9758b01460a096d2d6e8a01968228af",
+      "size": 10608,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/5c7df2a0f9758b01460a096d2d6e8a01968228af"
+    },
+    {
+      "path": "ppisp/ext.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9871f444d4a9f26f6f2ca4291898c59a97afe90a",
+      "size": 1042,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/9871f444d4a9f26f6f2ca4291898c59a97afe90a"
+    },
+    {
+      "path": "ppisp/report.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "243758ba4fedbc2d2a4b712a56b1cf031572200c",
+      "size": 27648,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/243758ba4fedbc2d2a4b712a56b1cf031572200c"
+    },
+    {
+      "path": "ppisp/src",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "b58f736b16ac9765709558b5e024e26da12700cd",
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/trees/b58f736b16ac9765709558b5e024e26da12700cd"
+    },
+    {
+      "path": "ppisp/src/ppisp_constants.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0d785da5ee1fc3b22ef81bc291798983ddf3b19c",
+      "size": 961,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/0d785da5ee1fc3b22ef81bc291798983ddf3b19c"
+    },
+    {
+      "path": "ppisp/src/ppisp_impl.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "190781f41a92dca4953555cc60c99dd1ab08f7e4",
+      "size": 35895,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/190781f41a92dca4953555cc60c99dd1ab08f7e4"
+    },
+    {
+      "path": "ppisp/src/ppisp_math.cuh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d93f1b10d8472a7a4a8e4bf7db11e4b722ee78c2",
+      "size": 25023,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/d93f1b10d8472a7a4a8e4bf7db11e4b722ee78c2"
+    },
+    {
+      "path": "ppisp/src/ppisp_math_bwd.cuh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c6491c30da3c9cf6349dfbb1aa374fdfd1d35055",
+      "size": 40452,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/c6491c30da3c9cf6349dfbb1aa374fdfd1d35055"
+    },
+    {
+      "path": "pyproject.toml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "67ee47df56a0da7469eaf68143f89548e70b90d2",
+      "size": 578,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/67ee47df56a0da7469eaf68143f89548e70b90d2"
+    },
+    {
+      "path": "setup.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "60fc3aa95c4824070b5518b3bb5873d8a720e9fe",
+      "size": 5303,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/60fc3aa95c4824070b5518b3bb5873d8a720e9fe"
+    },
+    {
+      "path": "tests",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "df9d3a19d4b826c62632970ef705e5d0c6acf130",
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/trees/df9d3a19d4b826c62632970ef705e5d0c6acf130"
+    },
+    {
+      "path": "tests/README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "639773a2c09a7f1c503fa0e5377cb40d00d21753",
+      "size": 1642,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/639773a2c09a7f1c503fa0e5377cb40d00d21753"
+    },
+    {
+      "path": "tests/__init__.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1f175b4aca98008507b52643f7308e871551c5df",
+      "size": 684,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/1f175b4aca98008507b52643f7308e871551c5df"
+    },
+    {
+      "path": "tests/test_cuda_vs_torch.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "89a757f89f6e89bfe4e4e5109302dff065f864c7",
+      "size": 16466,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/89a757f89f6e89bfe4e4e5109302dff065f864c7"
+    },
+    {
+      "path": "tests/test_gradcheck.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "08bae227f99a9989a016b8e60495f07c03640f34",
+      "size": 9719,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/08bae227f99a9989a016b8e60495f07c03640f34"
+    },
+    {
+      "path": "tests/test_optional_inputs.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "06ee2ec4449b567497959cad2800c18d05ebe503",
+      "size": 5238,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/06ee2ec4449b567497959cad2800c18d05ebe503"
+    },
+    {
+      "path": "tests/test_regularization_loss.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cd6274bc961e38a0f275ef0d36f318a00c751759",
+      "size": 21017,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/cd6274bc961e38a0f275ef0d36f318a00c751759"
+    },
+    {
+      "path": "tests/torch_reference.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8571c90a3ed4b7d79d95c672d9ee40f66afd9e33",
+      "size": 8956,
+      "url": "https://api.github.com/repos/nv-tlabs/ppisp/git/blobs/8571c90a3ed4b7d79d95c672d9ee40f66afd9e33"
+    }
+  ],
+  "truncated": false
+}

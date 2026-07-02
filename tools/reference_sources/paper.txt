@@ -1,0 +1,1624 @@
+
+
+In Depth We Trust: Reliable Monocular Depth Supervision for Gaussian Splatting
+
+##H5## Report GitHub Issue
+
+ ×
+
+ Title:
+
+ Content selection saved. Describe the issue below:
+
+ Description:
+
+ Submit without GitHub
+ Submit in GitHub
+
+ arXiv is now an independent nonprofit!
+ Learn more
+ ×
+
+ Back to arXiv
+
+ Why HTML?
+
+ Report Issue
+
+ Back to Abstract
+
+ Download PDF
+
+Abstract
+1 Introduction
+
+2 Related Work
+
+Zero-shot Monocular Depth Estimation (MDE)
+Gaussian Splatting with Monocular Depth Supervision
+
+3 Preliminary and Problem Formulation
+
+Problem:
+
+4 Monocular Depth Supervision for GS
+
+4.1 Depth-Inconsistency Mask (DIM)
+4.2 Gradient-Alignment Loss (GAL)
+
+5 Experiments and Evaluations
+
+5.1 Experimental Setup
+
+Datasets.
+
+5.2 Implementation Details
+5.3 Results on ScanNet++ Dataset
+5.4 Rendering Comparisons
+5.5 Ablation Study
+5.6 Qualitative Results
+
+6 Conclusions
+References
+
+ License: CC BY 4.0
+
+arXiv:2604.05715v1 [cs.CV] 07 Apr 2026
+
+##H1## In Depth We Trust:
+
+Reliable Monocular Depth Supervision for Gaussian Splatting
+
+Wenhui Xiao1,2,
+Ethan Goan1,
+Rodrigo Santa Cruz1,
+David Ahmedt-Aristizabal1,2, 
+
+Olivier Salvado1,
+Clinton Fookes1,
+Leo Lebrat1 
+
+Queensland University of Technology1, CSRIO Data612 
+
+wenhui.xiao@hdr.qut.edu.au
+
+##H6## Abstract
+
+Using accurate depth priors in 3D Gaussian Splatting helps mitigate artifacts caused by sparse training data and textureless surfaces. However, acquiring accurate depth maps requires specialized acquisition systems. Foundation monocular depth estimation models offer a cost-effective alternative, but they suffer from scale ambiguity, multi-view inconsistency, and local geometric inaccuracies, which can degrade rendering performance when applied naively. This paper addresses the challenge of reliably leveraging monocular depth priors for Gaussian Splatting (GS) rendering enhancement.
+To this end, we introduce a training framework integrating scale-ambiguous and noisy depth priors into geometric supervision. We highlight the importance of learning from weakly aligned depth variations. We introduce a method to isolate ill-posed geometry for selective monocular depth regularization, restricting the propagation of depth inaccuracies into well-reconstructed 3D structures. Extensive experiments across diverse datasets show consistent improvements in geometric accuracy, leading to more faithful depth estimation and higher rendering quality across different GS variants and monocular depth backbones tested.
+
+(a)(b)
+
+Figure 1: The quality of monocular depth priors directly impacts the rendering performance of 3D Gaussian Splatting (3DGS) [19].
+(a) Existing foundation monocular depth estimation models suffer from scale ambiguity and may fail to recover fine-grained details.
+(b) The rendering performance of 3DGS is correlated with the quality of the monocular depth priors used; naively applying monocular depth supervision in already well-reconstructed regions can even degrade performance.
+Our proposed framework provides a more versatile and reliable way to leverage monocular depth priors compared to previous scale-invariant depth supervision used in [20]. 
+
+##H2## 
+1 Introduction
+
+The field of 3D vision has witnessed the success of radiance fields techniques, such as Neural Radiance Field (NeRF) [27] and 3D Gaussian Splatting (3DGS) [19], in photorealistic view synthesis.
+In this context, depth supervision plays a pivotal role by providing accurate geometric information, which improves both scene reconstruction and the quality of rendered views.
+This geometric prior has been exploited to condition NeRF’s density distribution [33, 28, 7], eliminate floaters [41], and resolve ambiguities in radiance field formation [7, 38, 36, 18].
+Depth has traditionally been obtained from RGB-D cameras, requiring specialized and costly hardware.
+Recent foundation monocular depth estimation (MDE) models [44, 30, 39, 16] have achieved remarkable accuracy from single RGB images, offering a promising alternative.
+
+Directly leveraging depth predictions from MDE models to enhance 3DGS rendering remains challenging.
+The main difficulties arise from:
+(1) inconsistent depth scale across views, leading to multi-view misalignment, and
+(2) limited accuracy of MDE on out-of-distribution data, resulting in poor fine-detail predictions, as presented in Fig. 1(a).
+Blindly using unreliable monocular depth priors in GS training can harm multi-view geometry learning, resulting in lower rendering performance, as demonstrated in Fig. 1(b).
+As a consequence, some 3DGS software111https://github.com/graphdeco-inria/gaussian-splatting.git disables monocular depth priors by default, as they can be unreliable for 3D scene learning and may degrade rendering quality.
+
+This work investigates the reliable use of monocular depth priors to enhance GS training.
+Towards this end, we propose a versatile training framework that embeds monocular depth priors into the GS optimization.
+We first introduce a depth-inconsistency mask (DIM), leveraging a virtual stereo setup to dynamically isolate multi-view inconsistent regions that are represented by poorly reconstructed Gaussians.
+We selectively apply scale-invariant depth supervision to these regions, ensuring that ambiguous areas are regularized while erroneous depth estimates do not corrupt the well-reconstructed geometry established by multi-view supervision.
+We further pair our framework with gradient-alignment loss (GAL) to extract reliable geometric cues from MDE priors, even under imperfect alignment.
+
+We evaluate our method on three real-world datasets using two different GS backbones — 3DGS and 2D Gaussian Splatting (2DGS).
+Our approach consistently improves rendering quality under varying setups and generalizes well to another GS backbone.
+Furthermore, our experimental results demonstrate generalization across different MDE models [40, 29, 17, 44].
+Our contributions are summarized as follows:
+
+• 
+
+We present a reliable training framework for GS that leverages readily available monocular depth cues while mitigating scale ambiguity and inaccuracies.
+
+• 
+
+We design a DIM to detect multi-view inconsistent Gaussians and selectively apply monocular depth regularization, and introduce a geometry-aware relative depth loss (GAL) into GS training to capture fine-grained geometric cues from scale-ambiguous depth.
+
+• 
+
+Extensive validation shows consistent rendering quality improvement across diverse view configurations, MDE backbones, and GS variants.
+
+##H2## 
+2 Related Work
+
+##H4## Zero-shot Monocular Depth Estimation (MDE)
+
+The ill-posed nature of MDE makes it difficult for models to generalize across variations in scene appearance and intrinsic camera parameters. Recent research in zero-shot MDE leverages large and diverse datasets to fit domain-agnostic models capable of producing high-fidelity relative depth maps to improve generalization across changes in appearance [5, 24, 46]. Work in [32, 43] extends this concept by combining multiple datasets to show how a large and diverse training set can improve predictive performance with respect to relative depth maps.
+Pre-trained diffusion models have since shown considerable improvements for monocular depth [9], with [11, 16] showing that these improvements can be achieved on real images whilst only being fine-tuned on synthetic data for depth estimation.
+
+ZoeDepth [3] leverages pre-training on relative depth datasets with fine-tuning on metric-depth datasets to address the geometric difficulties in zero-shot monocular depth. Depth Anything V2 [44] uses a combination of training on synthetic and real images, followed by an optional fine-tuning step on metric-depth data. As highlighted in [4], other methods for zero-shot metric depth often require camera intrinsics to be known [8, 47, 14, 12]. Recent approaches such as Depth Pro [4], UniDepth [30] and UniDepth V2 [29] aim to infer camera parameters to allow for accurate zero-shot metric depth estimation.
+Despite their impressive results, these methods still exhibit limited accuracy under domain shifts and often produce multi-view-inconsistent predictions with ambiguous scene scales.
+Our approach is agnostic to MDE backbones and can incorporate depth supervision from zero-shot MDE to consistently improve rendering in GS.
+
+##H4## Gaussian Splatting with Monocular Depth Supervision
+
+Monocular depth priors have been widely adopted as auxiliary geometric supervision when sufficient geometric constraints are lacking in various GS-related tasks [36, 20, 26, 31].
+A typical use case is sparse-view 3DGS [6, 23, 49, 42, 1], which aims to reconstruct high-quality 3D scenes under extreme training data sparsity.
+The main challenge lies in mitigating the inconsistent scale of monocular depth priors across multiple views.
+To address this, DRGS [6] adopts a scale-invariant depth loss after aligning monocular depth maps with sparse structure-from-motion (SfM) point clouds.
+However, this alignment is coarse, as it applies a fixed scale, estimated from sparse observations, uniformly across all pixels.
+Other methods [23, 49, 42] bypass explicit scale alignment by supervising geometry learning by focusing on depth changes instead of absolute depth values.
+For instance, DNGaussian [23] introduces a local-global depth normalization strategy.
+Meanwhile,  [42, 49] explore distribution-level consistency, employing a patch-based Pearson correlation loss between rendered and monocular depth maps.
+These methods also augment training views to address extreme view sparsity and propose new Gaussian densification strategies for floater pruning.
+
+While effective under extreme view sparsity, these approaches often underperform the baseline in denser view regimes, yielding inferior rendering quality at a higher training cost.
+In addition, by ignoring variation in monocular depth quality, they risk propagating unreliable cues into scene geometry. This can degrade rendering performance, especially under a generic view configuration.
+These limitations highlight the need for a framework that can selectively leverage depth cues while addressing scale ambiguity and multi-view inconsistencies.
+
+##H2## 
+3 Preliminary and Problem Formulation
+
+In GS, a scene is represented as a set of Gaussian primitives, each storing spatial, orientation, and color attributes that can be easily rasterized for novel view synthesis.
+Given a set of training images and their associated camera poses, the goal is to optimize these primitives so that their rasterization matches the observed views.
+Formally, given a set of training views $\{I_{i}\}_{i=1}^{M}$ with associated camera intrinsics $\{K_{i}\}_{i=1}^{M}$ and extrinsics $\{P_{i}\}_{i=1}^{M}$ , GS represents a 3D scene with a collection of Gaussian primitives $\{\mathcal{G}_{i}\}_{i=1}^{N}$ .
+Each Gaussian $\mathcal{G}_{i}$ is parameterized by its central point (mean) $\mathbf{\mu}_{i}$ , covariance matrix $\Sigma_{i}$ (encoding rotation and scale), and properties for differential rendering, including opacity $o_{i}$ and color $\mathbf{c}_{i}$ .
+
+To render a 2D image, a renderer first splats – rasterizes and projects – each Gaussian $\mathcal{G}_{i}$ onto the camera plane.
+The projection $\mathcal{G}^{proj}_{i}$ can be computed in closed form, enabling efficient and differentiable rendering.
+The predicted color of a pixel $\mathbf{u}\in\mathbb{R}^{2}$ is computed through $\alpha$ -blending all Gaussians contributing to the current pixel.
+Mathematically, the predicted pixel color $\hat{\mathbf{C}}(\mathbf{u})$ reads as,
+
+ $\hat{\mathbf{C}}(\mathbf{u})=\displaystyle\sum_{i}o_{i}\mathcal{G}^{proj}(\mathbf{\mu}_{i})\prod_{j}^{i-1}(1-o_{j}\mathcal{G}^{proj}(\mathbf{\mu}_{j}))\ \mathbf{c}_{i}.$ 
+
+(1)
+
+The rendered pixel color $\hat{\mathbf{C}}(\mathbf{u})$ is supervised against the ground-truth image with a photometric loss to optimize Gaussian parameters.
+Traditionally, given a rendered image $\hat{I}$ and the corresponding ground-truth $I$ , this photometric loss combines a $L_{1}$ loss with a D-SSIM term:
+
+ $\mathcal{L}_{\text{color}}=(1-\lambda)\mathcal{L}_{1}(I,\hat{I})+\lambda\mathcal{L}_{\text{D-SSIM}}(I,\hat{I}).$ 
+
+(2)
+
+Depth rendering follows a similar mechanism to color, with estimated depth $\hat{\mathbf{D}}(\mathbf{u})$ defined as a weighted sum of the distances $d_{i}$ of the Gaussians from the camera plane:
+
+ $\hat{\mathbf{D}}(\mathbf{u})=\displaystyle\sum_{i}o_{i}\mathcal{G}^{proj}(\mathbf{\mu}_{i})\prod_{j}^{i-1}(1-o_{j}\mathcal{G}^{proj}(\mathbf{\mu}_{j}))\ d_{i}.$ 
+
+(3)
+
+Since most MDE models predict depth at an arbitrary scale, their output must be aligned with the rendered scene before being used for GS training [20, 6].
+This alignment is computed by solving a least-squares problem, matching the target scene depth computed from sparse SfM point clouds.
+Specifically, given a sparse depth map $\mathbf{D}_{s}$ computed from SfM points and a monocular depth map $\mathbf{D}_{m}$ , the optimal scale $s^{*}$ and shift $t^{*}$ are computed by solving:
+
+ $s^{*},t^{*}=\displaystyle\operatorname*{arg\,min}_{s,t}\sum_{\mathbf{u}\in\mathbf{D}_{s}}||\mathbf{D}_{s}(\mathbf{u})-(s\cdot\mathbf{D}_{m}(\mathbf{u})+t)||^{2}_{2}.$ 
+
+(4)
+
+The aligned monocular depth map is then obtained by setting $\mathbf{D}=s^{*}\cdot\mathbf{D}_{m}+t^{*}$ .
+Supervision is applied through a scale-invariant depth loss:
+
+ $\mathcal{L}_{sid}=\mathcal{L}_{1}(\mathbf{D},\hat{\mathbf{D}}),$ 
+
+(5)
+
+where $\mathcal{L}_{1}$ denotes the mean absolute error between the rendered depth map $\hat{\mathbf{D}}$ and the SfM-aligned monocular depth map $\mathbf{D}$ .
+
+Figure 2: Impact of SfM point count in scale alignment on GS rendering quality for identical training images and point clouds. When using only $\mathcal{L}_{\text{sid}}$ , fewer observed points lead to degraded performance compared to the baseline (without using monocular depth supervision), highlighting the limitation of scale-invariant depth supervision in aligning monocular depth cues.
+
+##H4## Problem:
+
+The quality of such monocular depth alignment relies on the density, accuracy, and coverage of SfM points, which suffer from sparsity due to textureless regions or insufficient multi-view observations.
+As shown in Fig. 2, a decrease in point density reduces the benefits of monocular depth supervision. This dependency highlights the need for strategies that remain effective under sparse or noisy SfM reconstructions or mis-scaled monocular predictions.
+
+Additionally, monocular depth models often suffer from limited reliability due to geometric ambiguities or domain shifts, leading to poor depth predictions and, consequently, degraded GS supervision (see Fig. 1).
+This underscores the importance of preventing errors in monocular depth priors from propagating into the reconstructed geometry.
+
+Camera $P^{l}$ Camera $P^{r}$ $\mathbf{\hat{D}}^{l}$ $\mathbf{\hat{D}}^{r}$ $\mathbf{\hat{D}}^{l\leftarrow r}$ Re-projectDIM $\mathcal{L}_{\text{sid}}$ $\odot$ $\hat{I}$ $\mathbf{D}$ $I$ $\mathcal{L}_{\text{rel}}$ $\mathcal{L}_{\text{abs}}$ $\mathcal{L}_{\text{color}}$ 
+Figure 3: Overview of our proposed framework. During GS optimization, depth-inconsistent Gaussians are identified using a virtual stereo setup (Sec. 4.1). These regions guide the learning of absolute depth corrections from monocular depth priors aligned with sparse SfM point clouds. Additionally, a relative depth loss (Sec. 4.2) is applied to learn geometric cues under ambiguous scene scales.
+
+##H2## 
+4 Monocular Depth Supervision for GS
+
+In this paper, we propose a training framework designed to reliably leverage monocular depth priors as a regularizer for GS training.
+Our approach is compatible with any GS framework and can be incorporated directly into existing optimization objectives.
+
+Fig. 3 visualizes our proposed framework.
+It consists of three main components:
+a depth-inconsistency mask (Sec. 4.1) to locate multi-view inconsistent pixels where poorly reconstructed Gaussians contribute,
+a scale-invariant depth loss $\mathcal{L}_{\text{sid}}$ defined in Eq. 5, and
+a gradient-alignment loss (Sec. 4.2) to reinforce the learning of geometry cues from relative depth variations.
+We guide GS to align absolute depth values in inconsistent regions identified by DIM, providing coarse-scale information, while simultaneously enforcing local depth gradient consistency to preserve high-frequency, fine-grained structure.
+Formally, our depth supervision is defined as
+
+ $\mathcal{R}=\alpha\mathcal{L}_{abs}+\beta\mathcal{L}_{rel},$ 
+
+(6)
+
+where $\mathcal{L}_{abs}$ integrates our proposed depth-inconsistency mask $\mathbf{M}$ into the scale-invariant depth loss by
+
+ $\mathcal{L}_{abs}=\mathcal{L}_{1}(\mathbf{M}\odot\mathbf{D},\mathbf{M}\odot\hat{\mathbf{D}}).$ 
+
+(7)
+
+##H3## 
+4.1 Depth-Inconsistency Mask (DIM)
+
+To effectively utilize monocular depth priors, we introduce a depth-inconsistency mask to pinpoint multi-view inconsistent regions in the GS rendering by detecting anomalous depth discrepancies across views.
+Intuitively, this ensures that supervision is enforced on pixels that break multi-view geometric consistency, thereby limiting the impact of erroneous depth predictions on accurately reconstructed areas.
+
+Inspired by [10, 37], we emulate a virtual stereo setup to evaluate view-to-view consistency during training.
+We regard the current training camera as the “left eye” with pose $P^{l}=\mathbf{R}|\mathbf{t}$ , and introduce a pseudo camera offset by $\mathbf{b}$ along the $x$ -axis as the “right eye” with pose $P^{r}=\mathbf{R}|(\mathbf{t}+\mathbf{b})$ , sharing the same intrinsics $\mathbf{K}$ .
+At each training iteration, we render a stereo depth pair $(\hat{\mathbf{D}}^{l},\hat{\mathbf{D}}^{r})$ and check their consistency based on multi-view geometry [13].
+
+Specifically, we first back-project the depth map from the pseudo-right view to 3D world coordinates and re-project these points onto the left training view to obtain the re-projected depth.
+Mathematically, for each pixel in $\mathbf{D}^{r}$ with coordinate $\mathbf{u}=(i,j)^{T}\in[0,W-1]\times[0,H-1]$ , we obtain the corresponding 3D point $\mathbf{p}\in\mathbb{R}^{3}$ via:
+
+ $\mathcal{U}(\mathbf{u}_{\text{hom}})=\mathbf{R}^{-1}[\hat{\mathbf{D}}_{ij}^{r}\mathbf{K}^{-1}\mathbf{u}_{\text{hom}}-(\mathbf{t}+\mathbf{b})],$ 
+
+(8)
+
+where $\mathbf{u}_{\text{hom}}$ denotes the homogeneous coordinates of the pixel $\mathbf{u}$ .
+The 3D point $\mathbf{p}$ is then re-projected onto the left image to obtain their pixel coordinates $\mathbf{u}^{\prime}=\mathbf{u}^{l\leftarrow r}$ and corresponding z-depths $d_{\mathbf{u^{\prime}}}$ :
+
+ $\mathbf{u}_{\text{hom}}^{l\leftarrow r}=\mathbf{K}(\mathbf{R}\mathbf{p}+\mathbf{t}).$ 
+
+(9)
+
+For points within the image bounds, the re-projected depth is then assigned to $\hat{\mathbf{D}}^{l\leftarrow r}_{[\mathbf{u}^{\prime}_{1}][\mathbf{u^{\prime}}_{2}]}=d_{\mathbf{u}^{\prime}}$ , using rounded pixel coordinates.
+
+Finally, the depth-inconsistency mask $\mathbf{M}$ is constructed by comparing the pixel-wise difference between the rendered depth $\hat{\mathbf{D}}^{l}$ and the re-projected depth $\hat{\mathbf{D}}^{l\leftarrow r}$ at the current camera position as:
+
+ $\mathbf{M}_{ij}=\begin{cases}1,&\text{if}\quad||\hat{\mathbf{D}}^{l\leftarrow r}_{ij}-\hat{\mathbf{D}}^{l}_{ij}||\geq\varepsilon\\
+&\text{or}\quad\hat{\mathbf{D}}^{l\leftarrow r}_{ij}=\varnothing\text{,}\\
+0,&\text{otherwise,}\end{cases}$ 
+
+(10)
+
+where $\varepsilon$ is a user-defined threshold for the depth difference.
+Notably in  Eq. 10, pixels without re-projected depth ( $\varnothing$ ) are also marked inconsistent, since such gaps often result from self-occlusion or floaters in depth rendering.
+
+##H3## 
+4.2 Gradient-Alignment Loss (GAL)
+
+To mitigate the scale ambiguity and monocular depth inconsistencies, previous works [42, 49, 1] have employed patch-based Pearson correlation loss, also known as normalized cross-correlation (NCC) loss, which matches local depth variation patterns, focusing the supervision on relative geometric changes rather than absolute depth.
+While effective, this patch-based formulation is computationally costly and tends to oversmooth geometry (see Fig. 4), which negatively impacts depth fidelity and rendering quality.
+
+Multi-scale gradient matching has been shown to enable scale-invariant depth prediction while conserving fine-grained details [24, 32].
+Inspired by this, we introduce a similar gradient-alignment loss (GAL) into GS depth supervision to reinforce geometric structure.
+Given a rendered depth map $\hat{\mathbf{D}}$ and aligned monocular depth priors $\mathbf{D}$ , GAL computes the $L_{1}$ difference between their first-order spatial derivatives $\partial$ along both the horizontal ( $x$ ) and vertical ( $y$ ) directions.
+Mathematically, GAL is defined as:
+
+ $\mathcal{L}_{rel}=\mathcal{L}_{1}(\partial_{x}\mathbf{D},\partial_{x}\hat{\mathbf{D}})+\mathcal{L}_{1}(\partial_{y}\mathbf{D},\partial_{y}\hat{\mathbf{D}}).$ 
+
+(11)
+
+This encourages detailed geometric reconstruction by capturing high-frequency depth variations, mitigating the smoothing artifacts commonly introduced by patch-based correlation losses.
+
+Figure 4: Comparison of different relative depth supervision losses, shown on two zoomed-in scene crops. Gradient-based loss (GAL) achieves sharper rendering with fewer smearing artifacts compared to the patch-based Pearson correlation loss, as seen in the reduced distortion on photo-frame edges in the top row and a clearer shape around the orange triangular region in the bottom.
+
+##H2## 
+5 Experiments and Evaluations
+
+We investigate monocular depth supervision for GS in two common but challenging settings: indoor scenes with large textureless regions, and varying training-view densities that introduce different levels of sparsity, from low-data to moderate-data regimes.
+
+##H3## 
+5.1 Experimental Setup
+
+##H4## Datasets.
+
+We evaluate our approach on three real-world datasets: ScanNet++ [45], MipNeRF 360 [2], and TanksAndTemples [21].
+
+• 
+
+ScanNet++ is a real-world dataset comprising indoor scenes with high-resolution RGB images captured by DSLR cameras, along with accurate 3D geometry.
+Our evaluation is conducted on $7$ scenes: $5$ sourced from [34, 35], and $2$ randomly selected scenes.
+Following the official guidelines222https://kaldir.vc.in.tum.de/scannetpp/documentation, we undistort RGB images and render the ground-truth depth maps.
+We use the provided train-test split and all available training views (from $215$ to $779$ ), excluding those labeled as “blurry”.
+
+• 
+
+MipNeRF 360 contains $5$ outdoor and $4$ indoor real-world scenes. Following the experimental setup in 3DGS [19], we use $\frac{1}{4}$ -resolution images for outdoor scenes and $\frac{1}{2}$ -resolution for indoor scenes.
+For evaluation, we hold out the first view of every eight and use the remaining views for training.
+We evaluate our method under two common training-view density setups:
+(1) low-data (from $16$ to $39$ views), where only $14.3\%$ of the original training set is used, randomly sampled across time; and
+(2) moderate-data (from $48$ to $117$ views), corresponding to $42.9\%$ of the original training set.
+
+• 
+
+TanksAndTemples is a real-world dataset containing $4$ unbounded scenes: M60, Playground, Truck, and Train.
+We follow the same train-test split protocol as for the MipNeRF 360 dataset, resulting in $32-40$ training views in the low-data setting and $95-117$ in the moderate-data setting.
+
+Backbones and evaluation metrics.
+We build our method on the public code of two GS models, 3DGS [19] and 2DGS [15].
+The quality of the rendered images is evaluated using peak signal-to-noise ratio (PSNR), structural similarity index measure (SSIM), and LPIPS [48].
+Following [23], we also report the Average Error (AVGE), defined as the geometric mean of $10^{-\text{PSNR}/10}$ , $\sqrt{1-\text{SSIM}}$ , and LPIPS.
+For the evaluation of the rendered depth map, we use the absolute relative error (Abs. Rel.) and $\delta_{1}$ accuracy [22].
+
+MDE variants.
+All results presented in this section, unless otherwise specified, are obtained using depth maps generated with DepthAnything V2 (DAV2) [44].
+To further validate the generality of our framework, we also evaluate with alternative MDE models, including MoGe-2 [40], UniDepth V2 [29], and Marigold [17], using their official implementations and released weights.
+
+##H3## 
+5.2 Implementation Details
+
+For the MipNeRF 360 and ScanNet++ datasets, we use the dataset’s provided COLMAP reconstructions to initialize the GS reconstruction and for monocular depth scale alignment.
+For the TanksAndTemples dataset, we generate SfM outputs using the provided camera extrinsics.
+For training and testing subsets, we select only points from the sparse point cloud that are observed in at least two selected views.
+These points are used both to initialize the GS reconstruction and for monocular depth scale alignment.
+
+We train both 3DGS and 2DGS for $30000$ iterations in the moderate-data setting.
+In the low-data setting, we reduce the number of training iterations to prevent overfitting and subsequent degradation in rendering quality. Specifically, we use $13000$ iterations for 3DGS and $25000$ for 2DGS on MipNeRF 360 indoor scenes, and $10000$ for 3DGS and $20000$ for 2DGS on TanksAndTemples and MipNeRF 360 outdoor scenes.
+We train 3DGS for $25000$ iterations on the ScanNet++ dataset.
+To ensure consistent GS densification in the initial training stage, we enable depth supervision only after $3000$ training iterations.
+We perform all our experiments using a single NVIDIA H100 GPU, and all reported speed-ups are measured relative to this baseline.
+
+##H3## 
+5.3 Results on ScanNet++ Dataset
+
+We first validate the effectiveness of our framework on the ScanNet++ dataset [45] with depth predictions from different MDE models [44, 40, 29, 17].
+We compare our proposed framework with $\mathcal{L}_{\text{sid}}$ adopted in [6, 20].
+Tab. 1 summarizes the comparison results over three runs.
+
+We observe that the rendering improvement from $\mathcal{L}_{\text{sid}}$ alone is marginal and can even degrade.
+When the injected depth prior contains significant errors, direct depth supervision can hinder geometry learning, corrupt multi-view optimization, and thus degrade rendering quality.
+This effect is evident with a weaker monocular depth model (e.g., Marigold), where applying $\mathcal{L}_{\text{sid}}$ reduces PSNR by $0.52$ dB.
+
+In contrast, our method remains reliable even with noisy depth priors.
+Despite Marigold’s low $\delta_{1}$ accuracy, our approach surpasses the 3DGS baseline, yielding a $0.045$ improvement in rendered depth $\delta_{1}$ and a $0.11$ dB gain in PSNR.
+With a stronger depth prior (e.g., MoGe-2), the improvement becomes more pronounced, reaching a $0.3$ dB PSNR gain.
+This confirms that our framework can be used with varied MDE backbones while maintaining consistent and reliable enhancement.
+Importantly, these results highlight that our approach is forward-compatible with future MDE advances, allowing it to benefit as monocular depth priors improve.
+
+Table 1: Quantitative results on ScanNet++ [45] evaluating rendered depth accuracy and novel view synthesis. MDE variants are sorted in a descending order of $\delta_{1}$ accuracy (the second column) for monocular depth on all training views. The top-performing result (w.r.t. each depth prior) is highlighted in bold, and cases underperforming the baseline (3DGS without depth) are underlined.
+
+MDE
+Rendered Depth
+Novel View Synthesis
+
+Variant
+ $\delta_{1}^{\uparrow}$ 
+Method
+Abs. Rel.↓
+ $\delta_{1}^{\uparrow}$ 
+PSNR↑
+SSIM↑
+LPIPS↓
+
+3DGS (w/o depth)
+0.180
+0.678
+24.20
+0.886
+0.210
+
+MoGe-2
+0.981
+ $\mathcal{L}_{\text{sid}}$ 
+0.120
+0.828
+24.17
+0.885
+0.212
+
+Ours
+0.108
+0.839
+24.50
+0.889
+0.206
+
+UniDepth V2
+0.977
+ $\mathcal{L}_{\text{sid}}$ 
+0.118
+0.832
+24.32
+0.885
+0.211
+
+Ours
+0.118
+0.821
+24.53
+0.888
+0.207
+
+DAV2
+0.955
+ $\mathcal{L}_{\text{sid}}$ 
+0.131
+0.806
+24.21
+0.884
+0.217
+
+Ours
+0.126
+0.799
+24.53
+0.889
+0.207
+
+Marigold(V2)
+0.408
+ $\mathcal{L}_{\text{sid}}$ 
+0.164
+0.709
+23.68
+0.879
+0.223
+
+Ours
+0.159
+0.723
+24.31
+0.887
+0.209
+
+Table 2: Results on the TanksAndTemples. Best performance is bolded in red and the second is marked in orange.
+
+Low Data
+Moderate Data
+
+PSNR↑
+
+SSIM↑
+
+LPIPS↓
+
+AVG-E↓
+
+PSNR↑
+
+SSIM↑
+
+LPIPS↓
+
+AVG-E↓
+
+3DGS [19]
+3DGS (w/o depth)
+
+19.916
+
+0.7206
+
+0.2715
+
+0.1156
+
+23.240
+
+0.8158
+
+0.1920
+
+0.0747
+
+SparseGS [42]
+
+20.152
+
+0.7202
+
+0.2719
+
+0.1134
+
+23.146
+
+0.8091
+
+0.2133
+
+0.0783
+
+DNGaussian [23]
+
+19.740
+
+0.6905
+
+0.3717
+
+0.1314
+
+22.190
+
+0.7634
+
+0.3017
+
+0.0976
+
+FSGS [49]
+
+20.307
+
+0.7213
+
+0.3069
+
+0.1165
+
+22.998
+
+0.7949
+
+0.254
+
+0.085
+
+ $\mathcal{L}_{\text{sid}}$ 
+
+20.173
+
+0.7208
+
+0.2721
+
+0.1132
+
+23.318
+
+0.8149
+
+0.1941
+
+0.0747
+
+Ours
+
+20.578
+
+0.7399
+
+0.2730
+
+0.1083
+
+23.414
+
+0.8187
+
+0.1924
+
+0.0736
+
+2DGS [15]
+2DGS (w/o depth)
+
+19.931
+
+0.7261
+
+0.2788
+
+0.1163
+
+22.938
+
+0.8075
+
+0.2219
+
+0.0809
+
+ $\mathcal{L}_{\text{sid}}$ 
+
+20.075
+
+0.7259
+
+0.2787
+
+0.1148
+
+23.085
+
+0.8092
+
+0.2196
+
+0.0796
+
+Ours
+
+20.350
+
+0.7328
+
+0.2933
+
+0.1136
+
+23.117
+
+0.8098
+
+0.2220
+
+0.0795
+
+Table 3: Results on the MipNeRF 360.
+Best performance is bolded in red and the second is marked in orange.
+
+Low Data
+Moderate Data
+
+PSNR↑
+
+SSIM↑
+
+LPIPS↓
+
+AVG-E↓
+
+PSNR↑
+
+SSIM↑
+
+LPIPS↓
+
+AVG-E↓
+
+3DGS [19]
+3DGS (w/o depth)
+
+21.785
+
+0.6267
+
+0.3409
+
+0.1210
+
+25.591
+
+0.7576
+
+0.2513
+
+0.0751
+
+SparseGS [42]
+
+22.015
+
+0.6302
+
+0.3462
+
+0.1192
+
+25.519
+
+0.7570
+
+0.2590
+
+0.0762
+
+DNGaussian [23]
+
+21.801
+
+0.6054
+
+0.4594
+
+0.1314
+
+24.245
+
+0.6789
+
+0.3962
+
+0.1002
+
+FSGS [49]
+
+21.693
+
+0.6120
+
+0.4186
+
+0.1293
+
+24.811
+
+0.6997
+
+0.358
+
+0.093
+
+ $\mathcal{L}_{\text{sid}}$ 
+
+21.799
+
+0.6274
+
+0.3399
+
+0.1202
+
+25.668
+
+0.7586
+
+0.2501
+
+0.0745
+
+Ours
+
+22.253
+
+0.6426
+
+0.3424
+
+0.1155
+
+25.716
+
+0.7597
+
+0.2511
+
+0.0743
+
+2DGS [15]
+2DGS (w/o depth)
+
+21.555
+
+0.6233
+
+0.3470
+
+0.1242
+
+25.237
+
+0.7498
+
+0.2764
+
+0.0794
+
+ $\mathcal{L}_{\text{sid}}$ 
+
+21.420
+
+0.6203
+
+0.3483
+
+0.1266
+
+25.277
+
+0.7505
+
+0.2748
+
+0.0792
+
+Ours
+
+22.087
+
+0.6388
+
+0.3535
+
+0.1183
+
+25.285
+
+0.7501
+
+0.2788
+
+0.0793
+
+3DGS (w/o depth) $\mathcal{L}_{\text{sid}}$ SparseGS [42]OursGround-truth
+Figure 5: Qualitative results on 3DGS. (Top): low-data setting; (Bottom): moderate-data setting.
+
+Ground-truth3DGS (w/o depth) $\mathcal{L}_{\text{sid}}$ Ours
+Figure 6: Qualitative comparisons of rendered images and depth maps on the ScanNet++ dataset for the baseline (without depth supervision), $\mathcal{L}_{\text{sid}}$ , and our method using MoGe-2 monocular depth supervision. Our method produces clearer, more accurate depth maps and yields sharper, less artifact-prone renderings than the baseline and $\mathcal{L}_{\text{sid}}$ . We encourage readers to zoom in for a clearer visual comparison.
+
+##H3## 
+5.4 Rendering Comparisons
+
+We compare novel view synthesis performance on MipNeRF 360 and TanksAndTemples datasets under two training-view density setups.
+For 3DGS, we compare our method against $\mathcal{L}_{\text{sid}}$  [20]333Depth supervision is supported in the 3DGS official repository as of commit 2130164, DNGaussian [23], FSGS [49], and SparseGS [42]444For a fair comparison, we conduct a grid search on hyper-parameters for both SparseGS and DNGaussian to identify their optimal settings across datasets and view configurations..
+For 2DGS, we re-implement $\mathcal{L}_{\text{sid}}$ for consistent comparison.
+The adopted MDE prior is obtained from DAV2 [44].
+Tab. 2 and Tab. 3 summarize the comparison results in terms of PSNR, SSIM, LPIPS, and AVGE. All reported results are averaged over two runs.
+
+Our framework consistently enhances GS rendering quality compared with the 3DGS baseline across both low- and moderate-data configurations. Moreover, it surpasses state-of-the-art methods, demonstrating reliable utilization of monocular depth priors.
+
+Scale alignment is challenging without sufficient SfM points, as discussed in Sec. 3.
+In the low-data setting, our method achieves the best performance despite weakly aligned scene scales, yielding an average gain of more than $0.47$ dB of PSNR over the 3DGS baseline on both datasets.
+
+In the moderate-data setting, existing methods often suffer from different levels of performance degradation. For example, SparseGS decreases PSNR by $0.1$ dB, FSGS underperforms the baseline by $0.24$ dB PSNR, whereas DNGaussian drops by $1.05$ dB PSNR over the 3DGS baseline on the TanksAndTemples dataset. In contrast, our method remains robust and continues to improve rendering quality, demonstrating strong generalization across view densities.
+
+Finally, we show that our method can be applied to both 2DGS and 3DGS backbones. As reported in Tab. 2 and Tab. 3, it consistently improves performance when applied to 2DGS. This highlights the potential for the proposed approach to be incorporated into future work to benefit from advances in depth estimation.
+
+Our method yields more modest improvements in LPIPS, which are typically localized within the image. Notably, the artifacts corrected by our approach differ substantially from those used to train LPIPS; the limitation of this metric was recently highlighted in [25].
+
+##H3## 
+5.5 Ablation Study
+
+We conduct ablation studies using the 2DGS backbone on the MipNeRF 360 dataset under the low-data setting.
+Results are averaged over two runs.
+
+Table 4: Module ablation study on all scenes of the MipNeRF 360 dataset. The best performance is bolded.
+
+ $\mathcal{L}_{\text{sid}}$ 
+DIM
+GAL
+
+PSNR↑
+
+SSIM↑
+
+LPIPS↓
+
+AVG-E↓
+
+✓
+
+21.42
+0.620
+0.348
+0.127
+
+✓
+✓
+
+21.66
+0.624
+0.346
+0.123
+
+✓
+✓
+✓
+22.09
+0.639
+0.354
+0.118
+
+Module Ablations.
+We explore the contribution of each module in our framework, as shown in Tab. 4.
+Incorporating $\mathcal{L}_{\text{sid}}$ with DIM (second row) yields a $0.24$ dB PSNR improvement over $\mathcal{L}_{\text{sid}}$ .
+These gains primarily stem from the proposed DIM, which restricts the propagation of inaccurate monocular depth cues into geometry learning.
+Building on this, GAL further enhances rendering quality by an additional $0.43$ dB PSNR, enabled by effective geometric learning from weakly aligned depth.
+Together, these components form our full method, which achieves the best results.
+
+Relative Depth Information.
+We further discuss different choices of relative depth loss.
+Specifically, we replace GAL in Eq. 11 with three alternatives: NCC loss with a window size of $63$ (denoted as NCC ${}_{\text{w63}}$ ), $127$ (denoted as NCC ${}_{\text{w127}}$ ), and cosine similarity loss of gradients, defined as:
+
+ $\mathcal{L}_{\text{cosine}}=1-\cos(\nabla\mathbf{D},\nabla\hat{\mathbf{D}}),$ 
+
+(12)
+
+where $\nabla\mathbf{D}=(\partial_{x}\mathbf{D},\partial_{y}\mathbf{D})^{T}$ .
+As summarized in Table 5, GAL achieves superior rendering quality and maintains computational efficiency.
+It captures geometric information effectively and reconstructs fine-grained details, as illustrated in Fig. 4.
+NCC-based loss terms struggle in scenes with rich high-frequency structures, as observed in the outdoor results.
+Although NCC ${}_{\text{w127}}$ achieves competitive performance in indoor scenes with predominantly flat depth regions, its large patch-based computation introduces considerable overhead. Our method, by contrast, delivers robust performance with significantly faster training.
+Moreover, our comparison of $\mathcal{L}_{\text{cosine}}$ and GAL indicates that focusing only on gradient direction between neighboring pixels is less effective than incorporating both gradient magnitude and orientation.
+
+Table 5: Comparisons of different relative depth loss choices on MipNeRF 360. The best performance is bolded.
+
+Scene
+Method
+
+PSNR↑
+
+SSIM↑
+
+LPIPS↓
+
+AVG-E↓
+
+Train(min)
+
+Outdoor
+
+NCC ${}_{\text{w63}}$ 
+
+18.60
+0.449
+0.423
+0.167
+26.76
+
+NCC ${}_{\text{w127}}$ 
+
+18.56
+0.447
+0.421
+0.168
+37.39
+
+ $\mathcal{L}_{\text{cosine}}$ 
+18.09
+0.430
+0.425
+0.175
+22.5
+
+Ours
+18.97
+0.464
+0.430
+0.163
+21.52
+
+Indoor
+
+NCC ${}_{\text{w63}}$ 
+
+25.47
+0.851
+0.263
+0.066
+30.59
+
+NCC ${}_{\text{w127}}$ 
+
+25.98
+0.858
+0.254
+0.063
+47.23
+
+ $\mathcal{L}_{\text{cosine}}$ 
+25.75
+0.858
+0.250
+0.064
+25.33
+
+Ours
+25.98
+0.858
+0.257
+0.063
+25.01
+
+##H3## 
+5.6 Qualitative Results
+
+We also present qualitative comparisons in Fig. 5 and Fig. 6.
+With our proposed monocular depth supervision, 3DGS produces sharper details and significantly reduces noisy artifacts, such as the ‘floaters’ highlighted in Fig. 5 (bottom).
+Moreover, Fig. 6 shows that our method imposes stronger geometric constraints, resulting in spatially coherent depth maps with preserved structural details, which translate to higher-fidelity novel view renderings.
+
+##H2## 
+6 Conclusions
+
+In this paper, we present a reliable and versatile framework for effectively leveraging easily accessible yet imperfect monocular depth priors to improve GS rendering.
+We introduce depth-inconsistency mask, which selectively applies the scale-invariant depth loss to multi-view inconsistent regions, thereby mitigating the adverse effects of monocular depth errors and scale misalignment on GS learning.
+In addition, we introduce gradient-alignment loss into GS training, highlighting the importance of learning depth variations to capture fine-grained structural geometry while remaining robust to scale ambiguity.
+Our experimental results confirm the effectiveness of the proposed framework in consistently improving GS rendering quality across a broad range of setups, while remaining effective across various GS variants and monocular depth backbones.
+Ultimately, by safely harnessing 2D foundation priors without compromising established geometric constraints, our framework provides a scalable solution for robust, high-fidelity scene reconstruction in complex, real-world scenarios.
+
+##H2## References
+
+[1]
+Z. Bao, G. Liao, K. Zhou, K. Liu, Q. Li, and G. Qiu (2025)
+
+Loopsparsegs: loop based sparse-view friendly gaussian splatting.
+
+IEEE Transactions on Image Processing.
+
+Cited by: §2,
+§4.2.
+
+[2]
+J. T. Barron, B. Mildenhall, D. Verbin, P. P. Srinivasan, and P. Hedman (2022)
+
+Mip-nerf 360: unbounded anti-aliased neural radiance fields.
+
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+
+ pp. 5470–5479.
+
+Cited by: §5.1.
+
+[3]
+S. F. Bhat, R. Birkl, D. Wofk, P. Wonka, and M. Müller (2023-02)
+
+ZoeDepth: zero-shot transfer by combining relative and metric depth.
+
+Note: arXiv:2302.12288
+
+External Links: Link
+
+Cited by: §2.
+
+[4]
+A. Bochkovskii, A. Delaunoy, H. Germain, M. Santos, Y. Zhou, S. R. Richter, and V. Koltun (2024-10)
+
+Depth pro: sharp monocular metric depth in less than a second.
+
+Note: arXiv:2410.02073
+
+External Links: Link
+
+Cited by: §2.
+
+[5]
+W. Chen, Z. Fu, D. Yang, and J. Deng (2016)
+
+Single-image depth perception in the wild.
+
+Advances in neural information processing systems 29.
+
+Cited by: §2.
+
+[6]
+J. Chung, J. Oh, and K. M. Lee (2024)
+
+Depth-regularized optimization for 3d gaussian splatting in few-shot images.
+
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+
+ pp. 811–820.
+
+Cited by: §2,
+§3,
+§5.3.
+
+[7]
+K. Deng, A. Liu, J. Zhu, and D. Ramanan (2022)
+
+Depth-supervised nerf: fewer views and faster training for free.
+
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+
+ pp. 12882–12891.
+
+Cited by: §1.
+
+[8]
+J. M. Facil, B. Ummenhofer, H. Zhou, L. Montesano, T. Brox, and J. Civera (2019)
+
+CAM-convs: camera-aware multi-scale convolutions for single-view depth.
+
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+
+ pp. 11826–11835.
+
+Cited by: §2.
+
+[9]
+X. Fu, W. Yin, M. Hu, K. Wang, Y. Ma, P. Tan, S. Shen, D. Lin, and X. Long (2024)
+
+Geowizard: unleashing the diffusion priors for 3d geometry estimation from a single image.
+
+In European Conference on Computer Vision,
+
+ pp. 241–258.
+
+Cited by: §2.
+
+[10]
+C. Godard, O. Mac Aodha, and G. J. Brostow (2017)
+
+Unsupervised monocular depth estimation with left-right consistency.
+
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+
+ pp. 270–279.
+
+Cited by: §4.1.
+
+[11]
+M. Gui, J. Schusterbauer, U. Prestel, P. Ma, D. Kotovenko, O. Grebenkova, S. A. Baumann, V. T. Hu, and B. Ommer (2025)
+
+DepthFM: fast generative monocular depth estimation with flow matching.
+
+39 (3), pp. 3203–3211.
+
+Cited by: §2.
+
+[12]
+V. Guizilini, I. Vasiljevic, D. Chen, R. Ambruș, and A. Gaidon (2023)
+
+Towards zero-shot scale-aware monocular depth estimation.
+
+ pp. 9233–9243.
+
+Cited by: §2.
+
+[13]
+R. Hartley and A. Zisserman (2003)
+
+Multiple view geometry in computer vision.
+
+ Cambridge university press.
+
+Cited by: §4.1.
+
+[14]
+M. Hu, W. Yin, C. Zhang, Z. Cai, X. Long, H. Chen, K. Wang, G. Yu, C. Shen, and S. Shen (2024)
+
+Metric3d v2: a versatile monocular geometric foundation model for zero-shot metric depth and surface normal estimation.
+
+IEEE Transactions on Pattern Analysis and Machine Intelligence.
+
+Cited by: §2.
+
+[15]
+B. Huang, Z. Yu, A. Chen, A. Geiger, and S. Gao (2024)
+
+2d gaussian splatting for geometrically accurate radiance fields.
+
+In ACM SIGGRAPH 2024 conference papers,
+
+ pp. 1–11.
+
+Cited by: §5.1,
+Table 2,
+Table 3.
+
+[16]
+B. Ke, A. Obukhov, S. Huang, N. Metzger, R. C. Daudt, and K. Schindler (2024)
+
+Repurposing diffusion-based image generators for monocular depth estimation.
+
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+
+ pp. 9492–9502.
+
+Cited by: §1,
+§2.
+
+[17]
+B. Ke, K. Qu, T. Wang, N. Metzger, S. Huang, B. Li, A. Obukhov, and K. Schindler (2025)
+
+Marigold: affordable adaptation of diffusion-based image generators for image analysis.
+
+arXiv preprint arXiv:2505.09358.
+
+Cited by: §1,
+§5.1,
+§5.3.
+
+[18]
+N. Keetha, J. Karhade, K. M. Jatavallabhula, G. Yang, S. Scherer, D. Ramanan, and J. Luiten (2024)
+
+Splatam: splat track & map 3d gaussians for dense rgb-d slam.
+
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+
+ pp. 21357–21366.
+
+Cited by: §1.
+
+[19]
+B. Kerbl, G. Kopanas, T. Leimkühler, and G. Drettakis (2023)
+
+3D gaussian splatting for real-time radiance field rendering..
+
+ACM Trans. Graph. 42 (4), pp. 139–1.
+
+Cited by: Figure 1,
+Figure 1,
+§1,
+2nd item,
+§5.1,
+Table 2,
+Table 3.
+
+[20]
+B. Kerbl, A. Meuleman, G. Kopanas, M. Wimmer, A. Lanvin, and G. Drettakis (2024)
+
+A hierarchical 3d gaussian representation for real-time rendering of very large datasets.
+
+ACM Transactions on Graphics (TOG) 43 (4), pp. 1–15.
+
+Cited by: Figure 1,
+Figure 1,
+§2,
+§3,
+§5.3,
+§5.4.
+
+[21]
+A. Knapitsch, J. Park, Q. Zhou, and V. Koltun (2017)
+
+Tanks and temples: benchmarking large-scale scene reconstruction.
+
+ACM Transactions on Graphics (ToG) 36 (4), pp. 1–13.
+
+Cited by: §5.1.
+
+[22]
+L. Ladicky, J. Shi, and M. Pollefeys (2014)
+
+Pulling things out of perspective.
+
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+
+ pp. 89–96.
+
+Cited by: §5.1.
+
+[23]
+J. Li, J. Zhang, X. Bai, J. Zheng, X. Ning, J. Zhou, and L. Gu (2024)
+
+Dngaussian: optimizing sparse-view 3d gaussian radiance fields with global-local depth normalization.
+
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+
+ pp. 20775–20785.
+
+Cited by: §2,
+§5.1,
+§5.4,
+Table 2,
+Table 3.
+
+[24]
+Z. Li and N. Snavely (2018)
+
+Megadepth: learning single-view depth prediction from internet photos.
+
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+
+ pp. 2041–2050.
+
+Cited by: §2,
+§4.2.
+
+[25]
+H. Liang, T. Wu, P. Hanji, F. Banterle, H. Gao, R. Mantiuk, and C. Öztireli (2024)
+
+Perceptual quality assessment of nerf and neural view synthesis methods for front-facing views.
+
+In Computer Graphics Forum,
+
+Vol. 43, pp. e15036.
+
+Cited by: §5.4.
+
+[26]
+J. Ma, T. Wang, M. Liu, D. Ahmedt-Aristizabal, and C. Nguyen (2025)
+
+DCHM: depth-consistent human modeling for multiview detection.
+
+In Proceedings of the IEEE/CVF international conference on computer vision,
+
+Cited by: §2.
+
+[27]
+B. Mildenhall, P. P. Srinivasan, M. Tancik, J. T. Barron, R. Ramamoorthi, and R. Ng (2021)
+
+Nerf: representing scenes as neural radiance fields for view synthesis.
+
+Communications of the ACM 65 (1), pp. 99–106.
+
+Cited by: §1.
+
+[28]
+M. Piala and R. Clark (2021)
+
+Terminerf: ray termination prediction for efficient neural rendering.
+
+In 2021 International Conference on 3D Vision (3DV),
+
+ pp. 1106–1114.
+
+Cited by: §1.
+
+[29]
+L. Piccinelli, C. Sakaridis, Y. Yang, M. Segu, S. Li, W. Abbeloos, and L. Van Gool (2025)
+
+Unidepthv2: universal monocular metric depth estimation made simpler.
+
+arXiv preprint arXiv:2502.20110.
+
+Cited by: §1,
+§2,
+§5.1,
+§5.3.
+
+[30]
+L. Piccinelli, Y. Yang, C. Sakaridis, M. Segu, S. Li, L. Van Gool, and F. Yu (2024)
+
+UniDepth: universal monocular metric depth estimation.
+
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+
+ pp. 10106–10116.
+
+Cited by: §1,
+§2.
+
+[31]
+L. Qingming, Y. Liu, J. Wang, X. Lyu, P. Wang, W. Wang, and J. Hou (2025)
+
+MoDGS: dynamic gaussian splatting from casually-captured monocular videos with depth priors.
+
+In The Thirteenth International Conference on Learning Representations,
+
+Cited by: §2.
+
+[32]
+R. Ranftl, K. Lasinger, D. Hafner, K. Schindler, and V. Koltun (2020)
+
+Towards robust monocular depth estimation: mixing datasets for zero-shot cross-dataset transfer.
+
+IEEE transactions on pattern analysis and machine intelligence 44 (3), pp. 1623–1637.
+
+Cited by: §2,
+§4.2.
+
+[33]
+B. Roessle, J. T. Barron, B. Mildenhall, P. P. Srinivasan, and M. Nießner (2022)
+
+Dense depth priors for neural radiance fields from sparse input views.
+
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+
+ pp. 12892–12901.
+
+Cited by: §1.
+
+[34]
+C. Ruan, Y. Wang, T. Guan, B. Zhang, and L. Ju (2025)
+
+IndoorGS: geometric cues guided gaussian splatting for indoor scene reconstruction.
+
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+
+ pp. 844–853.
+
+Cited by: 1st item.
+
+[35]
+S. Safadoust, F. Tosi, F. Güney, and M. Poggi (2024)
+
+Self-evolving depth-supervised 3d gaussian splatting from rendered stereo pairs.
+
+arXiv preprint arXiv:2409.07456.
+
+Cited by: 1st item.
+
+[36]
+J. Tong, X. Li, F. A. Maken, S. Muthu, L. Petersson, C. Nguyen, and H. Li (2025)
+
+GS-2dgs: geometrically supervised 2dgs for reflective object reconstruction.
+
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+
+ pp. 21547–21557.
+
+Cited by: §1,
+§2.
+
+[37]
+F. Tosi, A. Tonioni, D. De Gregorio, and M. Poggi (2023)
+
+Nerf-supervised deep stereo.
+
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+
+ pp. 855–866.
+
+Cited by: §4.1.
+
+[38]
+C. Wang, J. Sun, L. Liu, C. Wu, Z. Shen, D. Wu, Y. Dai, and L. Zhang (2023)
+
+Digging into depth priors for outdoor neural radiance fields.
+
+In Proceedings of the 31st ACM International Conference on Multimedia,
+
+ pp. 1221–1230.
+
+Cited by: §1.
+
+[39]
+R. Wang, S. Xu, C. Dai, J. Xiang, Y. Deng, X. Tong, and J. Yang (2025)
+
+Moge: unlocking accurate monocular geometry estimation for open-domain images with optimal training supervision.
+
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+
+ pp. 5261–5271.
+
+Cited by: §1.
+
+[40]
+R. Wang, S. Xu, Y. Dong, Y. Deng, J. Xiang, Z. Lv, G. Sun, X. Tong, and J. Yang (2025)
+
+MoGe-2: accurate monocular geometry with metric scale and sharp details.
+
+arXiv preprint arXiv:2507.02546.
+
+Cited by: §1,
+§5.1,
+§5.3.
+
+[41]
+F. Warburg, E. Weber, M. Tancik, A. Holynski, and A. Kanazawa (2023)
+
+Nerfbusters: removing ghostly artifacts from casually captured nerfs.
+
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+
+ pp. 18120–18130.
+
+Cited by: §1.
+
+[42]
+H. Xiong, S. Muttukuru, H. Xiao, R. Upadhyay, P. Chari, Y. Zhao, and A. Kadambi
+
+SparseGS: sparse view synthesis using 3d gaussian splatting.
+
+In International Conference on 3D Vision 2025,
+
+Cited by: §2,
+§4.2,
+Figure 5,
+§5.4,
+Table 2,
+Table 3.
+
+[43]
+L. Yang, B. Kang, Z. Huang, X. Xu, J. Feng, and H. Zhao (2024)
+
+Depth anything: unleashing the power of large-scale unlabeled data.
+
+ pp. 10371–10381.
+
+Cited by: §2.
+
+[44]
+L. Yang, B. Kang, Z. Huang, Z. Zhao, X. Xu, J. Feng, and H. Zhao (2024)
+
+Depth anything v2.
+
+Advances in Neural Information Processing Systems 37, pp. 21875–21911.
+
+Cited by: §1,
+§1,
+§2,
+§5.1,
+§5.3,
+§5.4.
+
+[45]
+C. Yeshwanth, Y. Liu, M. Nießner, and A. Dai (2023)
+
+Scannet++: a high-fidelity dataset of 3d indoor scenes.
+
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+
+ pp. 12–22.
+
+Cited by: §5.1,
+§5.3,
+Table 1,
+Table 1.
+
+[46]
+W. Yin, X. Wang, C. Shen, Y. Liu, Z. Tian, S. Xu, C. Sun, and D. Renyin (2020-02)
+
+DiverseDepth: affine-invariant depth prediction using diverse data.
+
+Note: arXiv:2002.00569
+
+External Links: Link
+
+Cited by: §2.
+
+[47]
+W. Yin, C. Zhang, H. Chen, Z. Cai, G. Yu, K. Wang, X. Chen, and C. Shen (2023)
+
+Metric3d: towards zero-shot metric 3d prediction from a single image.
+
+In Proceedings of the IEEE/CVF international conference on computer vision,
+
+ pp. 9043–9053.
+
+Cited by: §2.
+
+[48]
+R. Zhang, P. Isola, A. A. Efros, E. Shechtman, and O. Wang (2018)
+
+The unreasonable effectiveness of deep features as a perceptual metric.
+
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+
+ pp. 586–595.
+
+Cited by: §5.1.
+
+[49]
+Z. Zhu, Z. Fan, Y. Jiang, and Z. Wang (2024)
+
+Fsgs: real-time few-shot view synthesis using gaussian splatting.
+
+In European conference on computer vision,
+
+ pp. 145–163.
+
+Cited by: §2,
+§4.2,
+§5.4,
+Table 2,
+Table 3.
+
+ Experimental support, please
+ view the build logs
+ for errors. Generated by
+
+ L
+ A
+ T
+ E
+
+ xml
+
+ .
+
+##H2## Instructions for reporting errors
+
+ We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+ support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+ methods listed below:
+
+ Click the "Report Issue" (
+
+ ) button, located in the page header.
+
+ Tip: You can select the relevant text first, to include it in your report.
+
+ Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+ may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+ should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+ all.
+
+ Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+
+ We gratefully acknowledge support from
+ our major funders,
+ member institutions, ,
+ and all contributors.
+
+ About
+ ·
+ Help
+ ·
+ Contact
+ ·
+ Subscribe
+ ·
+ Copyright
+ ·
+ Privacy
+ ·
+ Accessibility
+ ·
+ Operational Status (opens in new tab)
+
+ Major funding support from
+

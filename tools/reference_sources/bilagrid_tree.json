@@ -1,0 +1,292 @@
+{
+  "sha": "3bd774b644c3194225a5a0ddf46157092511ba3d",
+  "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/trees/3bd774b644c3194225a5a0ddf46157092511ba3d",
+  "tree": [
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2f703f8edc9fb27b05dcecfbb29e6c11857d30e1",
+      "size": 69,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/2f703f8edc9fb27b05dcecfbb29e6c11857d30e1"
+    },
+    {
+      "path": "LICENSE",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "139a05b81af1c7dd1bc15adbc8f5834ac88ac8c9",
+      "size": 1071,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/139a05b81af1c7dd1bc15adbc8f5834ac88ac8c9"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "589a96f55bfc65025081359d0e90918ddab1d7c3",
+      "size": 4313,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/589a96f55bfc65025081359d0e90918ddab1d7c3"
+    },
+    {
+      "path": "fused_bilagrid",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f786c80bbc69c35341650353e86018986cf507d1",
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/trees/f786c80bbc69c35341650353e86018986cf507d1"
+    },
+    {
+      "path": "fused_bilagrid/__init__.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "010134e19658fbb31463115d4022d57d24d0a719",
+      "size": 14705,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/010134e19658fbb31463115d4022d57d24d0a719"
+    },
+    {
+      "path": "fused_bilagrid/_calibration_results.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e25b6367e6e36cb51905dee2e4149f0a6d8c4cd4",
+      "size": 4392,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/e25b6367e6e36cb51905dee2e4149f0a6d8c4cd4"
+    },
+    {
+      "path": "fused_bilagrid/bindings.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e750099e4ce23216ff1516807871d9a634899978",
+      "size": 9717,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/e750099e4ce23216ff1516807871d9a634899978"
+    },
+    {
+      "path": "fused_bilagrid/calibration.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d08d711813c16c8095ba37f2f7601290b110e3b5",
+      "size": 10551,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/d08d711813c16c8095ba37f2f7601290b110e3b5"
+    },
+    {
+      "path": "fused_bilagrid/config.h",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "49b57f6e8429cd6402d19e426a13f3c87b1d20c1",
+      "size": 730,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/49b57f6e8429cd6402d19e426a13f3c87b1d20c1"
+    },
+    {
+      "path": "fused_bilagrid/ext.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "eb0e422374f574dacda15612edbbdcf90ffde869",
+      "size": 676,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/eb0e422374f574dacda15612edbbdcf90ffde869"
+    },
+    {
+      "path": "fused_bilagrid/sample_backward.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "28634596063889e313f82ae9fbbfd3512a32b8c5",
+      "size": 1088,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/28634596063889e313f82ae9fbbfd3512a32b8c5"
+    },
+    {
+      "path": "fused_bilagrid/sample_backward_kernel.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "30c376c4853342d2874e7e0a8c877932d29a9fac",
+      "size": 6400,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/30c376c4853342d2874e7e0a8c877932d29a9fac"
+    },
+    {
+      "path": "fused_bilagrid/sample_forward.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d0d9519764e81e85f98a6e25c3baa7415e1392d3",
+      "size": 3256,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/d0d9519764e81e85f98a6e25c3baa7415e1392d3"
+    },
+    {
+      "path": "fused_bilagrid/tv_loss_backward.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8a83a91a830b626aadeab6687cd6eb2e1f650fde",
+      "size": 2184,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/8a83a91a830b626aadeab6687cd6eb2e1f650fde"
+    },
+    {
+      "path": "fused_bilagrid/tv_loss_forward.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "42c3337dd2e72bc63e9bdb6bd0628e6514d1f19f",
+      "size": 2655,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/42c3337dd2e72bc63e9bdb6bd0628e6514d1f19f"
+    },
+    {
+      "path": "fused_bilagrid/uniform_sample.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "da9faca7fe92530537f4ac113f1dd12740fc912e",
+      "size": 6082,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/da9faca7fe92530537f4ac113f1dd12740fc912e"
+    },
+    {
+      "path": "fused_bilagrid/uniform_sample_backward_v1.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8772d451afe41bf6fae8e2f5367dedb11b542697",
+      "size": 12334,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/8772d451afe41bf6fae8e2f5367dedb11b542697"
+    },
+    {
+      "path": "fused_bilagrid/uniform_sample_backward_v2.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f19208bb29d49d76fae2293d9a683911d1dff1c3",
+      "size": 6058,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/f19208bb29d49d76fae2293d9a683911d1dff1c3"
+    },
+    {
+      "path": "fused_bilagrid/uniform_sample_forward.cu",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1130f0742dd361881e54d499cd7426cb8ac8dd32",
+      "size": 3075,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/1130f0742dd361881e54d499cd7426cb8ac8dd32"
+    },
+    {
+      "path": "pyproject.toml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9787c3bdf008a57ae3cb2e27a8261eb3f134ff73",
+      "size": 90,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/9787c3bdf008a57ae3cb2e27a8261eb3f134ff73"
+    },
+    {
+      "path": "setup.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "33a5149c88001a454999fbb676b37ebc88bfa942",
+      "size": 3014,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/33a5149c88001a454999fbb676b37ebc88bfa942"
+    },
+    {
+      "path": "tests",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "0fba5d2e7af2ffa5648c565ea2c1f54c3ab5bb4b",
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/trees/0fba5d2e7af2ffa5648c565ea2c1f54c3ab5bb4b"
+    },
+    {
+      "path": "tests/assets",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e3c071ade38662174bd475c22cf3ffc0bb0b855f",
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/trees/e3c071ade38662174bd475c22cf3ffc0bb0b855f"
+    },
+    {
+      "path": "tests/assets/Irregular_Sample_[16,_16,_8].png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e286ed352292e73d94bef72b0501b2e40538dee1",
+      "size": 13990,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/e286ed352292e73d94bef72b0501b2e40538dee1"
+    },
+    {
+      "path": "tests/assets/Irregular_Sample_[8,_8,_4].png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0f436e461c2237a45da942025117eb79fe6ac654",
+      "size": 14196,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/0f436e461c2237a45da942025117eb79fe6ac654"
+    },
+    {
+      "path": "tests/assets/Total_Variation_Loss.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2c82ec6a8bfa6f30cacae490d309fa75ca0f9b25",
+      "size": 15902,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/2c82ec6a8bfa6f30cacae490d309fa75ca0f9b25"
+    },
+    {
+      "path": "tests/assets/Uniform_Sample_[16,_16,_8].png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0020d24a96063d51287bdc2df5330cf415edd492",
+      "size": 14861,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/0020d24a96063d51287bdc2df5330cf415edd492"
+    },
+    {
+      "path": "tests/assets/Uniform_Sample_[8,_8,_4].png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "993d20eeddfee387a156b761a9b614157de13e20",
+      "size": 14332,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/993d20eeddfee387a156b761a9b614157de13e20"
+    },
+    {
+      "path": "tests/plot.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "919ff66b06e564322ca74038188de5e794a39f27",
+      "size": 1954,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/919ff66b06e564322ca74038188de5e794a39f27"
+    },
+    {
+      "path": "tests/profile.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a03668654827e67e4e369f97015243ea28d79db4",
+      "size": 6618,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/a03668654827e67e4e369f97015243ea28d79db4"
+    },
+    {
+      "path": "tests/test_bilagrid.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7700b28b60f6101fd771be5ed55d5fb21b7840d3",
+      "size": 4280,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/7700b28b60f6101fd771be5ed55d5fb21b7840d3"
+    },
+    {
+      "path": "tests/test_patched_sample.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d015714cf4b5f459a9533661e4446e30ac7005ee",
+      "size": 6366,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/d015714cf4b5f459a9533661e4446e30ac7005ee"
+    },
+    {
+      "path": "tests/test_sample.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e8371926c7d66221b4d169320a0e56da5edc5301",
+      "size": 7012,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/e8371926c7d66221b4d169320a0e56da5edc5301"
+    },
+    {
+      "path": "tests/test_tv_loss.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "30805eae4617614ec531b422be4b3be41b5baa7e",
+      "size": 2917,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/30805eae4617614ec531b422be4b3be41b5baa7e"
+    },
+    {
+      "path": "tests/timings.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3b91502ad6f588e1c620dbb6362fc36b71215428",
+      "size": 2655,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/3b91502ad6f588e1c620dbb6362fc36b71215428"
+    },
+    {
+      "path": "tests/util.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ce848d3266f465fd8f6e1b5e7979bff811f04f28",
+      "size": 1615,
+      "url": "https://api.github.com/repos/harry7557558/fused-bilagrid/git/blobs/ce848d3266f465fd8f6e1b5e7979bff811f04f28"
+    }
+  ],
+  "truncated": false
+}
