@@ -460,20 +460,28 @@ class Prefetcher:
     blocking on per-step image loads (the cause of ~50% GPU utilization).
     """
 
-    def __init__(self, data, train_indices, num_workers=3, queue_size=6):
+    def __init__(self, data, train_indices, num_workers=3, queue_size=6,
+                 seed=None):
         self.data = data
         self.train_indices = np.asarray(train_indices)
         self.q: queue.Queue = queue.Queue(maxsize=queue_size)
         self._stop = threading.Event()
+        # seed=None -> unseeded per-worker RNGs (current production behavior).
+        # With a seed, each worker gets its own deterministic stream
+        # (seed + worker_id) so the set of sampled views is reproducible.
+        # NOTE: queue interleaving across workers is still OS-scheduling
+        # dependent, so step-level order is only approximately reproducible.
+        self._seed = seed
         self._threads = [
-            threading.Thread(target=self._worker, daemon=True)
-            for _ in range(max(1, num_workers))
+            threading.Thread(target=self._worker, args=(wid,), daemon=True)
+            for wid in range(max(1, num_workers))
         ]
         for t in self._threads:
             t.start()
 
-    def _worker(self):
-        rng = np.random.default_rng()
+    def _worker(self, worker_id: int = 0):
+        rng = (np.random.default_rng() if self._seed is None
+               else np.random.default_rng(self._seed + worker_id))
         n = len(self.train_indices)
         while not self._stop.is_set():
             idx = int(self.train_indices[rng.integers(n)])
@@ -660,12 +668,21 @@ def render_splats(
     background: torch.Tensor,
     rasterize_mode: str = "antialiased",
     render_mode: str = "RGB",
+    eps2d: float = None,
 ):
     """Rasterize the splats for one camera. Returns (renders, alphas, info).
 
     render_mode="RGB+ED" appends a 4th channel = expected depth (same pass,
     no extra render), used for the edge-aware geometric regularizer.
+
+    eps2d (SA-GS): gsplat's 2D screen-space dilation (default 0.3 px^2). Leave
+    None to keep the built-in default (unchanged production behavior); pass a
+    value from compute_eps2d() at zoom/eval render time to keep the low-pass
+    filter matched to the render's pixel footprint (anti-aliasing at zoom).
     """
+    kwargs = {}
+    if eps2d is not None:
+        kwargs["eps2d"] = float(eps2d)
     return rasterization(
         means=splats["means"],
         quats=splats["quats"] / (splats["quats"].norm(dim=-1, keepdim=True) + 1e-12),
@@ -683,7 +700,33 @@ def render_splats(
         rasterize_mode=rasterize_mode,
         render_mode=render_mode,
         packed=False,
+        **kwargs,
     )
+
+
+def compute_eps2d(train_res, render_res, train_f, render_f,
+                  train_dist=1.0, render_dist=1.0, base_eps=0.3):
+    """SA-GS anti-aliasing rule (arXiv 2403.19615) via gsplat's `eps2d` knob.
+
+    gsplat dilates every projected 2D Gaussian by a fixed screen-space variance
+    `eps2d` (0.3) so nothing shrinks below ~1 px. That low-pass filter is
+    calibrated for the TRAINING sampling rate; at a different render sampling
+    rate (zoom / resolution / object distance) it becomes mismatched -> the
+    familiar zoom aliasing + dilation halo. SA-GS rescales the filter by the
+    squared sampling-rate ratio:
+
+        r = (render_res/train_res) * (render_f/train_f) * (train_dist/render_dist)
+        eps2d = 0.3 * r^2
+
+    `train_f`/`render_f` are NORMALIZED focal lengths (fx / image_width) so the
+    `render_res/train_res` term is not double-counted (a same-FOV resolution
+    change moves render_res and pixel-focal together but leaves normalized focal
+    fixed). `*_dist` are optional mean object distances (pass 1.0 when unknown).
+    Coherent with rasterize_mode="antialiased" — its compensation reads the SAME
+    dilated covariance. Returns the eps2d to pass to render_splats(eps2d=...).
+    """
+    r = (render_res / train_res) * (render_f / train_f) * (train_dist / render_dist)
+    return base_eps * r * r
 
 
 def edge_aware_depth_smoothness(depth, image, beta: float = 10.0):
@@ -707,6 +750,31 @@ def edge_aware_depth_smoothness(depth, image, beta: float = 10.0):
     wx = torch.exp(-beta * ix)  # ~1 on flat regions, ~0 at edges
     wy = torch.exp(-beta * iy)
     return (d2x.abs() * wx).mean() + (d2y.abs() * wy).mean()
+
+
+def erank_loss(log_scales, w_erank=0.01, w_thin=0.0, eps=1e-7):
+    """Effective-rank anti-needle regularizer (arXiv 2406.11672, Eq. 7-10).
+
+    A Gaussian's covariance eigenvalues are s_i^2. Their normalized entropy
+    exp(H) is the *effective rank* in [1, 3]: 3 = isotropic ball, 1 = a
+    degenerate needle/disk. Needles are the dominant floater/aliasing artifact
+    (they project to bright specks that shatter under zoom). We penalize the
+    effective rank falling below ~2 with a log-barrier hinge — the orthogonal
+    anti-needle term MCMC's opacity/scale regs don't cover.
+
+    log_scales: raw (pre-exp) per-Gaussian scales, i.e. splats["scales"] (N, 3).
+    Returns a scalar. w_thin stays 0 under MCMC (scale_reg already shrinks size;
+    the hinge is the shape term). The `.clamp_min(...)` guards are OURS: MCMC
+    relocates dead Gaussians to log_scales ~ -inf, whose exp underflows to 0 and
+    would make p/log(p) NaN — the clamps keep the barrier finite there.
+    """
+    lam = torch.exp(log_scales * 2)                              # s_i^2 = cov eigenvalues
+    p = lam / lam.sum(dim=1, keepdim=True).clamp_min(1e-30)
+    H = -(p * torch.log(p.clamp_min(1e-12))).sum(dim=1)
+    erank = torch.exp(H)                                         # in [1,3]; needle->1
+    hinge = torch.clamp(-torch.log(erank - 1.0 + eps), min=0.0)  # active iff erank<~2
+    thin = torch.exp(log_scales).min(dim=1).values
+    return w_erank * hinge.mean() + w_thin * thin.mean()
 
 
 _lpips_model = None
@@ -810,6 +878,20 @@ def gram_loss(r, g, device):
 def train(args):
     device = torch.device("cuda:0")
     torch.cuda.set_device(device)
+
+    # Optional deterministic seed (default None = current stochastic behavior,
+    # production unchanged). Used for fair A/B runs. Seeds torch/numpy/random
+    # (init, crop positions, MCMC noise) AND the Prefetcher workers' view-
+    # sampling streams (seed + worker_id). Residual nondeterminism remains:
+    # worker->queue interleaving is OS-scheduling dependent and gsplat's
+    # atomic rasterization kernels are not bit-reproducible — so seeded runs
+    # are statistically matched, not bit-identical.
+    if getattr(args, "seed", None) is not None:
+        import random as _random
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
+        _random.seed(args.seed)
+        print(f"[Train] Seeded RNG with {args.seed}")
 
     rasterize_mode = "antialiased" if args.antialiased else "classic"
     use_mcmc = args.strategy == "mcmc"
@@ -983,18 +1065,23 @@ def train(args):
     running_psnr = 0.0
     running_crop_l1 = None  # EMA of LPIPS-crop L1, for gated perceptual loss
     running_wd_tex = None   # EMA of GT-crop texture energy, for gated WD
+    running_erank = None    # EMA of erank hinge term, for per-loss logging
     t0 = time.time()
 
     # Background image prefetch (overlaps disk I/O + decode with GPU compute)
     prefetcher = Prefetcher(data_coarse if coarse_until > 0 else data_fine,
-                            train_indices)
+                            train_indices, seed=args.seed)
 
     for step in range(1, args.max_steps + 1):
         if step == coarse_until + 1 and coarse_until > 0:
             print(f"[Train] Switching to fine resolution (factor {args.data_factor}) at step {step}")
             sys.stdout.flush()
             prefetcher.close()
-            prefetcher = Prefetcher(data_fine, train_indices)
+            # Offset the seed so the fine phase doesn't replay the coarse
+            # phase's view sequence (still deterministic given --seed).
+            prefetcher = Prefetcher(data_fine, train_indices,
+                                    seed=None if args.seed is None
+                                    else args.seed + 1000)
 
         # Random training image (prefetched on background threads)
         batch = prefetcher.get()
@@ -1064,6 +1151,17 @@ def train(args):
             loss = loss + args.opacity_reg * torch.sigmoid(splats["opacities"]).mean()
         if args.scale_reg > 0:
             loss = loss + args.scale_reg * torch.exp(splats["scales"]).mean()
+        # Effective-rank anti-needle hinge (arXiv 2406.11672) — orthogonal to
+        # scale_reg: it constrains Gaussian SHAPE (no needles/discs), not size.
+        # w_thin stays 0 under MCMC (scale_reg covers size). Default lambda 0 = off.
+        # erank_end (official repo's erank_end_iter, inclusive) lets scenes with
+        # genuinely thin geometry (wires, blades) release the constraint late.
+        if (args.erank_lambda > 0 and step >= args.erank_start
+                and (args.erank_end is None or step <= args.erank_end)):
+            erank_term = erank_loss(splats["scales"], w_erank=args.erank_lambda, w_thin=0.0)
+            loss = loss + erank_term
+            running_erank = (erank_term.item() if running_erank is None
+                             else 0.95 * running_erank + 0.05 * erank_term.item())
         if unseen_mask is not None:
             loss = loss + args.vis_reg * torch.sigmoid(
                 splats["opacities"][unseen_mask]).mean()
@@ -1221,9 +1319,12 @@ def train(args):
             eta = (args.max_steps - step) / steps_per_sec if steps_per_sec > 0 else 0
             n_gs = splats["means"].shape[0]
             mem = torch.cuda.max_memory_allocated() / 1024**2
+            erank_str = (f" | erank={running_erank:.3e}"
+                         if running_erank is not None else "")
             print(
                 f"step={step} | loss={running_loss:.6f} | psnr={running_psnr:.2f} "
                 f"| #GS={n_gs} | mem={mem:.0f}MB | {steps_per_sec:.1f} it/s | eta={eta:.0f}s"
+                f"{erank_str}"
             )
             sys.stdout.flush()
 
@@ -1335,6 +1436,13 @@ def main():
     parser.add_argument("--result_dir", type=str, required=True)
     parser.add_argument("--data_factor", type=int, default=2)
     parser.add_argument("--max_steps", type=int, default=30000)
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Optional RNG seed for matched A/B runs (default "
+                             "None = current stochastic behavior). Seeds "
+                             "torch/numpy/random + Prefetcher view sampling; "
+                             "worker interleaving and gsplat atomics stay "
+                             "nondeterministic (statistically matched, not "
+                             "bit-identical)")
     parser.add_argument("--test_every", type=int, default=8)
     parser.add_argument("--sh_degree", type=int, default=3)
     parser.add_argument("--ssim_lambda", type=float, default=0.2)
@@ -1354,6 +1462,18 @@ def main():
     parser.add_argument("--vis_reg", type=float, default=0.0,
                         help="Visibility loss: push opacity->0 for Gaussians seen by "
                              "no training/pseudo camera (kills empty-space floaters)")
+    # Effective-rank anti-needle regularizer (arXiv 2406.11672)
+    parser.add_argument("--erank_lambda", type=float, default=0.0,
+                        help="Weight of the effective-rank hinge (penalizes "
+                             "needle/disc Gaussians; erank<~2). 0 = off. ~0.01 on.")
+    parser.add_argument("--erank_start", type=int, default=7000,
+                        help="Step to start the erank hinge (after coarse geometry "
+                             "forms; too early fights initial anisotropy)")
+    parser.add_argument("--erank_end", type=int, default=None,
+                        help="Last step (inclusive) the erank hinge is applied "
+                             "(official erank_end_iter). None = no cutoff. Set "
+                             "for scenes with genuinely thin geometry "
+                             "(wires, blades) to release the constraint late")
     # Object-mask alpha supervision (kills background floaters on masked object scans)
     parser.add_argument("--alpha_loss_lambda", type=float, default=0.0,
                         help="Weight of L_bg = mean(rendered_alpha * (1-mask)): pushes "

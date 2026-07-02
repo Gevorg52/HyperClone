@@ -21,7 +21,8 @@ def report(label, path):
     s = ck["splats"]
     n = int(s["means"].shape[0])
     opa = torch.sigmoid(s["opacities"].float()).numpy()
-    scl = torch.exp(s["scales"].float()).numpy()        # world-space sizes
+    log_scl = s["scales"].float()
+    scl = torch.exp(log_scl).numpy()                    # world-space sizes
     means = s["means"].float().numpy()
 
     low_opa = float((opa < 0.01).mean()) * 100
@@ -34,10 +35,16 @@ def report(label, path):
     # giant blobs: max per-Gaussian scale far above the median
     maxscale = scl.max(axis=1)
     big = float((maxscale > 10 * np.median(maxscale)).mean()) * 100
+    # NEEDLES: effective rank < 2 (degenerate needle/disc Gaussians; the
+    # dominant zoom-aliasing / speck-floater artifact — the erank hinge target).
+    lam = torch.exp(log_scl * 2)
+    p = lam / lam.sum(dim=1, keepdim=True).clamp_min(1e-30)
+    erank = torch.exp(-(p * torch.log(p.clamp_min(1e-12))).sum(dim=1)).numpy()
+    needle = float((erank < 2.0).mean()) * 100
 
-    print(f"{label:14s} {n:>10,}  low-opa {low_opa:5.1f}%  "
-          f"SOR-outlier {outliers:5.2f}%  giant {big:5.2f}%  "
-          f"med-opa {np.median(opa):.3f}  knn-spread {knn.std()/knn.mean():.2f}")
+    print(f"{label:14s} {n:>10,}  needle {needle:5.2f}%  "
+          f"SOR-outlier {outliers:5.2f}%  giant {big:5.2f}%  low-opa {low_opa:5.1f}%  "
+          f"med-opa {np.median(opa):.3f}  mean-erank {erank.mean():.3f}")
 
 
 def main():

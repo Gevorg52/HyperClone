@@ -250,6 +250,9 @@ class GsplatBackend(TrainingBackend):
             "opacity_reg": 0.01,
             "scale_reg": 0.01,
             "vis_reg": 0.0,                # visibility loss (kill empty-space floaters)
+            "erank_lambda": 0.0,           # effective-rank anti-needle hinge (2406.11672; ~0.01)
+            "erank_start": 7000,           # step to start erank hinge
+            "erank_end": None,             # last step (incl.) for the hinge; None = no cutoff
             "alpha_loss_lambda": 0.0,      # object-mask alpha sup. (kills bg floaters; ~0.1)
             "alpha_obj_lambda": 0.0,       # push alpha->1 inside mask (off by default)
             "depth_lambda": 0.0,           # sparse SfM-point depth supervision (~0.05-0.2)
@@ -386,11 +389,17 @@ class GsplatBackend(TrainingBackend):
             "--opacity_reg", str(extra["opacity_reg"]),
             "--scale_reg", str(extra["scale_reg"]),
             "--vis_reg", str(extra.get("vis_reg", 0.0)),
+            "--erank_lambda", str(extra.get("erank_lambda", 0.0)),
+            "--erank_start", str(extra.get("erank_start", 7000)),
             "--alpha_loss_lambda", str(extra.get("alpha_loss_lambda", 0.0)),
             "--alpha_obj_lambda", str(extra.get("alpha_obj_lambda", 0.0)),
             "--depth_lambda", str(extra.get("depth_lambda", 0.0)),
             "--depth_start", str(extra.get("depth_start", 2000)),
         ]
+
+        # erank_end: optional cutoff step (None = flag omitted = no cutoff)
+        if extra.get("erank_end") is not None:
+            args.extend(["--erank_end", str(extra["erank_end"])])
 
         if extra["normalize_world_space"]:
             args.append("--normalize_world_space")
