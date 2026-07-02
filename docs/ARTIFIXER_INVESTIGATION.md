@@ -120,3 +120,38 @@ recon budget.** (Careful: absolute LPIPS not comparable across res; the common-r
 Scripts in session scratchpad: `wsl_bidir_infer.sh`, `wsl_artifixer3d.sh`, `wsl_3dplus.sh`,
 `wsl_wedge_pipeline.sh`, `wsl_960_pipeline.sh`; eval `lpips_3way_arg.py`, `common_res_eval.py`;
 PLY export `export_ply.py`. Samples/PLYs under `D:\REPOS\HYPERclone\artifixer-checkpoints\`.
+
+## Re-judgment under product metrics (2026-07-02)
+First scientific use of the WP-Q1 visibility-split QA suite: the June wedge "+4.0% only,
+plausible-not-faithful" verdict re-scored under masked metrics + the 6 product scorers
+(CrossScore/NOVA/TSED/RAFT/NVS-SQA/flicker), base-3DGRUT vs ArtiFixer3D, on BOTH the wedge and
+the easy every-8th case. Driver `_infusion/wedge_rejudge.py` (normalize=False consumer of
+`core/qa/`; core/qa unchanged). Full record + table: `_infusion/wedge_rejudgment_RECORD.md`;
+scorecards `qa/rejudge_{wedge,easy}_{base,af3d}/`; bank `qa/REJUDGE_ARTIFIXER.md`. Wedge PLYs
+re-exported from the surviving WSL 3DGRUT checkpoints. Pipeline validated: PLY→renderer needs
+`normalize=False` (raw COLMAP frame; render-vs-GT 22.98 dB == June's 22.92; normalize=True = 7.8 dB
+garbage), and the masked-LPIPS deltas reproduce June (easy −10.6% vs −10.8%; wedge −3.6% vs −4.0%).
+
+**Findings.**
+- **The wedge is 100.0% observed** — an ANGULAR extrapolation gap, NOT a coverage HOLE (object
+  geometry globally reconstructed from other angles → nothing renders empty). This CORRECTS the
+  program-doc premise that the wedge was "scored against photons we never captured / GT invalid":
+  GT metrics ARE valid here, so the June held-out-GT LPIPS was a legitimate measurement. This
+  experiment never tested generative hole-filling.
+- **Wedge = qualified win (6/9 metrics better).** Cleanliness/plausibility all improve (masked
+  LPIPS −3.6%, CrossScore +0.023, NOVA −0.013, NVS-SQA +0.012) but multi-view CONSISTENCY regresses
+  (TSED 0.909→0.879, RAFT 0.047→0.053). **Easy = clean sweep (9/9)**, including TSED +0.030 / RAFT
+  −0.010. So the bidirectional enhancer IMPROVES consistency where the base is well-observed and
+  TRADES a little consistency for cleanliness where under-observed — the exact bidirectional-vs-
+  causal signature. Confirms §5's "sharpens well-observed, not a bidirectional gap filler."
+- **June verdict = PARTIALLY RIGHT:** mechanism confirmed and sharpened; "failure" framing too
+  harsh (real cleanliness gains); but its coverage-gap label was wrong (angular, not a hole).
+
+**WP-C1 implication.** Bidirectional-ArtiFixer3D is NOT shippable as a gap/hole filler as-is —
+this "gap" is 100% observed and even here the bidirectional path costs multi-view consistency. For
+TRUE holes (observed%<100) there is no geometry to sharpen, so the causal/generative completion
+path stays on the critical path: **causal ArtiFixer (Tier-1 H100 probe), GENA3D, G4Splat-pattern
+visibility-gated inpainting (§4), and the universal opacity-mask gate (§2)** so enhancement can
+never inject the consistency regression onto observed pixels. Adopt ArtiFixer3D-bidirectional as a
+sharpen-observed tool only. Harness gap: WP-C1 needs a genuine-hole test (back-of-object holdout /
+slab-deletion void); the Laptop wedge cannot provide one.

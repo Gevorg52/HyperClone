@@ -351,6 +351,15 @@ steps watching `torch.cuda.memory_allocated` (leak check).
 ═══════════════════════════════════════════════════════════════════════
 ### WP-C1 — GaMO-pattern latent gate (completion lane v1) — WSL — after WP-Q1
 ═══════════════════════════════════════════════════════════════════════
+> **RE-JUDGMENT INPUT (2026-07-02, `_infusion/wedge_rejudgment_RECORD.md` + ARTIFIXER_INVESTIGATION
+> §re-judgment):** the June wedge was **100% observed** — an angular-EXTRAPOLATION test, NOT a
+> coverage hole; June's GT-LPIPS verdict was legitimate. Product-metric re-score: ArtiFixer3D-bidir
+> wedge = qualified win (6/9: cleanliness/NR up, **TSED/RAFT consistency DOWN**); easy case 9/9.
+> → ArtiFixer3D-bidir is a **sharpen-observed tool only**; the causal/generative completion path
+> (this WP + Annex-A probe + GENA3D) stays on the critical path for true holes; the opacity-mask
+> gate is mandatory so enhancement can't inject consistency regressions onto observed pixels.
+> **WP-C1's gate testbed must be a GENUINE hole** (back-of-object holdout or slab-deletion void) —
+> the Laptop wedge cannot provide one.
 **Re-implement the ~50-line mechanism on our WSL diffusers stack, copying freely from their
 pipeline source** (`gamo/my_diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion_
 multiview_inverse.py`). The reason not to run GaMO as-shipped is technical, not legal: its env
