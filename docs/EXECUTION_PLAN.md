@@ -242,6 +242,16 @@ held-out masked-LPIPS not worse; alignment report sane (inliers, residuals).
 ═══════════════════════════════════════════════════════════════════════
 ### WP-F2 — EDGS-style dense init via HLoc — 2–3 days
 ═══════════════════════════════════════════════════════════════════════
+> **STATUS: ✅ CLOSED 2026-07-03** (implement → review → fix → re-validate). `core/dense_init.py`
+> + `hloc/matchers/roma.py` (patches in `tools/patches/`, apply cleanly to fresh clone) +
+> `--dense_init` backend opt-in (default OFF). **Laptop: 93k→707k points (7.59×), deck density
+> +4.72×, new-point reproj 1.42px, poses preserved (Δt=0.0, asserted+persisted). A/B (15k, seed 0):
+> global masked-LPIPS −3.5% (0.3549→0.3425), deck-LPIPS −2.3%, +0.12 dB, needles 91→83%** — the
+> biggest single faithful lever landed so far, ~free at init. Seeded matching now bitwise-
+> deterministic; certainty-filter edge-case bug fixed + regression test; cv2-headless 5.0.0 pinned.
+> Evidence: `_infusion/wpf2_RECORD.md` + `qa/wpf2_ab_*`. Composability with WP-F1 safe by
+> construction (dense points carry empty tracks — invisible to point_obs/alignment); both-flags-on
+> A/B not yet run (future stack test). Fallback (vendor EDGS sampler) unused — density sufficed.
 Primary route: reproduce via our HLoc stack (below) — EDGS-as-shipped is a poor fit for TECHNICAL
 reasons (graphdeco base trainer, in-memory-only output — no PLY/points3D export, issue #15;
 numpy<2 pin; unresolved Windows issue #9; H/W-swap triangulation bug #14 [V]). POC option if the
@@ -360,6 +370,20 @@ steps watching `torch.cuda.memory_allocated` (leak check).
 > gate is mandatory so enhancement can't inject consistency regressions onto observed pixels.
 > **WP-C1's gate testbed must be a GENUINE hole** (back-of-object holdout or slab-deletion void) —
 > the Laptop wedge cannot provide one.
+> **STATUS: v1 ✅ CLOSED 2026-07-02** (evidence `_infusion/{hole_testbed_RECORD,wpc1_RECORD}.md` +
+> `qa/hole_{baseline,gated,ungated}/` + `_infusion/hole/`). (1) **Genuine-hole testbed built**:
+> GPU_V4 footprint-aware depth-column deletion → observed 80.6% on a 23-view arc (`wedge:293:316`);
+> pure view-withholding REFUTED on our dense domes (Laptop 100%/GPU_V4 95% hemisphere coverage —
+> deletion is the only controllable void). (2) **Gate mechanism live**: `core/enhancement/
+> latent_gate.py` (backbone-agnostic) + WSL `_infusion/gamo_fill.py` on **SDXL-Inpaint** (FLUX/conda
+> envs don't exist on this machine — see backbone note in wpc1_RECORD). **2D gate integrity
+> decisive: gated 55.8 dB observed-pixels vs ungated 33.5 dB (37×)**. (3) **Completion loop passes
+> vs base**: fills distilled back (arc held out of real supervision) → observed% 80.6→100, CrossScore
+> +0.061, RAFT better, TSED 1.0 held, fixed-mask observed-LPIPS IMPROVES 0.5518→0.5446. (4) **New
+> finding**: real-view-dominant distill is itself a secondary gate — splat-level gated≈ungated
+> (ungated rescued by 364 real views); the latent gate's mandatory role = the 2D guarantee +
+> fill-dominant/low-overlap/2D-delivery regimes. Next: FLUX.1-Fill / Wan-I2V / causal-ArtiFixer
+> backbone swaps into the same scripted loop.
 **Re-implement the ~50-line mechanism on our WSL diffusers stack, copying freely from their
 pipeline source** (`gamo/my_diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion_
 multiview_inverse.py`). The reason not to run GaMO as-shipped is technical, not legal: its env

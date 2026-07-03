@@ -1,0 +1,28 @@
+diff --git a/hloc/match_dense.py b/hloc/match_dense.py
+index de6c061..c5411e9 100644
+--- a/hloc/match_dense.py
++++ b/hloc/match_dense.py
+@@ -60,6 +60,23 @@ confs = {
+         "max_error": 4,  # max error for assigned keypoints (in px)
+         "cell_size": 4,  # size of quantization patch (max 1 kp/patch)
+     },
++    # RoMa dense matcher (pip `romatch`, MIT) for EDGS-style dense triangulation
++    # init (apex-sfm WP-F2). RGB input (DINOv2 backbone); warp-sampled matches +
++    # certainties. Pair with match_dense.main(..., max_kps=None) so the 8192
++    # per-image default does not cap the dense keypoints.
++    "roma": {
++        "output": "matches-roma",
++        "model": {
++            "name": "roma",
++            "weights": "outdoor",
++            "max_num_matches": 15000,
++            "min_certainty": 0.05,
++            "upsample_preds": False,
++        },
++        "preprocessing": {"grayscale": False, "resize_max": 1024, "dfactor": 8},
++        "max_error": 2,  # max error for assigned keypoints (in px)
++        "cell_size": 4,  # size of quantization patch (max 1 kp/patch)
++    },
+ }
+ 
+ 

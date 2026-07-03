@@ -1,0 +1,18 @@
+{
+  "reference_model": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\Laptop\\apex_images\\training\\gsplat_prod\\data\\sparse\\0",
+  "triangulated_model": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\Laptop\\apex_images\\training\\wpf2_ab\\dense_work\\triangulated",
+  "augmented_model": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\Laptop\\apex_images\\training\\wpf2_ab\\dense_model",
+  "pose_check_ref_vs_triangulated": {
+    "max_dt": 0.0,
+    "max_dR_fro": 1.1660645525601868e-15,
+    "max_drot_deg": 1.7075472925031877e-06,
+    "n_images_compared": 304
+  },
+  "pose_check_ref_vs_augmented": {
+    "max_dt": 0.0,
+    "max_dR_fro": 0.0,
+    "max_drot_deg": 2.4148365394514667e-06,
+    "n_images_compared": 304
+  },
+  "method": "max |delta translation| (world units) and max rotation-angle delta (deg, from trace(Ra Rb^T)) over all shared images; core.dense_init._pose_delta"
+}

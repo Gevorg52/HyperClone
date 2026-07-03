@@ -1,0 +1,35 @@
+{
+  "metric": "mean VGG-LPIPS (torchmetrics, normalize=True) over every8 held-out views; deck = fractional crop box",
+  "deck_box_frac": {
+    "x0": 0.3,
+    "x1": 0.72,
+    "y0": 0.55,
+    "y1": 0.95
+  },
+  "data_dir": "_dataset\\Laptop\\apex_images\\training\\gsplat_prod\\data",
+  "factor": 2,
+  "arms": {
+    "off": {
+      "ckpt": "_dataset\\Laptop\\apex_images\\training\\wpf2_ab\\off\\output\\ckpts\\ckpt_14999_rank0.pt",
+      "n_views": 38,
+      "full_lpips": 0.35488842506157725,
+      "deck_lpips": 0.30056408479025487
+    },
+    "on": {
+      "ckpt": "_dataset\\Laptop\\apex_images\\training\\wpf2_ab\\on\\output\\ckpts\\ckpt_14999_rank0.pt",
+      "n_views": 38,
+      "full_lpips": 0.3424970476250899,
+      "deck_lpips": 0.2936005031591968
+    }
+  },
+  "delta": {
+    "full_lpips": {
+      "abs": -0.012391377436487327,
+      "pct": -3.4916262581224733
+    },
+    "deck_lpips": {
+      "abs": -0.006963581631058091,
+      "pct": -2.3168375675748303
+    }
+  }
+}

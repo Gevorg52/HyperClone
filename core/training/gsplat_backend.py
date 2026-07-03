@@ -260,6 +260,18 @@ class GsplatBackend(TrainingBackend):
             "mono_depth_lambda": 0.0,      # dense MoGe-2 prior depth sup. (WP-F1; ~0.05)
             "mono_depth_start": 2000,      # step to start mono-depth loss (fine phase)
             "mono_depth_use_weight": True, # scale by per-view align depth_weight
+            # EDGS-style dense-matcher triangulation init (WP-F2). OFF = production
+            # unchanged (ALIKED sparse init). ON augments the SfM point cloud with
+            # RoMa dense-triangulated points on textureless regions before seeding.
+            "dense_init": False,
+            "dense_init_num_matched": 5,   # covisible pairs/image for dense matching
+            "dense_init_weights": "outdoor",  # RoMa weights: outdoor | indoor
+            "dense_init_max_matches": 15000,  # RoMa samples/pair
+            "dense_init_min_certainty": 0.05,
+            "dense_init_voxel_scale": 1.0,    # x median-NN spacing for dedup voxel
+            "dense_init_low_density_only": False,  # CoMapGS selectivity (opt-in)
+            "dense_init_num_workers": 0,   # DataLoader workers (0 = safe on Win/4K)
+            "dense_init_seed": 0,          # torch seed for RoMa match sampling
             "antialiased": True,           # Mip-Splatting anti-aliasing
             "pose_opt": True,              # SE(3) pose refinement
             "pose_opt_lr": 1e-5,
@@ -303,6 +315,9 @@ class GsplatBackend(TrainingBackend):
         data_dir = Path(output_dir) / "data"
         data_dir.mkdir(parents=True, exist_ok=True)
 
+        # Single source of truth for option defaults (same merge as train()).
+        extra = {**self.get_default_config(), **config.extra}
+
         # --- Copy sparse reconstruction ---
         sparse_src = export / "sparse" / "0"
         if not sparse_src.is_dir():
@@ -334,9 +349,7 @@ class GsplatBackend(TrainingBackend):
 
         # --- Create downsampled directories ---
         factors = {config.data_factor}
-        coarse_factor = int(config.extra.get(
-            "coarse_factor", self.get_default_config()["coarse_factor"],
-        ) or 0)
+        coarse_factor = int(extra["coarse_factor"] or 0)
         if coarse_factor > config.data_factor:
             factors.add(coarse_factor)
         for factor in factors:
@@ -352,6 +365,37 @@ class GsplatBackend(TrainingBackend):
                 if factor > 1:
                     _export_masks(str(src_images), mask_dir,
                                   str(data_dir / f"masks_{factor}"), factor=factor)
+
+        # --- EDGS-style dense triangulation init (WP-F2; opt-in, default OFF) ---
+        # Augments data_dir/sparse/0 in place with RoMa dense-triangulated points on
+        # textureless regions. Reads the full-res (premultiplied) images and the
+        # reference model; all reference reads complete before the augmented model is
+        # written back, so writing to the same dir is safe. Production is unchanged
+        # unless config.extra["dense_init"] is True.
+        if extra["dense_init"]:
+            from core.dense_init import build_dense_init
+
+            sparse_model = str(data_dir / "sparse" / "0")
+            print("[prepare_data] dense_init ENABLED — augmenting SfM cloud with "
+                  "RoMa dense triangulation (WP-F2)...", flush=True)
+            stats = build_dense_init(
+                reference_model=sparse_model,
+                image_dir=str(images_dir),
+                out_model_dir=sparse_model,
+                num_matched=int(extra["dense_init_num_matched"]),
+                matcher_weights=extra["dense_init_weights"],
+                max_num_matches=int(extra["dense_init_max_matches"]),
+                min_certainty=float(extra["dense_init_min_certainty"]),
+                voxel_scale=float(extra["dense_init_voxel_scale"]),
+                low_density_only=bool(extra["dense_init_low_density_only"]),
+                num_workers=int(extra["dense_init_num_workers"]),
+                seed=int(extra["dense_init_seed"]),
+            )
+            print(f"[prepare_data] dense_init: {stats['n_orig_points']} -> "
+                  f"{stats['n_final_points']} points "
+                  f"(+{stats['n_added_points']}, {stats['final_over_orig']:.2f}x); "
+                  f"new-pt mean reproj {stats['new_points_mean_reproj_px']:.2f}px",
+                  flush=True)
 
         return str(data_dir)
 

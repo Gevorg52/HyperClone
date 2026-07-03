@@ -1,0 +1,41 @@
+{
+  "method": "project all SfM points into every-8 held-out views; count in fractional DECK vs KEYBOARD boxes; density = points / box-kpx, mean over views (pinhole, distortion ignored)",
+  "deck_box_frac": {
+    "x0": 0.3,
+    "x1": 0.72,
+    "y0": 0.55,
+    "y1": 0.95
+  },
+  "keyboard_box_frac": {
+    "x0": 0.36,
+    "x1": 0.8,
+    "y0": 0.5,
+    "y1": 0.68
+  },
+  "off": {
+    "n_points_total": 93126,
+    "n_heldout_views": 38,
+    "deck_density_per_kpx": 16.864014238431732,
+    "deck_points_mean_per_view": 23499,
+    "keyboard_density_per_kpx": 14.28764501947677,
+    "keyboard_points_mean_per_view": 9385,
+    "deck_over_keyboard_ratio": 1.180321474633705,
+    "frame_density_per_kpx": 5.8446345536874595
+  },
+  "on": {
+    "n_points_total": 707268,
+    "n_heldout_views": 38,
+    "deck_density_per_kpx": 79.58681078298564,
+    "deck_points_mean_per_view": 110900,
+    "keyboard_density_per_kpx": 85.34666625953324,
+    "keyboard_points_mean_per_view": 56065,
+    "deck_over_keyboard_ratio": 0.9325122382749869,
+    "frame_density_per_kpx": 34.31442964688921
+  },
+  "delta": {
+    "deck_density_x": 4.719327774380888,
+    "keyboard_density_x": 5.973459316996576,
+    "deck_over_keyboard_before": 1.180321474633705,
+    "deck_over_keyboard_after": 0.9325122382749869
+  }
+}

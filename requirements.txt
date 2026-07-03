@@ -15,6 +15,14 @@ gradio>=4.0
 
 # Image processing
 opencv-python>=4.8
+# WP-F2: `romatch` (RoMa dense matcher, EDGS-style dense init) pulls
+# opencv-python-headless via albumentations. Both opencv wheels then coexist and
+# WHICHEVER installed last wins `import cv2` (install-order-dependent!). Pin the
+# headless build to the version validated against the trainer/hloc undistort APIs
+# (cv2 5.0.0: getOptimalNewCameraMatrix/initUndistortRectifyMap/remap verified
+# 2026-07-02) so a fresh install can't silently flip the resolution.
+opencv-python-headless==5.0.0.93
+romatch==0.1.2  # RoMa dense matcher (MIT); weights auto-download via torch.hub
 Pillow>=10.0
 
 # EXIF reading

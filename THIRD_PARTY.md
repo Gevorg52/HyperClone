@@ -182,6 +182,106 @@ NOVA and NVS-SQA clones are UNMODIFIED (drivers import them read-only).
 
 ---
 
+## WP-F2 — EDGS-style dense-matcher triangulation init (added 2026-07-02)
+
+New module `core/dense_init.py`; HLoc additions `hloc/matchers/roma.py` + a `roma`
+entry in `hloc/match_dense.confs`; a `--dense_init` opt-in in
+`core/training/gsplat_backend.py::prepare_data`. Default OFF (production unchanged).
+
+### RoMa dense matcher — pip `romatch` — `hloc/matchers/roma.py`
+- **Idea/source:** "RoMa: Robust Dense Feature Matching", Edstedt et al.,
+  **CVPR 2024, arXiv:2305.15404**. Used as EDGS's dense correspondence engine.
+- **Adoption:** **USED AS A LIBRARY (weights + code), UNMODIFIED.** `pip install
+  romatch` (v0.1.2) into the main env with the torch constraints file
+  (`tools/blackwell_session_2026-06/constraints.txt`) — torch 2.11.0+cu128 /
+  torchvision 0.26 / numpy 2.4.3 verified untouched post-install. We call
+  `roma_outdoor(device=...)` (weights auto-download via torch.hub: DINOv2 ViT-L/14
+  + Parskatt release, ~1.1 GB), then `.match()` / `.sample()` /
+  `.to_pixel_coordinates()`. Our thin `hloc/matchers/roma.py` wrapper (~90 lines,
+  OURS) adapts RoMa into hloc's `match_dense` matcher interface; everything else
+  (pairs, triangulation, merge) is our pipeline.
+- **License:** romatch code **MIT**. NOTE for the funded port: RoMa's DINOv2
+  backbone weights carry Meta's DINOv2 license (permissive research; review before
+  commercial use). POC stance: not a filter.
+- **Env side effect (recorded + PINNED):** installing romatch pulled
+  `albumentations` → `opencv-python-headless 5.0.0.93` ALONGSIDE the pre-existing
+  `opencv-python 4.13.0.92`. With both wheels present, whichever installed LAST
+  wins `import cv2` — an install-order-dependent outcome, so nothing guaranteed
+  the validated build stayed active. We validated the trainer/hloc undistort APIs
+  (`getOptimalNewCameraMatrix`, `initUndistortRectifyMap`, `remap`) under the
+  headless 5.0.0 build and **pinned `opencv-python-headless==5.0.0.93` +
+  `romatch==0.1.2` in `requirements.txt`** so a fresh install reproduces the
+  validated resolution instead of silently flipping. Also pulled `timm 1.0.27`,
+  `poselib`, `loguru`, `wandb`, `simsimd` into the main env. A funded rebuild
+  that wants a clean env can `pip install romatch --no-deps` and supply only
+  `einops`/`kornia` (already present).
+
+### EDGS sampling parameters — provenance (idea only, NO EDGS code run/copied)
+- **Source:** CompVis/EDGS `source/corr_init.py` (snapshot at
+  `tools/reference_sources/edgs/source_corr_init.py`). EDGS is a graphdeco-based
+  trainer with in-memory-only output (no points3D/PLY export, issue #15), numpy<2
+  pin, unresolved Windows issue #9, and an H/W-swap triangulation bug (#14) — a
+  poor technical fit, so we did NOT run or vendor it.
+- **What we took (parameters/method, re-derived):** match at RoMa's coarse
+  resolution with `upsample_preds=False` (560×560, fp16); certainty sample
+  threshold **0.05** (= RoMa `sample_thresh`, EDGS's `upper_thresh`); sample
+  10k–20k correspondences/pair (`init_wC.matches_per_ref=15_000`); color from the
+  matched pixel → SH DC; isotropic scale ≈ dist·`scaling_factor` (EDGS
+  `scaling_factor=0.001`). We DIVERGE from EDGS on the geometry backend: instead of
+  EDGS's per-pixel in-Python `triangulate_points` (which yields ~3M points but ships
+  the #14 H/W bug and no COLMAP export), we triangulate through **hloc + pycolmap**
+  against the existing poses (poses preserved, epipolar-verified, proper COLMAP
+  `points3D` with tracks) and merge with the original ALIKED sparse. Yields ~0.6–1.2M
+  points — fewer than EDGS's ~3M but a valid, exportable, multi-view-consistent cloud
+  that MCMC re-densifies.
+- **License:** EDGS code is **research/non-commercial** (graphdeco base). Since we
+  re-derived the parameters and used our own hloc/pycolmap geometry, the funded port
+  owes nothing to EDGS's code — re-derive the sampling constants from the paper.
+
+### Selectivity — CoMapGS finding (idea only)
+- **Source/idea:** CoMapGS (co-visibility map guided 3DGS) — random point injection
+  HURTS (−0.2..−0.7 dB); density should be added SELECTIVELY in under-covered regions.
+- **Adoption:** we keep ALL triangulated points by default but (a) REPORT per-region
+  density (`_infusion/wpf2_density_eval.py`) and (b) expose a `low_density_only`
+  flag that restricts EXTRA seeding to coarse cells the original sparse cloud
+  under-covers. No CoMapGS code used.
+
+### hloc patches (committable copies in `tools/patches/`)
+The `Hierarchical-Localization` clone is an editable install outside apex-sfm git.
+After any re-clone, re-apply:
+```
+git -C D:/REPOS/HYPERclone/Hierarchical-Localization apply \
+    D:/REPOS/HYPERclone/apex-sfm/tools/patches/hloc_match_dense_roma_conf.patch \
+    D:/REPOS/HYPERclone/apex-sfm/tools/patches/hloc_roma_matcher.patch
+```
+- `hloc_roma_matcher.patch` — new file `hloc/matchers/roma.py` (RoMa matcher).
+- `hloc_match_dense_roma_conf.patch` — adds the `roma` conf to `match_dense.confs`
+  (`max_error: 2, cell_size: 4`, RGB preprocessing).
+No other hloc files are modified (the DataLoader worker count is overridden at call
+time from `core/dense_init.py`, not patched, to keep hloc edits minimal).
+
+---
+
+## WP-C1 — GaMO-pattern gated generative completion (added 2026-07-02)
+
+### GaMO opacity-mask latent-gate mechanism — `core/enhancement/latent_gate.py`
+- Source: arXiv 2512.25073 (GaMO) — mechanism re-implemented clean-room from the
+  verified description in EXECUTION_PLAN WP-C1 (~50 lines; no GaMO code copied —
+  their repo is not cloned on this machine).
+- License: n/a (mechanism only); our implementation.
+- Deviation: RePaint 3-iteration resample harmonization approximated by SDXL's
+  iterative refinement + trigger-point injection + feathered paste-back
+  (`callback_on_step_end` cannot re-run a sampler step).
+
+### SDXL-Inpaint backbone — WSL runner `_infusion/gamo_fill.py`
+- Model: `diffusers/stable-diffusion-xl-1.0-inpainting-0.1` (HF, ungated).
+- License: **OpenRAIL++** (use-restriction, NOT permissive) — fine for the POC per
+  the §0 stance; the funded rebuild should swap the backbone (gate is agnostic).
+- Weights: WSL `~/.cache/huggingface/hub/models--diffusers--stable-diffusion-xl-1.0-inpainting-0.1` (~20 GB).
+- Env: WSL `~/artifixer-venv` (diffusers 0.37.1, torch 2.11.0+cu128) — no new env.
+
+---
+
 ## Pre-existing components (recorded for completeness — not added by WP-Q2)
 - **gsplat** v1.5.3 (AOT sm_120) — nerfstudio-project/gsplat — Apache-2.0. Core rasterizer/MCMC.
 - **Mip-Splatting** antialiased mode — via gsplat `rasterize_mode="antialiased"` — used as-is.
