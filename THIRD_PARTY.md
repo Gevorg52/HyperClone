@@ -279,6 +279,13 @@ time from `core/dense_init.py`, not patched, to keep hloc edits minimal).
   the §0 stance; the funded rebuild should swap the backbone (gate is agnostic).
 - Weights: WSL `~/.cache/huggingface/hub/models--diffusers--stable-diffusion-xl-1.0-inpainting-0.1` (~20 GB).
 - Env: WSL `~/artifixer-venv` (diffusers 0.37.1, torch 2.11.0+cu128) — no new env.
+- **Known-region injection timestep convention** (WP-C1 closeout M2 fix): our GaMO
+  `callback_on_step_end` now noises the known latent to `timesteps[i+1]` (the noise
+  level of the post-`scheduler.step` latents), matching diffusers'
+  `StableDiffusionXLInpaintPipeline` own known-region re-injection
+  (`pipeline_stable_diffusion_xl_inpaint.py`: `noise_timestep = timesteps[i+1]`).
+  Convention adopted from the diffusers source (Apache-2.0); ~2-line indexing fix,
+  no code copied.
 
 ---
 

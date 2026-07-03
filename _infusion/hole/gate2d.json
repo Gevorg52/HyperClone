@@ -1,0 +1,394 @@
+{
+  "per_view": {
+    "gated": [
+      {
+        "view": "v0293",
+        "observed_MAD": 0.0003743424022104591,
+        "observed_gate_PSNR": 54.555819898313416,
+        "observed_pct": 84.82962721774359,
+        "void_PSNR": 5.831784153536797,
+        "void_LPIPS": 0.6076241731643677
+      },
+      {
+        "view": "v0294",
+        "observed_MAD": 0.00035699785803444684,
+        "observed_gate_PSNR": 55.41335042535658,
+        "observed_pct": 83.08962750798541,
+        "void_PSNR": 5.338316236560433,
+        "void_LPIPS": 0.6186274290084839
+      },
+      {
+        "view": "v0295",
+        "observed_MAD": 0.00041398295434191823,
+        "observed_gate_PSNR": 54.99355812343008,
+        "observed_pct": 81.80212146753604,
+        "void_PSNR": 4.827733438676959,
+        "void_LPIPS": 0.6153469085693359
+      },
+      {
+        "view": "v0296",
+        "observed_MAD": 0.0003813674848061055,
+        "observed_gate_PSNR": 54.6627390783203,
+        "observed_pct": 81.04248856672417,
+        "void_PSNR": 4.9395400739081206,
+        "void_LPIPS": 0.61666339635849
+      },
+      {
+        "view": "v0297",
+        "observed_MAD": 0.00038952461909502745,
+        "observed_gate_PSNR": 54.60416532644699,
+        "observed_pct": 81.35713405218782,
+        "void_PSNR": 4.892339353358194,
+        "void_LPIPS": 0.61098313331604
+      },
+      {
+        "view": "v0298",
+        "observed_MAD": 0.00035791759728454053,
+        "observed_gate_PSNR": 55.404608889986726,
+        "observed_pct": 81.75121238511886,
+        "void_PSNR": 4.975355737772298,
+        "void_LPIPS": 0.6106226444244385
+      },
+      {
+        "view": "v0299",
+        "observed_MAD": 0.00043488186202012,
+        "observed_gate_PSNR": 52.970718675632014,
+        "observed_pct": 80.24378978418852,
+        "void_PSNR": 4.660428810113969,
+        "void_LPIPS": 0.6573691964149475
+      },
+      {
+        "view": "v0300",
+        "observed_MAD": 0.0004308447823859751,
+        "observed_gate_PSNR": 53.928606036544046,
+        "observed_pct": 78.2817717628404,
+        "void_PSNR": 4.8216026772545995,
+        "void_LPIPS": 0.6978763341903687
+      },
+      {
+        "view": "v0301",
+        "observed_MAD": 0.0004240376583766192,
+        "observed_gate_PSNR": 54.538922581521405,
+        "observed_pct": 78.63573333849318,
+        "void_PSNR": 4.915854112548403,
+        "void_LPIPS": 0.6684284806251526
+      },
+      {
+        "view": "v0302",
+        "observed_MAD": 0.00044155336217954755,
+        "observed_gate_PSNR": 54.35973833518902,
+        "observed_pct": 78.48175504891492,
+        "void_PSNR": 5.142365399819161,
+        "void_LPIPS": 0.6417691111564636
+      },
+      {
+        "view": "v0303",
+        "observed_MAD": 0.0004027399409096688,
+        "observed_gate_PSNR": 55.9952259709994,
+        "observed_pct": 77.30308969089414,
+        "void_PSNR": 4.974870648138303,
+        "void_LPIPS": 0.6371375322341919
+      },
+      {
+        "view": "v0304",
+        "observed_MAD": 0.0002790755534078926,
+        "observed_gate_PSNR": 56.84988477234085,
+        "observed_pct": 77.72842740142995,
+        "void_PSNR": 5.643695707587658,
+        "void_LPIPS": 0.6631629467010498
+      },
+      {
+        "view": "v0305",
+        "observed_MAD": 0.00027422202401794493,
+        "observed_gate_PSNR": 56.98228997617321,
+        "observed_pct": 78.10887771328144,
+        "void_PSNR": 5.264050408658669,
+        "void_LPIPS": 0.6659044623374939
+      },
+      {
+        "view": "v0306",
+        "observed_MAD": 0.00033052527578547597,
+        "observed_gate_PSNR": 56.60795638104426,
+        "observed_pct": 81.05553276805125,
+        "void_PSNR": 5.123871933042057,
+        "void_LPIPS": 0.7239768505096436
+      },
+      {
+        "view": "v0307",
+        "observed_MAD": 0.0003394496161490679,
+        "observed_gate_PSNR": 57.5438491428579,
+        "observed_pct": 80.81865207361933,
+        "void_PSNR": 5.2798800907563725,
+        "void_LPIPS": 0.7198682427406311
+      },
+      {
+        "view": "v0308",
+        "observed_MAD": 0.0003330172039568424,
+        "observed_gate_PSNR": 57.30427705943917,
+        "observed_pct": 77.13781865924626,
+        "void_PSNR": 5.32694552079636,
+        "void_LPIPS": 0.7295099496841431
+      },
+      {
+        "view": "v0309",
+        "observed_MAD": 0.00032640458084642887,
+        "observed_gate_PSNR": 57.38565501095487,
+        "observed_pct": 78.08002033694407,
+        "void_PSNR": 5.38687098343596,
+        "void_LPIPS": 0.7308257818222046
+      },
+      {
+        "view": "v0310",
+        "observed_MAD": 0.0003590848355088383,
+        "observed_gate_PSNR": 55.49651496254171,
+        "observed_pct": 78.64127128585967,
+        "void_PSNR": 6.007681337515912,
+        "void_LPIPS": 0.7244380116462708
+      },
+      {
+        "view": "v0311",
+        "observed_MAD": 0.0004378076991997659,
+        "observed_gate_PSNR": 55.38351931629593,
+        "observed_pct": 81.14896060901408,
+        "void_PSNR": 6.229687704637669,
+        "void_LPIPS": 0.727271318435669
+      },
+      {
+        "view": "v0312",
+        "observed_MAD": 0.00040867438656277955,
+        "observed_gate_PSNR": 55.654875710244596,
+        "observed_pct": 81.87765106294394,
+        "void_PSNR": 6.278830972514539,
+        "void_LPIPS": 0.7286595702171326
+      },
+      {
+        "view": "v0313",
+        "observed_MAD": 0.00028231844771653414,
+        "observed_gate_PSNR": 58.04485224483925,
+        "observed_pct": 83.8897774996201,
+        "void_PSNR": 6.501242961869201,
+        "void_LPIPS": 0.7203096151351929
+      },
+      {
+        "view": "v0314",
+        "observed_MAD": 0.00038265285547822714,
+        "observed_gate_PSNR": 57.210346054137716,
+        "observed_pct": 84.40428950720775,
+        "void_PSNR": 6.3035873063924255,
+        "void_LPIPS": 0.7197965383529663
+      },
+      {
+        "view": "v0315",
+        "observed_MAD": 0.00032643129816278815,
+        "observed_gate_PSNR": 57.609526523216374,
+        "observed_pct": 83.78197101218164,
+        "void_PSNR": 6.716012870997145,
+        "void_LPIPS": 0.7059606909751892
+      }
+    ],
+    "ungated": [
+      {
+        "view": "v0293",
+        "observed_MAD": 0.013134246692061424,
+        "observed_gate_PSNR": 34.07532198709192,
+        "observed_pct": 84.82962721774359,
+        "void_PSNR": 6.41814085860672,
+        "void_LPIPS": 0.6307628154754639
+      },
+      {
+        "view": "v0294",
+        "observed_MAD": 0.015072316862642765,
+        "observed_gate_PSNR": 33.31215604541911,
+        "observed_pct": 83.08962750798541,
+        "void_PSNR": 5.77774717494543,
+        "void_LPIPS": 0.6389660239219666
+      },
+      {
+        "view": "v0295",
+        "observed_MAD": 0.01755862683057785,
+        "observed_gate_PSNR": 32.603905063803694,
+        "observed_pct": 81.80212146753604,
+        "void_PSNR": 5.103330862457803,
+        "void_LPIPS": 0.6325545907020569
+      },
+      {
+        "view": "v0296",
+        "observed_MAD": 0.013550305739045143,
+        "observed_gate_PSNR": 34.01988982604347,
+        "observed_pct": 81.04248856672417,
+        "void_PSNR": 5.357291028495611,
+        "void_LPIPS": 0.6277876496315002
+      },
+      {
+        "view": "v0297",
+        "observed_MAD": 0.012897311709821224,
+        "observed_gate_PSNR": 34.22076931506784,
+        "observed_pct": 81.35713405218782,
+        "void_PSNR": 5.292256547104213,
+        "void_LPIPS": 0.62679523229599
+      },
+      {
+        "view": "v0298",
+        "observed_MAD": 0.011621562764048576,
+        "observed_gate_PSNR": 34.689161412682125,
+        "observed_pct": 81.75121238511886,
+        "void_PSNR": 5.3709325159369845,
+        "void_LPIPS": 0.6286429762840271
+      },
+      {
+        "view": "v0299",
+        "observed_MAD": 0.012919789180159569,
+        "observed_gate_PSNR": 33.92167388817712,
+        "observed_pct": 80.24378978418852,
+        "void_PSNR": 4.948050162668395,
+        "void_LPIPS": 0.6747283935546875
+      },
+      {
+        "view": "v0300",
+        "observed_MAD": 0.012315892614424229,
+        "observed_gate_PSNR": 33.460167671223104,
+        "observed_pct": 78.2817717628404,
+        "void_PSNR": 5.19839759481663,
+        "void_LPIPS": 0.7152791619300842
+      },
+      {
+        "view": "v0301",
+        "observed_MAD": 0.014969578012824059,
+        "observed_gate_PSNR": 32.92756906281709,
+        "observed_pct": 78.63573333849318,
+        "void_PSNR": 5.470095367191585,
+        "void_LPIPS": 0.686669111251831
+      },
+      {
+        "view": "v0302",
+        "observed_MAD": 0.016221748664975166,
+        "observed_gate_PSNR": 32.49071236684839,
+        "observed_pct": 78.48175504891492,
+        "void_PSNR": 5.729795752195322,
+        "void_LPIPS": 0.6571456789970398
+      },
+      {
+        "view": "v0303",
+        "observed_MAD": 0.012348474003374577,
+        "observed_gate_PSNR": 33.91467328406285,
+        "observed_pct": 77.30308969089414,
+        "void_PSNR": 5.489737150797735,
+        "void_LPIPS": 0.6495822668075562
+      },
+      {
+        "view": "v0304",
+        "observed_MAD": 0.0164199136197567,
+        "observed_gate_PSNR": 32.26171990714977,
+        "observed_pct": 77.72842740142995,
+        "void_PSNR": 6.5774328798282955,
+        "void_LPIPS": 0.6774851083755493
+      },
+      {
+        "view": "v0305",
+        "observed_MAD": 0.015773367136716843,
+        "observed_gate_PSNR": 32.52841369406616,
+        "observed_pct": 78.10887771328144,
+        "void_PSNR": 5.891978482803598,
+        "void_LPIPS": 0.6744556427001953
+      },
+      {
+        "view": "v0306",
+        "observed_MAD": 0.011792466975748539,
+        "observed_gate_PSNR": 34.070921722874026,
+        "observed_pct": 81.05553276805125,
+        "void_PSNR": 5.909137812755346,
+        "void_LPIPS": 0.7438313961029053
+      },
+      {
+        "view": "v0307",
+        "observed_MAD": 0.011765960603952408,
+        "observed_gate_PSNR": 33.912103195084285,
+        "observed_pct": 80.81865207361933,
+        "void_PSNR": 6.279573599450932,
+        "void_LPIPS": 0.7383573055267334
+      },
+      {
+        "view": "v0308",
+        "observed_MAD": 0.014744623564183712,
+        "observed_gate_PSNR": 32.77690852113806,
+        "observed_pct": 77.13781865924626,
+        "void_PSNR": 6.230188614008566,
+        "void_LPIPS": 0.7435336112976074
+      },
+      {
+        "view": "v0309",
+        "observed_MAD": 0.014984146691858768,
+        "observed_gate_PSNR": 32.706753522713655,
+        "observed_pct": 78.08002033694407,
+        "void_PSNR": 6.213042279880144,
+        "void_LPIPS": 0.7399246692657471
+      },
+      {
+        "view": "v0310",
+        "observed_MAD": 0.018216963857412338,
+        "observed_gate_PSNR": 32.12990448383869,
+        "observed_pct": 78.64127128585967,
+        "void_PSNR": 7.20084759604902,
+        "void_LPIPS": 0.744228720664978
+      },
+      {
+        "view": "v0311",
+        "observed_MAD": 0.014321194030344486,
+        "observed_gate_PSNR": 33.23122415578831,
+        "observed_pct": 81.14896060901408,
+        "void_PSNR": 7.060584523693043,
+        "void_LPIPS": 0.7529951333999634
+      },
+      {
+        "view": "v0312",
+        "observed_MAD": 0.011894088238477707,
+        "observed_gate_PSNR": 34.1095311147085,
+        "observed_pct": 81.87765106294394,
+        "void_PSNR": 7.1338833890858,
+        "void_LPIPS": 0.7540488243103027
+      },
+      {
+        "view": "v0313",
+        "observed_MAD": 0.010608965530991554,
+        "observed_gate_PSNR": 34.807108574684726,
+        "observed_pct": 83.8897774996201,
+        "void_PSNR": 7.775879615623875,
+        "void_LPIPS": 0.7491720914840698
+      },
+      {
+        "view": "v0314",
+        "observed_MAD": 0.0117397615686059,
+        "observed_gate_PSNR": 34.45210173891735,
+        "observed_pct": 84.40428950720775,
+        "void_PSNR": 7.380156071781943,
+        "void_LPIPS": 0.750623345375061
+      },
+      {
+        "view": "v0315",
+        "observed_MAD": 0.012723627500236034,
+        "observed_gate_PSNR": 34.0959412430949,
+        "observed_pct": 83.78197101218164,
+        "void_PSNR": 7.410964446818383,
+        "void_LPIPS": 0.7257197499275208
+      }
+    ]
+  },
+  "summary": {
+    "gated": {
+      "n": 23,
+      "observed_MAD_mean": 0.00036903714341030496,
+      "observed_MAD_max": 0.00044155336217954755,
+      "observed_gate_PSNR_mean": 55.80439132590547,
+      "void_vs_GT_PSNR_mean": 5.451415149560487,
+      "void_vs_GT_LPIPS_mean": 0.6757448833921681
+    },
+    "ungated": {
+      "n": 23,
+      "observed_MAD_mean": 0.01380847532140172,
+      "observed_MAD_max": 0.018216963857412338,
+      "observed_gate_PSNR_mean": 33.50950573031718,
+      "void_vs_GT_PSNR_mean": 6.139975840304146,
+      "void_vs_GT_LPIPS_mean": 0.6940560651862103
+    }
+  }
+}

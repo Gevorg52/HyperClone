@@ -189,3 +189,36 @@ end-to-end on all 5 runs, all six reproduce identically as full dicts, and each
 corruption is caught in the correct direction by the metric family that should
 catch it (floaters → consistency+NR; blur → perceptual/NR; temporal popping →
 raft_warp/flicker/tsed).
+
+---
+
+# WP-C1 genuine-hole completion bank (2026-07-02)
+
+Standing completion benchmark + first gated-completion loop. Full context:
+`_infusion/hole_testbed_RECORD.md` (testbed) + `_infusion/wpc1_RECORD.md` (gate loop).
+
+| run | splat | obs% | mPSNR* | mLPIPS* | crossscore | nova | tsed | raft | nvs_sqa | flicker |
+|---|---|---|---|---|---|---|---|---|---|---|
+| hole_baseline | holed GPU_V4 (deletion void) | 80.6 | 15.23 | 0.5518 | 0.6052 | 0.3664 | 1.000 | 0.0149 | -2.358 | 0.9910 |
+| hole_control | + NO fills, 364 real views distilled | 100.0 | 18.33 | 0.5115 | **0.7697** | **0.2116** | 1.000 | 0.0123 | -2.408 | 0.9893 |
+| hole_gated | + GaMO-gated SDXL fills distilled | 100.0 | 12.17 | 0.5446 | 0.6663 | 0.3663 | 1.000 | 0.0131 | -2.383 | 0.9895 |
+| hole_ungated | + ungated SDXL fills distilled | 100.0 | 12.66 | 0.5504 | 0.6767 | 0.3596 | 1.000 | 0.0128 | -2.382 | 0.9896 |
+
+*mPSNR/mLPIPS here are the scorecard's OWN-mask values: for the filled splats the
+mask is 100% observed, so they include plausible-not-faithful fill-vs-GT pixels —
+NOT comparable to the baseline row.
+
+**Review-corrected 2026-07-03 (H1 + H2, full detail in `_infusion/wpc1_RECORD.md`
+§CLOSEOUT).** The gate-valid observed-region comparison uses the FIXED baseline mask
+(`_infusion/hole/gate_splat_*.json`) with **TILED** LPIPS (tile256/cover0.8, full res —
+the previously-banked bbox LPIPS was accidental FULL-FRAME, the observed region being an
+annulus around the void): PSNR/tiled-LPIPS = base 15.23/**0.4791** → control 19.59/**0.4648**
+→ gated 16.81/**0.4722** → ungated 17.03/**0.4805** (old deprecated full-frame LPIPS
+0.5518/0.5115/0.5446/0.5504 retained as `_deprecated_fullframe`). **The NO-FILL CONTROL
+row is the headline finding:** identical distill config with ZERO fills reaches observed%
+100 and BEATS both fill arms on every splat-level axis — on this dense-dome/real-view-dominant
+testbed, MCMC-regrowth + grazing views (v0060 93.9%, v0540 90.8% observed) do the whole
+completion; generative fill adds no splat-level value here (a never-captured hole is needed
+to make it strictly necessary). The gate's value is the 2D structural guarantee (55.8 vs
+33.5 dB observed-pixel integrity) + fill-dominant/2D-delivery regimes. Split `wedge:293:316`
+(23 views), GPU_V4 data, factor 2, seed 0.

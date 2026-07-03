@@ -379,11 +379,26 @@ steps watching `torch.cuda.memory_allocated` (leak check).
 > envs don't exist on this machine — see backbone note in wpc1_RECORD). **2D gate integrity
 > decisive: gated 55.8 dB observed-pixels vs ungated 33.5 dB (37×)**. (3) **Completion loop passes
 > vs base**: fills distilled back (arc held out of real supervision) → observed% 80.6→100, CrossScore
-> +0.061, RAFT better, TSED 1.0 held, fixed-mask observed-LPIPS IMPROVES 0.5518→0.5446. (4) **New
-> finding**: real-view-dominant distill is itself a secondary gate — splat-level gated≈ungated
-> (ungated rescued by 364 real views); the latent gate's mandatory role = the 2D guarantee +
-> fill-dominant/low-overlap/2D-delivery regimes. Next: FLUX.1-Fill / Wan-I2V / causal-ArtiFixer
-> backbone swaps into the same scripted loop.
+> +0.061, RAFT better, TSED 1.0 held, fixed-mask observed-LPIPS (TILED, H1-corrected) IMPROVES
+> 0.4791→0.4722 (gated<ungated 0.4805 → gate leg holds). (4) **New finding**: real-view-dominant
+> distill is itself a secondary gate — splat-level gated≈ungated (ungated rescued by 364 real views);
+> the latent gate's mandatory role = the 2D guarantee + fill-dominant/low-overlap/2D-delivery regimes.
+> **CLOSEOUT (2026-07-03, review fixes — `wpc1_RECORD.md` §CLOSEOUT):** H1 — the banked fixed-mask
+> LPIPS was accidentally FULL-FRAME (bbox crop = whole frame around the central-void annulus);
+> re-banked TILED (tile256/cover0.8, full res) into `gate_splat_*.json`, gate leg intact. H2 —
+> a NO-FILL CONTROL distill (identical config, zero fills, 364 real views) reaches observed% 100
+> AND BEATS both fills on every splat-level axis (tiled-LPIPS 0.4648, CrossScore 0.7697, NOVA
+> 0.2116): on this dense-dome/real-view-dominant testbed MCMC-regrowth+grazing views (v0060 93.9%,
+> v0540 90.8%) achieve the whole completion — generative fill adds no splat-level value here; a
+> never-captured hole is needed to make it strictly necessary. Floater four-way: SOR-outlier
+> 0.11–0.24% (all clean, content not haze). M2 — injection off-by-one (`t`→`timesteps[i+1]`) fixed
+> in gamo_fill.py; banked fills kept (feather paste-back masks the effect). **M3 ratification: the
+> beats-ungated gate leg holds on the gate-integrity axis (2D 55.8 vs 33.5 dB; corrected tiled LPIPS
+> gated < ungated) and NOT on splat-level plausibility scores (ungated edges gated on
+> CrossScore/NOVA/RAFT there — the distill-as-secondary-gate regime finding). Closure ratified on
+> that basis; the latent gate remains mandatory for the 2D structural guarantee and
+> fill-dominant/low-real-overlap/2D-delivery regimes.** Next: FLUX.1-Fill / Wan-I2V / causal-ArtiFixer
+> backbone swaps into the same scripted loop; a fresh never-captured-hole capture for a strict test.
 **Re-implement the ~50-line mechanism on our WSL diffusers stack, copying freely from their
 pipeline source** (`gamo/my_diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion_
 multiview_inverse.py`). The reason not to run GaMO as-shipped is technical, not legal: its env
