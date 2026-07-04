@@ -287,6 +287,28 @@ keyboard) rises materially; retrain → deck-region LPIPS improves; global held-
 not worse; report point count + mean reproj error.
 
 ═══════════════════════════════════════════════════════════════════════
+### WP-S1 — Stacked-levers production run (the four faithful levers, first co-run)
+═══════════════════════════════════════════════════════════════════════
+> **STATUS: ✅ CLOSED 2026-07-04** (production runs, no new code beyond eval scripts).
+> **GATE PASSED.** First-ever stack of all four validated faithful levers (dense-init +
+> mono-depth 0.05 + erank 0.01@7k + gated-LPIPS 0.2) vs the production control, on the user's
+> two real captures, 4× 30k @ factor 2, cap 3M, pose_opt, C2F 4→2, seed 0. **Stack beats
+> control on held-out masked-LPIPS (Laptop 0.3143→0.3096 −1.5%; GPU_V4 0.4106→0.4071 −0.85%)
+> AND on the flat/shiny region crops (Laptop deck 0.2773→0.2739 −1.2%; GPU_V4 shiny backplate
+> box(0.28,0.72,0.30,0.55) 0.3527→0.3473 −1.5%) on BOTH scenes**, and collapses needle
+> Gaussians 89→15% / 92→11% (mean-erank 1.5→2.2). NO negative lever interaction (stack ≥ ctrl
+> on every primary metric — the mono×dense×erank triple composes positively; drop-one probe
+> unneeded). Honest caveats: giant-blob +3–4pp (benign erank isotropization); masked-PSNR
+> −0.03/−0.11 dB (LPIPS↔PSNR trade); improvements MODEST (well-captured orbits — payoff is
+> geometric cleanup + slight sharpening). GPU_V4 dense-init built this WP (123k→883k, 7.16×,
+> reproj 1.39px, seed 0). **Key unsolved: view-dependent specular reflections (glossy laptop
+> lid mirror; GPU metal sheen) render as mushy smears in BOTH arms — the faithful levers add
+> no specular modeling → clear signal for a dedicated specular lever.** Bank comparison
+> confounded (GPU bank = 2M/low-LPIPS → +2.3 dB PSNR but worse LPIPS; even WP-S1 ctrl sits
+> 2.2 dB under it — recipe, not levers). Evidence: `_infusion/wps1_RECORD.md` +
+> `qa/wps1_{laptop,gpu}_{ctrl,stack}/` + `_infusion/wps1_{laptop,gpu}_region.json` + strips.
+
+═══════════════════════════════════════════════════════════════════════
 ### WP-F3 — DIM-masked depth supervision (In-Depth-We-Trust) — 2 days + ablation
 ═══════════════════════════════════════════════════════════════════════
 No code exists [V] — implement from formulas (~80 lines; full paper text in
@@ -310,6 +332,25 @@ masked-LPIPS); if not, fall back to conf-masked L_abs + gradient loss without DI
 ═══════════════════════════════════════════════════════════════════════
 ### WP-F4 — Planar-prior losses (PlanarGS port) — 3–5 days
 ═══════════════════════════════════════════════════════════════════════
+> **STATUS: CODE COMPLETE + CPU-mechanism verified 2026-07-03; GPU gate (A/B)
+> PENDING a free GPU (WP-S1 owns it — 4×30k + GPU_V4 dense_init in flight).**
+> Shipped: `core/plane_masks.py` (plane-instance maps from the MoGe-2 normal+depth
+> cache — SAM route dropped: production plane masks never preserved + GPU contention;
+> geometric inspection instead) built for Laptop (304/304 views, 8.57 planes/view,
+> 58.7% labeled; shared priors dir → also populates wps1/{stack,ctrl}). Trainer +
+> backend flags (all default OFF): `--planar_lambda` (L_p @14k), `--prior_depth_lambda`
+> (L_rd @7k), `--prior_normal_lambda` (L_rn @20k), `--planar_start/prior_*_start`,
+> `--planar_detach` (default off = faithful PlanarGS, no detach). Helpers
+> `co_planar_depth`+`normal_from_depth` ported from PlanarGS (MIT, cloned to
+> `../PlanarGS`; THIRD_PARTY.md updated). MoGe normals verified to point toward the
+> camera (matches pcd2normal — no sign flip). L_dn + lambda_scale flatten SKIPPED
+> per plan. CPU math check PASSED (`_infusion/wpf4_mechanism_cpu.{py,txt}`: plane-fit
+> residual ~1e-7 on a perfect plane, depth-normal cos=1.0, L_p/L_rn nonzero + finite
+> grads + no NaN). 139 tests pass. Gate runner ready: `_infusion/wpf4_gpu_all.sh`
+> (3 per-loss mechanism runs → 15k A/B off/on on dense_init+mono_depth base →
+> qa_report + `wpf4_flatness_eval.py` + floater_report). A/B lambdas 0.5/0.05/0.2,
+> stagger 7k/14k/20k scaled to 15k = L_rd@3.5k/L_p@7k/L_rn@10k. Evidence scaffold:
+> `_infusion/wpf4_RECORD.md`.
 Port ONLY the losses (its base trainer is graphdeco — we keep gsplat MCMC). **Geometric prior:
 our MoGe-2 cache** (reuses WP-F1 infra, metric depth, one fewer heavy dep) [PC]; running their
 DUSt3R-based `run_geomprior.py` as-in-paper is a fine fallback if MoGe-prior results diverge.
@@ -484,6 +525,42 @@ underdelivery — raise max_kps, density report gate before integration; (5) los
 destabilizes MCMC — one loss at a time, per-loss scalars, `--no_priors` A/B always available.
 
 ---
+
+═══════════════════════════════════════════════════════════════════════
+### WP-S2 — Object-mode background study (QUEUED; runs when GPU frees after WP-S1/F4)
+═══════════════════════════════════════════════════════════════════════
+**Product context (user, 2026-07-03): HYPERclone has two functions — scanning WORLDS and scanning
+OBJECTS. Both sample captures are objects → background is a means (SfM anchors), not a deliverable.**
+Pipeline already implements "background for COLMAP, masked for training" (masking = Stage 8, after
+SfM; current training data is pre-multiplied black-bg = object mode). NEVER validated: whether
+that's optimal. Three-arm A/B on GPU_V4 (raw frames exist in `export/images`; production recipe,
+seed 0, 15–30k): (a) full-scene training (unmasked) · (b) object-only (pre-multiplied, = current
+prod) · (c) object-only + `--alpha_loss_lambda 0.1` (the shipped-but-never-production-tested
+black-opaque-floater killer, commit 99781f5). Evaluate object-region masked metrics (mask-scoped
+QA), floater report (esp. black-opaque floaters vs (b)), background-region artifact check on (a),
+and NEW-LEVER INTERACTIONS: does `--dense_init` seed useless background points in object mode
+(count in/out of object mask); do MoGe priors degrade on black-bg frames (F1 conf/mask stats
+per arm). GATE: a clear recommendation per mode — object scans: keep/drop background at training +
+alpha-loss verdict; worlds mode unaffected. Evidence per §0.
+
+═══════════════════════════════════════════════════════════════════════
+### WP-G1 — Glossy/specular lever (QUEUED; scope decided by WP-S1's residual diagnosis)
+═══════════════════════════════════════════════════════════════════════
+Research verdict (2026-07-03, verified primary-source): **"Apple SHARP" (2512.10685, apple/ml-sharp)
+identified and REJECTED** — single-image→3DGS for near-view synthesis, explicitly no view-dependent/
+reflective modeling (its own limitations section), torch 2.8 pin conflicts; name collision with our
+need, skip. Specular ranking for single glossy objects on gsplat MCMC: (0) zero-cost sanity A/B
+first — `app_opt=True` + confirm `sh_degree` saturation (flags already in gsplat); (1) **highest
+ceiling = 3DGS-DR port** (2404.18454, github.com/gapszju/3DGS-DR — the ONLY specular lever with
+public code + object-centric validation: Helmet/Bell/Ball +3.5–6 dB, LPIPS ~halved; medium port:
+deferred shading + per-pixel normal propagation kernels, sm_120 AOT rebuild discipline applies);
+NASGabor deprioritized (sm_120 buildability unverified, built on Beta-Splatting not MCMC);
+Ref-DGS/MaterialRefGS/RGS-DR have NO code; EnvGS = incompatible ray-tracing backend.
+Generative-sharpening bake-off candidates (nothing has verified FINAL-SPLAT evidence — judge like
+WP-C1): **GeoQuery** (2605.12399, code + gsplat example released, +1.09 dB over Difix3D+ verified
+in its Table 1) and **SwiftVR** (2606.09516, Wan2.2-5B, documented plain-SDPA). ArtiFixer repo
+unchanged since Jun; no 1.3B variant exists. FlashVSR: check its "locality-constrained sparse
+attention" against the sm_120 landmine before any use.
 
 ## Annex A — H100 causal-ArtiFixer probe (optional, ~$1, not excluded)
 Rent an H100 spot (sm_90: stock FA2/FA3 works). Steps: clone nv-tlabs/artifixer + weights

@@ -1,0 +1,5 @@
+
+model           Gaussians  floater indicators (lower=cleaner; compare vs base)
+
+gpu_ctrl        3,000,000  needle 92.15%  SOR-outlier  0.17%  giant  8.90%  low-opa  58.2%  med-opa 0.005  mean-erank 1.532
+gpu_stack       3,000,000  needle 10.58%  SOR-outlier  0.06%  giant 12.09%  low-opa  51.3%  med-opa 0.009  mean-erank 2.175

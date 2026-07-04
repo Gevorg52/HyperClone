@@ -289,6 +289,70 @@ time from `core/dense_init.py`, not patched, to keep hloc edits minimal).
 
 ---
 
+## WP-F4 — Planar-prior losses (PlanarGS port, added 2026-07-03)
+
+### Co-planarity / prior-depth / prior-normal losses + plane-mask builder
+- **What we ship:**
+  - `core/training/gsplat_trainer.py::co_planar_depth` + `normal_from_depth` and
+    the three losses `--planar_lambda` (L_p), `--prior_depth_lambda` (L_rd),
+    `--prior_normal_lambda` (L_rn) — all default OFF.
+  - `core/plane_masks.py` — per-view plane-instance label maps
+    (`priors/plane_mask/{stem}.npy`) via the geometric-inspection recipe.
+- **Idea/source:** "PlanarGS: ..." — **github.com/SJTU-ViSYS-team/PlanarGS**
+  (cloned to `D:\REPOS\HYPERclone\PlanarGS`, reference-only, not run). Ported:
+  `planar/co_planar.py::ProjectDepth` (regularized LS plane fit
+  `param=(PPᵀ+0.01I)⁻¹P·1`, plane depth `1/(paramᵀK⁻¹ũ)`),
+  `common_utils/graphics_utils.py::{Depth2Pointscam, pcd2normal, NormalFromDepth}`,
+  and the `train.py` loss wiring (L_p masked-L1; L_rd = conf×canny×depth_weight
+  gated depth loss; L_rn = L1 + (1−cos) of depth-derived vs prior normal). Lambdas
+  0.5 / 0.05 / 0.2 and the 7k/14k/20k stagger are PlanarGS's `arguments/__init__.py`
+  defaults.
+- **Adoption / deviations (POC stance — copied freely, adapted to our stack):**
+  - Base trainer is **gsplat MCMC (ours)**, not PlanarGS's graphdeco + custom
+    `diff-plane-rasterization`. So L_dn (needs a rasterized Gaussian-normal map)
+    is **SKIPPED**; L_rn instead compares the prior normal to a **depth-derived**
+    normal (`normal_from_depth`, = their pcd2normal) — no extra render. PlanarGS's
+    `lambda_scale=100` min-scale flatten is **SKIPPED** (our erank hinge covers
+    anti-needle; aggressive flatten biases MCMC relocation).
+  - Geometric prior is **our MoGe-2 cache** (WP-F1), not their DUSt3R
+    `run_geomprior.py`. Plane masks come from the **MoGe-2 normal+depth cache**
+    (K-means k=5 normal split → 8-conn CC → 0.05 plane-residual prune →
+    largest-CC, min 2000 px AND ≥0.5% frame), NOT from SAM-2.1 instances
+    (production plane masks were never preserved; running SAM AMG fresh would
+    contend with the GPU and still need this same inspection). Disjoint clusters
+    → no overlap/containment merge needed (a documented simplification).
+  - Depths are normalized-world units (arbitrary scale), so L_p/L_rd are
+    **median-normalized** (their lambda stays scene-scale-invariant, matching our
+    existing sparse/mono depth losses). MoGe normals point toward the camera,
+    matching pcd2normal — verified, **no sign flip**.
+  - **Mask normalization deviation:** all three losses divide by their *active
+    mask pixel count* (`m.sum()`), whereas PlanarGS's `loss_utils.l1_loss/l2_loss`
+    divide by the *full-frame* pixel count. Ours is coverage-invariant (planar
+    coverage varies a lot per view — median 58.7% of frame); combined with the
+    median depth-normalization this means the PlanarGS lambda VALUES (0.5/0.05/0.2)
+    are re-interpreted, not transferred 1:1 — the A/B gate is what calibrates
+    effective strength (tune if L_p fights MCMC).
+  - **Border deviation fixed (post-review):** we zero the 8-px border in the loss
+    mask too (PlanarGS zeros it in-place inside `co_planar`, so its `planar_mask`
+    drops it) — keeps numerator/denominator consistent. Degenerate-denominator
+    guard is sign-PRESERVING (a fixed +eps would map grazing rays to ~1e6).
+  - L_p fit is kept **attached** by default (faithful to PlanarGS, which does not
+    `.detach()`); `--planar_detach` exposes the detached variant.
+- **Source repo license:** MIT (`PlanarGS/LICENSE`). Permissive; the funded port
+  can vendor the ported functions directly. (POC stance: license was not a factor.)
+
+---
+
 ## Pre-existing components (recorded for completeness — not added by WP-Q2)
 - **gsplat** v1.5.3 (AOT sm_120) — nerfstudio-project/gsplat — Apache-2.0. Core rasterizer/MCMC.
 - **Mip-Splatting** antialiased mode — via gsplat `rasterize_mode="antialiased"` — used as-is.
+
+---
+
+## WP-S1 — Stacked-levers production run (2026-07-04)
+No new third-party component. WP-S1 is a production run that combines four already-logged
+levers on the user's two real captures: RoMa dense-init (`romatch` MIT, logged under WP-F2),
+MoGe-2 mono-depth prior (`Ruicheng/moge-2-vitl-normal` MIT, logged under WP-F1), the
+effective-rank hinge (paper 2406.11672 / erank_gs, logged under WP-Q2), and gsplat's gated
+LPIPS (torchmetrics VGG). Eval reuses the WP-Q1 6-scorer stack (crossscore/nova/tsed/
+raft_warp/nvs_sqa/flicker) — all previously logged. Evidence: `_infusion/wps1_RECORD.md`.
