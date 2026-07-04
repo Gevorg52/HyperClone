@@ -189,6 +189,18 @@ verification drop unregisterable frames).
 - **Depth/normal priors for *detail*:** they fix geometry, not albedo sharpness
   (DN-Splatter/DNGaussian treat depth↔color as a trade-off).
 - **2DGS/GOF/RaDe-GS for sharpness:** over-smooth appearance (~−1 dB).
+- **PlanarGS planar package at the paper's lambdas (WP-F4, 2026-07-04):** DO NOT
+  copy PlanarGS's lambda VALUES (L_p 0.5 / L_rd 0.05 / L_rn 0.2) into our trainer.
+  Our losses are mask-sum + median normalized (PlanarGS divides by full-frame px in
+  metric depth), so the values don't transfer. A/B (Laptop 15k, dense_init+mono_depth
+  base): geometry FLATNESS improved a lot (deck plane RMS −18.9%, all-planes −42.1%)
+  but appearance CRASHED (masked-LPIPS +15.3%, PSNR −1.37 dB, tex-LPIPS +17.6%,
+  giants/low-opa floaters up). Culprit = **L_rn**: its term is ~0.34–0.72, so ×λ0.2
+  ≈ 0.07–0.14 > the whole photometric loss (~0.09) → total loss triples + PSNR crashes
+  the moment L_rn activates. The lever is mechanically correct (flatness is real, code
+  reviewed + unit-tested); it needs λ recalibration (λ_rn ÷~10, λ_rd ÷~2.5, keep λ_p;
+  target each per-loss contribution ≲0.02) before use. Also: restrict plane masks to
+  foreground/object planes (background got labeled). Evidence: `_infusion/wpf4_RECORD.md`.
 
 ---
 

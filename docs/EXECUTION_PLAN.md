@@ -66,7 +66,10 @@ Project-specific additions (from six months of validated practice):
   Do NOT use `PYTORCH_CUDA_ALLOC_CONF=expandable_segments` on WSL2.
 - **Datasets**: `_dataset/GPU_V4/apex_images/{export,sfm,training}` (2M-GS factor-2 30k ckpt) and
   `_dataset/Laptop/apex_images/training/gsplat_prod` (Laptop ckpts dir was cleared; PLY remains;
-  production masks come from the SAM 2.1 stage — images on disk are pre-multiplied black-bg).
+  production masks come from the SAM 2.1 stage). **CORRECTED 2026-07-04 (WP-G1 discovery): the
+  `gsplat_prod/data/images_2` training frames are FULL SCENES, NOT pre-multiplied black-bg**
+  (Laptop ~0% near-black outdoor patio; GPU_V4 16.8% warm indoor) — production training has been
+  full-scene all along; WP-S2 tests whether object-only masking should become the object-mode default.
 - **Trainer integration points** (verified): losses join at `core/training/gsplat_trainer.py:1040–1129`
   (l1/ssim → alpha → opacity/scale/vis regs → depth@1097 → geo → gated-LPIPS/gram); flags at
   argparse block; backend plumbing pattern in `core/training/gsplat_backend.py` (`get_default_config()`
@@ -332,25 +335,27 @@ masked-LPIPS); if not, fall back to conf-masked L_abs + gradient loss without DI
 ═══════════════════════════════════════════════════════════════════════
 ### WP-F4 — Planar-prior losses (PlanarGS port) — 3–5 days
 ═══════════════════════════════════════════════════════════════════════
-> **STATUS: CODE COMPLETE + CPU-mechanism verified 2026-07-03; GPU gate (A/B)
-> PENDING a free GPU (WP-S1 owns it — 4×30k + GPU_V4 dense_init in flight).**
-> Shipped: `core/plane_masks.py` (plane-instance maps from the MoGe-2 normal+depth
-> cache — SAM route dropped: production plane masks never preserved + GPU contention;
-> geometric inspection instead) built for Laptop (304/304 views, 8.57 planes/view,
-> 58.7% labeled; shared priors dir → also populates wps1/{stack,ctrl}). Trainer +
-> backend flags (all default OFF): `--planar_lambda` (L_p @14k), `--prior_depth_lambda`
-> (L_rd @7k), `--prior_normal_lambda` (L_rn @20k), `--planar_start/prior_*_start`,
-> `--planar_detach` (default off = faithful PlanarGS, no detach). Helpers
-> `co_planar_depth`+`normal_from_depth` ported from PlanarGS (MIT, cloned to
-> `../PlanarGS`; THIRD_PARTY.md updated). MoGe normals verified to point toward the
-> camera (matches pcd2normal — no sign flip). L_dn + lambda_scale flatten SKIPPED
-> per plan. CPU math check PASSED (`_infusion/wpf4_mechanism_cpu.{py,txt}`: plane-fit
-> residual ~1e-7 on a perfect plane, depth-normal cos=1.0, L_p/L_rn nonzero + finite
-> grads + no NaN). 139 tests pass. Gate runner ready: `_infusion/wpf4_gpu_all.sh`
-> (3 per-loss mechanism runs → 15k A/B off/on on dense_init+mono_depth base →
-> qa_report + `wpf4_flatness_eval.py` + floater_report). A/B lambdas 0.5/0.05/0.2,
-> stagger 7k/14k/20k scaled to 15k = L_rd@3.5k/L_p@7k/L_rn@10k. Evidence scaffold:
-> `_infusion/wpf4_RECORD.md`.
+> **STATUS: CODE COMPLETE + reviewed/fixed; GATE RAN 2026-07-04 → FAILED as-specced
+> (PlanarGS lambdas), diagnosed + fixable. Recalibration A/B recommended, NOT run
+> (GPU handed to WP-S2).** Shipped: `core/plane_masks.py` (plane-instance maps from
+> the MoGe-2 cache — SAM route dropped: masks never preserved + GPU contention;
+> geometric inspection instead) built for Laptop (304/304 views, 8.57 planes/view).
+> Trainer + backend flags (all default OFF): `--planar_lambda` (L_p), `--prior_depth_lambda`
+> (L_rd), `--prior_normal_lambda` (L_rn), `--*_start`, `--planar_detach` (default off =
+> faithful, no detach). Helpers `co_planar_depth`+`normal_from_depth` ported from
+> PlanarGS (MIT; THIRD_PARTY.md). L_dn + lambda_scale flatten SKIPPED per plan. CPU +
+> GPU per-loss mechanism checks PASSED; **146 tests pass** (7 new); reviewer pass fixed
+> a HIGH sign-preserving degenerate-denom bug + border/coverage/normalization items.
+> **A/B (Laptop 15k, seed 0, cap 1M, dense_init+mono_depth base): deck plane RMS
+> −18.9% / all-planes −42.1% (FLATNESS improves) BUT masked-LPIPS +15.3%
+> (0.2572→0.2966), masked PSNR −1.37 dB, deck-LPIPS +11.3%, tex-LPIPS +17.6%, giants
+> +1.6pp / low-opa +3.9pp → GATE FAILED on every appearance leg.** Root cause (loss
+> curves): the PlanarGS lambda VALUES don't transfer to our mask-sum+median
+> normalization — **L_rn term ~0.34–0.72 × λ0.2 ≈ 0.07–0.14 > the whole photometric
+> loss (~0.09)**; total loss triples + PSNR crashes the instant L_rn activates @10k.
+> Lever is mechanically sound (flatness real); needs λ recalibration (λ_rn ÷10≈0.02,
+> λ_rd ÷2.5, keep λ_p). Evidence: `_infusion/wpf4_RECORD.md` + `qa/wpf4_ab_{off,on}/` +
+> `_infusion/wpf4_ab_{flatness.json,floaters.txt}`.
 Port ONLY the losses (its base trainer is graphdeco — we keep gsplat MCMC). **Geometric prior:
 our MoGe-2 cache** (reuses WP-F1 infra, metric depth, one fewer heavy dep) [PC]; running their
 DUSt3R-based `run_geomprior.py` as-in-paper is a fine fallback if MoGe-prior results diverge.
@@ -531,11 +536,11 @@ destabilizes MCMC — one loss at a time, per-loss scalars, `--no_priors` A/B al
 ═══════════════════════════════════════════════════════════════════════
 **Product context (user, 2026-07-03): HYPERclone has two functions — scanning WORLDS and scanning
 OBJECTS. Both sample captures are objects → background is a means (SfM anchors), not a deliverable.**
-Pipeline already implements "background for COLMAP, masked for training" (masking = Stage 8, after
-SfM; current training data is pre-multiplied black-bg = object mode). NEVER validated: whether
-that's optimal. Three-arm A/B on GPU_V4 (raw frames exist in `export/images`; production recipe,
-seed 0, 15–30k): (a) full-scene training (unmasked) · (b) object-only (pre-multiplied, = current
-prod) · (c) object-only + `--alpha_loss_lambda 0.1` (the shipped-but-never-production-tested
+Pipeline has the masking stage (Stage 8, after SfM), but **WP-G1 discovered production training
+frames are FULL SCENES (correction 2026-07-04)** — so full-scene IS current prod and object-only
+is the NEW mode under test. Three-arm A/B on GPU_V4 (production/stacked recipe,
+seed 0, 15k): (a) full-scene training (= current prod, control) · (b) object-only (pre-multiplied
+masks, NEW) · (c) object-only + `--alpha_loss_lambda 0.1` (the shipped-but-never-production-tested
 black-opaque-floater killer, commit 99781f5). Evaluate object-region masked metrics (mask-scoped
 QA), floater report (esp. black-opaque floaters vs (b)), background-region artifact check on (a),
 and NEW-LEVER INTERACTIONS: does `--dense_init` seed useless background points in object mode

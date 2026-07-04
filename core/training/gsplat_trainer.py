@@ -448,13 +448,16 @@ def load_image(data: dict, index: int) -> dict:
     if mask is not None:
         out["mask"] = torch.from_numpy(mask).float()  # (H, W) in [0,1]
 
-    # Dense mono-depth prior (WP-F1): aligned MoGe-2 depth is stored already in
-    # the undistorted+cropped training frame, so it drops in without any remap.
-    # inf = invalid (masked in the loss). Only attached if the shape matches the
-    # (post-undistort) rendered frame — a mismatch means wrong factor -> skip.
-    if data.get("load_priors"):
+    # Geometric priors (WP-F1 mono-depth + WP-F4 planar): aligned MoGe-2 maps are
+    # stored already in the undistorted+cropped training frame, so they drop in
+    # without any remap. inf/0 = invalid (masked in the loss). Attached only when
+    # the shape matches the (post-undistort) rendered frame — a mismatch means
+    # wrong factor / coarse phase -> skip (keeps the losses fine-phase only).
+    need_priors = data.get("load_priors") or data.get("load_planar_priors")
+    if need_priors:
         stem = os.path.splitext(os.path.basename(data["image_paths"][index]))[0]
-        ppath = os.path.join(data["prior_dir"], "depth", stem + ".npy")
+        pdir = data["prior_dir"]
+        ppath = os.path.join(pdir, "depth", stem + ".npy")
         if os.path.isfile(ppath):
             pd = np.load(ppath)
             if pd.shape[:2] == image.shape[:2]:
@@ -462,6 +465,35 @@ def load_image(data: dict, index: int) -> dict:
                 rel, dw = data.get("prior_align", {}).get(stem, (False, 0.0))
                 out["prior_reliable"] = bool(rel)
                 out["prior_weight"] = float(dw)
+                # WP-F4: normal + conf + inverse-Canny edge + plane-instance map.
+                # Guard each read so a partially-built cache degrades gracefully
+                # (the loss setup already hard-errors on zero coverage).
+                if data.get("load_planar_priors"):
+                    npath = os.path.join(pdir, "normal", stem + ".npy")
+                    cpath = os.path.join(pdir, "conf", stem + ".npy")
+                    epath = os.path.join(pdir, "edge_mask", stem + ".png")
+                    mpath = os.path.join(pdir, "plane_mask", stem + ".npy")
+                    if os.path.isfile(npath):
+                        nrm = np.load(npath)
+                        if nrm.shape[:2] == image.shape[:2]:
+                            out["prior_normal"] = torch.from_numpy(nrm.astype(np.float32))
+                    if os.path.isfile(cpath):
+                        cf = np.load(cpath)
+                        if cf.shape[:2] == image.shape[:2]:
+                            out["prior_conf"] = torch.from_numpy(cf.astype(np.float32))
+                    if os.path.isfile(epath):
+                        em = imageio.imread(epath)
+                        if em.ndim == 3:
+                            em = em[..., 0]
+                        if em.shape[:2] == image.shape[:2]:
+                            # 255 = away-from-edge (supervise) -> weight 1.0
+                            out["prior_edge"] = torch.from_numpy(
+                                (em > 0).astype(np.float32))
+                    if os.path.isfile(mpath):
+                        plm = np.load(mpath)
+                        if plm.shape[:2] == image.shape[:2]:
+                            out["prior_plane_mask"] = torch.from_numpy(
+                                plm.astype(np.int64))
     return out
 
 
@@ -507,10 +539,10 @@ class Prefetcher:
             batch["idx"] = idx
             try:
                 batch["image"] = batch["image"].pin_memory()
-                if "mask" in batch:
-                    batch["mask"] = batch["mask"].pin_memory()
-                if "prior_depth" in batch:
-                    batch["prior_depth"] = batch["prior_depth"].pin_memory()
+                for k in ("mask", "prior_depth", "prior_normal", "prior_conf",
+                          "prior_edge", "prior_plane_mask"):
+                    if k in batch:
+                        batch[k] = batch[k].pin_memory()
             except RuntimeError:
                 pass
             while not self._stop.is_set():
@@ -767,6 +799,86 @@ def edge_aware_depth_smoothness(depth, image, beta: float = 10.0):
     wx = torch.exp(-beta * ix)  # ~1 on flat regions, ~0 at edges
     wy = torch.exp(-beta * iy)
     return (d2x.abs() * wx).mean() + (d2y.abs() * wy).mean()
+
+
+# ---------------------------------------------------------------------------
+# Planar-prior helpers (WP-F4) — ported from PlanarGS (MIT; see THIRD_PARTY.md):
+#   planar/co_planar.py::ProjectDepth and common_utils/graphics_utils.py::
+#   {Depth2Pointscam, pcd2normal}. Adapted to our RGB+ED renderer (single (H,W)
+#   z-depth map, camera-frame; MoGe-2 cache normals point toward the camera,
+#   matching pcd2normal's convention — verified 2026-07-03, no sign flip needed).
+# ---------------------------------------------------------------------------
+
+def co_planar_depth(depth, plane_mask, inv_K):
+    """Per-instance regularized-LS plane fit on the unprojected rendered depth,
+    reconstructed back to a z-depth map (PlanarGS L_p).
+
+    depth: (H, W) rendered expected z-depth (differentiable unless detached).
+    plane_mask: (H, W) long, 0=bg, 1..M plane instances.
+    inv_K: (3, 3) inverse intrinsics of THIS view (undistorted training frame).
+    Returns plane_depth (H, W): inside each instance = the fitted-plane z-depth,
+    elsewhere = the input depth (masked out by the caller anyway).
+
+    Plane fit: param = (P Pᵀ + 0.01 I)⁻¹ P·1 ; plane z-depth = 1/(paramᵀ K⁻¹ ũ).
+    """
+    H, W = depth.shape
+    device, dtype = depth.device, depth.dtype
+    pm = plane_mask
+    # Zero an 8-px border so ill-conditioned edge pixels don't enter a fit
+    # (PlanarGS does the same to keep gradients well-behaved).
+    pm = pm.clone()
+    pm[:8, :] = 0; pm[-8:, :] = 0; pm[:, :8] = 0; pm[:, -8:] = 0
+
+    yy, xx = torch.meshgrid(
+        torch.arange(H, device=device, dtype=dtype),
+        torch.arange(W, device=device, dtype=dtype), indexing="ij")
+    coords = torch.stack([xx.reshape(-1), yy.reshape(-1),
+                          torch.ones(H * W, device=device, dtype=dtype)], dim=0)  # (3,HW)
+    rays = (inv_K.to(dtype) @ coords)                          # (3,HW) = K⁻¹ũ
+    pts = rays * depth.reshape(1, -1)                          # (3,HW) camera pts
+    plane_depth = depth.reshape(-1).clone()
+    labels = pm.reshape(-1)
+    eye = 0.01 * torch.eye(3, device=device, dtype=dtype)
+    for i in torch.unique(labels):
+        if int(i) == 0:
+            continue
+        sel = labels == i
+        P = pts[:, sel]                                        # (3,N)
+        A = P @ P.T + eye                                      # (3,3)
+        param = torch.linalg.solve(A, P.sum(dim=1, keepdim=True))          # (3,1)
+        denom = (param.transpose(0, 1) @ rays[:, sel]).reshape(-1)         # (N,)
+        # Sign-PRESERVING degenerate guard (matches plane_masks._plane_depth_along):
+        # for a grazing ray (paramᵀr → 0) a fixed +1e-6 would map plane_depth to
+        # ~1e6 — a spurious huge target that stays *finite* (so the isfinite guard
+        # in the loss would miss it) and can dominate that instance's mean. This
+        # keeps |plane_depth| ~ O(1) in normalized-world scale instead.
+        denom = torch.where(denom.abs() < 1e-6,
+                            torch.sign(denom) + (denom == 0).to(denom.dtype), denom)
+        plane_depth[sel] = 1.0 / denom
+    return plane_depth.reshape(H, W)
+
+
+def normal_from_depth(depth, inv_K):
+    """Camera-frame per-pixel normal from a rendered z-depth map (PlanarGS
+    NormalFromDepth = pcd2normal ∘ Depth2Pointscam). Returns (H, W, 3), unit,
+    pointing toward the camera on fronto-parallel surfaces (matches MoGe cache).
+    """
+    H, W = depth.shape
+    device, dtype = depth.device, depth.dtype
+    yy, xx = torch.meshgrid(
+        torch.arange(H, device=device, dtype=dtype),
+        torch.arange(W, device=device, dtype=dtype), indexing="ij")
+    coords = torch.stack([xx.reshape(-1), yy.reshape(-1),
+                          torch.ones(H * W, device=device, dtype=dtype)], dim=0)
+    rays = (inv_K.to(dtype) @ coords)                          # (3,HW)
+    xyz = (rays * depth.reshape(1, -1)).transpose(0, 1).reshape(H, W, 3)   # (H,W,3)
+    left = xyz[1:-1, :-2]; right = xyz[1:-1, 2:]
+    top = xyz[:-2, 1:-1]; bottom = xyz[2:, 1:-1]
+    nrm = torch.cross(right - left, top - bottom, dim=-1)      # PlanarGS order
+    nrm = torch.nn.functional.normalize(nrm, dim=-1)
+    nrm = torch.nn.functional.pad(nrm.permute(2, 0, 1), (1, 1, 1, 1),
+                                  mode="replicate").permute(1, 2, 0)
+    return nrm
 
 
 def erank_loss(log_scales, w_erank=0.01, w_thin=0.0, eps=1e-7):
@@ -1144,12 +1256,98 @@ def train(args):
                   f"{n_rel}/{len(prior_align)} views reliable, "
                   f"{n_covered}/{len(train_indices)} train views covered")
 
+    # Planar-prior supervision setup (WP-F4, PlanarGS port) — three optional
+    # losses on the MoGe-2 cache + plane-instance masks, all default OFF:
+    #   L_p  co-planarity (--planar_lambda, needs plane_mask)
+    #   L_rd prior-depth  (--prior_depth_lambda, needs conf+edge)
+    #   L_rn prior-normal (--prior_normal_lambda, needs plane_mask+normal+conf+edge)
+    # Same fine-phase gating + prior cache as mono-depth (priors at data_factor).
+    planar_any = (args.planar_lambda > 0 or args.prior_depth_lambda > 0
+                  or args.prior_normal_lambda > 0)
+    need_plane_mask = args.planar_lambda > 0 or args.prior_normal_lambda > 0
+    if planar_any:
+        prior_dir = Path(args.data_dir) / "priors"
+        align_path = prior_dir / "align.json"
+        if not align_path.is_file():
+            raise SystemExit(
+                f"[Train] ERROR: planar losses set but no prior cache at "
+                f"{align_path}. Build it: `python -m core.priors {args.data_dir} "
+                f"--factor {args.data_factor}`"
+                + (f" then `python -m core.plane_masks {args.data_dir} "
+                   f"--factor {args.data_factor}`" if need_plane_mask else ""))
+        aj = json.loads(align_path.read_text(encoding="utf-8"))
+        cache_factor = int(aj.get("meta", {}).get("factor", -1))
+        if cache_factor != args.data_factor:
+            raise SystemExit(
+                f"[Train] ERROR: prior cache at {prior_dir} was built at factor "
+                f"{cache_factor} but --data_factor={args.data_factor}. Rebuild it.")
+        # Reuse prior_align from the mono-depth block if present, else build it.
+        if not data_fine.get("prior_align"):
+            data_fine["prior_align"] = {
+                k: (bool(v["reliable"]), float(v["depth_weight"]))
+                for k, v in aj["images"].items()}
+        # Coverage check for plane masks (L_p / L_rn) — 0 usable masks is a hard
+        # error, not a silent no-op (mirrors the mono-depth coverage guard).
+        n_pm = 0
+        for ti in train_indices:
+            stem = os.path.splitext(
+                os.path.basename(data_fine["image_paths"][int(ti)]))[0]
+            mpath = prior_dir / "plane_mask" / f"{stem}.npy"
+            if not mpath.is_file():
+                continue
+            try:
+                shp = np.load(mpath, mmap_mode="r").shape
+            except Exception:
+                continue
+            wh = data_fine["imsize_dict"].get(data_fine["camera_ids"][int(ti)])
+            if wh is not None and tuple(shp[:2]) != (wh[1], wh[0]):
+                continue
+            n_pm += 1
+        if need_plane_mask and n_pm == 0:
+            raise SystemExit(
+                f"[Train] ERROR: --planar_lambda/--prior_normal_lambda set but "
+                f"0/{len(train_indices)} train views have a usable plane_mask in "
+                f"{prior_dir / 'plane_mask'}. Build it: "
+                f"`python -m core.plane_masks {args.data_dir} "
+                f"--factor {args.data_factor}`")
+        # conf/edge caches gate L_rd (and L_rn) per-pixel — a missing/empty cache
+        # would make those losses a silent no-op, so hard-error (core.priors builds
+        # depth/normal/conf/edge_mask together, so this only trips on a broken cache).
+        need_conf_edge = args.prior_depth_lambda > 0 or args.prior_normal_lambda > 0
+        if need_conf_edge:
+            for sub in ("conf", "edge_mask"):
+                d = prior_dir / sub
+                if not d.is_dir() or not any(d.iterdir()):
+                    raise SystemExit(
+                        f"[Train] ERROR: L_rd/L_rn need priors/{sub}/ but it is "
+                        f"missing/empty at {d}. Rebuild the cache: "
+                        f"`python -m core.priors {args.data_dir} "
+                        f"--factor {args.data_factor}`")
+        # Fine-phase only (priors at data_factor res).
+        floor = coarse_until + 1
+        args.planar_start = max(args.planar_start, floor)
+        args.prior_depth_start = max(args.prior_depth_start, floor)
+        args.prior_normal_start = max(args.prior_normal_start, floor)
+        data_fine["load_planar_priors"] = True
+        data_fine["prior_dir"] = str(prior_dir)
+        print(f"[Train] Planar losses ON: "
+              f"L_p(planar_lambda={args.planar_lambda}, start={args.planar_start}, "
+              f"detach={args.planar_detach}) | "
+              f"L_rd(prior_depth_lambda={args.prior_depth_lambda}, "
+              f"start={args.prior_depth_start}) | "
+              f"L_rn(prior_normal_lambda={args.prior_normal_lambda}, "
+              f"start={args.prior_normal_start}) | "
+              f"{n_pm}/{len(train_indices)} train views have plane masks")
+
     running_loss = 0.0
     running_psnr = 0.0
     running_crop_l1 = None  # EMA of LPIPS-crop L1, for gated perceptual loss
     running_wd_tex = None   # EMA of GT-crop texture energy, for gated WD
     running_erank = None    # EMA of erank hinge term, for per-loss logging
     running_mono = None     # EMA of mono-depth term, for per-loss logging
+    running_planar = None   # EMA of L_p co-planarity term (WP-F4)
+    running_prd = None      # EMA of L_rd prior-depth term (WP-F4)
+    running_prn = None      # EMA of L_rn prior-normal term (WP-F4)
     t0 = time.time()
 
     # Background image prefetch (overlaps disk I/O + decode with GPU compute)
@@ -1192,9 +1390,20 @@ def train(args):
         # prior_depth key is present only for the fine dataset's batches.
         mono_on = (args.mono_depth_lambda > 0 and step >= args.mono_depth_start
                    and "prior_depth" in batch)
+        # Planar-prior losses (WP-F4), fine-phase only (prior maps present only
+        # in the fine dataset's batches). L_p / L_rn need the plane-instance map.
+        planar_on = (args.planar_lambda > 0 and step >= args.planar_start
+                     and "prior_plane_mask" in batch)
+        prd_on = (args.prior_depth_lambda > 0 and step >= args.prior_depth_start
+                  and "prior_depth" in batch and "prior_conf" in batch
+                  and "prior_edge" in batch)
+        prn_on = (args.prior_normal_lambda > 0 and step >= args.prior_normal_start
+                  and "prior_plane_mask" in batch and "prior_normal" in batch
+                  and "prior_conf" in batch and "prior_edge" in batch)
         renders, alphas, info = render_splats(
             splats, w2c, K, W, H, args.sh_degree, bkgd, rasterize_mode,
-            render_mode="RGB+ED" if (geo_on or depth_on or mono_on) else "RGB",
+            render_mode="RGB+ED" if (geo_on or depth_on or mono_on
+                                     or planar_on or prd_on or prn_on) else "RGB",
         )
         rendered = renders[0][..., :3].clamp(0.0, 1.0)  # (H, W, 3)
 
@@ -1301,6 +1510,88 @@ def train(args):
                 loss = loss + args.mono_depth_lambda * w * mono_term
                 running_mono = (mono_term.item() if running_mono is None
                                 else 0.95 * running_mono + 0.05 * mono_term.item())
+
+        # ---- Planar-prior losses (WP-F4, PlanarGS port) ---------------------
+        # All operate on the rendered expected-depth; all masked to their
+        # respective regions; each normalized so its lambda is scene-scale
+        # invariant (our depth is in arbitrary normalized-world units). Added one
+        # at a time in the staggered schedule so coarse geometry forms first.
+        _inv_K = None  # lazy inverse-K (shared by L_p and L_rn)
+
+        # L_rd — prior-depth: rendered depth vs the aligned MoGe cache, gated by
+        # conf × inverse-Canny edge × per-view depth_weight (PlanarGS l2_loss,
+        # relative-normalized here). Redundant-but-complementary with mono-depth
+        # (adds the conf/edge per-pixel gating mono-depth lacks).
+        if prd_on and batch.get("prior_reliable", False):
+            prior_d = batch["prior_depth"].to(device, non_blocking=True)   # (H,W)
+            pv = torch.isfinite(prior_d)
+            if bool(pv.any()):
+                rendered_depth = renders[0][..., 3]
+                conf = batch["prior_conf"].to(device, non_blocking=True)
+                edge = batch["prior_edge"].to(device, non_blocking=True)
+                m = pv.float() * conf * edge                               # (H,W)
+                denom = m.sum().clamp_min(1.0)
+                sc = prior_d[pv].median().detach() + 1e-6
+                diff = torch.where(pv, rendered_depth - prior_d,
+                                   torch.zeros_like(rendered_depth)) / sc
+                prd_term = ((diff * diff) * m).sum() / denom
+                # Reuses --mono_depth_use_weight (intentional: same per-view
+                # depth_weight from align.json; one toggle for both depth losses).
+                w = (float(batch.get("prior_weight", 1.0))
+                     if args.mono_depth_use_weight else 1.0)
+                loss = loss + args.prior_depth_lambda * w * prd_term
+                running_prd = (prd_term.item() if running_prd is None
+                               else 0.95 * running_prd + 0.05 * prd_term.item())
+
+        # L_p — co-planarity: fit a plane per instance to the rendered depth and
+        # pull the rendered depth toward it (masked L1). Faithful PlanarGS keeps
+        # the fit attached (grad flows through both depth and the plane params);
+        # --planar_detach exposes the detached variant.
+        if planar_on:
+            pm = batch["prior_plane_mask"].to(device, non_blocking=True)   # (H,W) long
+            # Exclude the 8-px border from the LOSS mask too (PlanarGS zeros it in
+            # co_planar's in-place segmask, so its planar_mask drops it as well);
+            # this keeps the numerator and denominator consistent (no dilution).
+            pm[:8, :] = 0; pm[-8:, :] = 0; pm[:, :8] = 0; pm[:, -8:] = 0
+            if int(pm.max()) > 0:
+                rendered_depth = renders[0][..., 3]
+                _inv_K = torch.linalg.inv(K)
+                depth_in = rendered_depth.detach() if args.planar_detach else rendered_depth
+                plane_depth = co_planar_depth(depth_in, pm, _inv_K)
+                planar_mask = (pm > 0).float()
+                pmsum = planar_mask.sum().clamp_min(1.0)
+                sc = rendered_depth.detach()[pm > 0].median() + 1e-6
+                planar_term = (((rendered_depth - plane_depth).abs()
+                                * planar_mask).sum() / pmsum) / sc
+                if torch.isfinite(planar_term):
+                    loss = loss + args.planar_lambda * planar_term
+                    running_planar = (planar_term.item() if running_planar is None
+                                      else 0.95 * running_planar + 0.05 * planar_term.item())
+
+        # L_rn — prior-normal: normal derived from the rendered depth vs the MoGe
+        # cache normal (L1 + (1−cos)), over planar ∩ conf ∩ edge pixels. Uses a
+        # depth-derived normal (no Gaussian-normal rasterization — L_dn skipped).
+        if prn_on:
+            pm = batch["prior_plane_mask"].to(device, non_blocking=True)
+            pm[:8, :] = 0; pm[-8:, :] = 0; pm[:, :8] = 0; pm[:, -8:] = 0  # see L_p note
+            if int(pm.max()) > 0:
+                rendered_depth = renders[0][..., 3]
+                if _inv_K is None:
+                    _inv_K = torch.linalg.inv(K)
+                dnorm = normal_from_depth(rendered_depth, _inv_K)          # (H,W,3)
+                pnorm = batch["prior_normal"].to(device, non_blocking=True)
+                conf = batch["prior_conf"].to(device, non_blocking=True)
+                edge = batch["prior_edge"].to(device, non_blocking=True)
+                m = (pm > 0).float() * conf * edge                        # (H,W)
+                msum = m.sum().clamp_min(1.0)
+                l1n = ((pnorm - dnorm).abs().sum(-1) * m).sum() / msum
+                cos = (pnorm * dnorm).sum(-1)                             # (H,W)
+                l2n = ((1.0 - cos) * m).sum() / msum
+                prn_term = l1n + l2n
+                if torch.isfinite(prn_term):
+                    loss = loss + args.prior_normal_lambda * prn_term
+                    running_prn = (prn_term.item() if running_prn is None
+                                   else 0.95 * running_prn + 0.05 * prn_term.item())
 
         # Edge-aware geometric regularization — flattens textureless surfaces
         # (the "mushy black plastic" fix) without softening textured detail.
@@ -1430,10 +1721,16 @@ def train(args):
                          if running_erank is not None else "")
             mono_str = (f" | mono={running_mono:.4f}"
                         if running_mono is not None else "")
+            planar_str = (f" | Lp={running_planar:.4f}"
+                          if running_planar is not None else "")
+            prd_str = (f" | Lrd={running_prd:.4f}"
+                       if running_prd is not None else "")
+            prn_str = (f" | Lrn={running_prn:.4f}"
+                       if running_prn is not None else "")
             print(
                 f"step={step} | loss={running_loss:.6f} | psnr={running_psnr:.2f} "
                 f"| #GS={n_gs} | mem={mem:.0f}MB | {steps_per_sec:.1f} it/s | eta={eta:.0f}s"
-                f"{erank_str}{mono_str}"
+                f"{erank_str}{mono_str}{planar_str}{prd_str}{prn_str}"
             )
             sys.stdout.flush()
 
@@ -1614,6 +1911,32 @@ def main():
                         action=argparse.BooleanOptionalAction, default=True,
                         help="Scale the per-view mono-depth loss by the "
                              "alignment-residual depth_weight from align.json")
+    # Planar-prior losses (WP-F4, PlanarGS port). All default 0 = OFF. Need the
+    # MoGe-2 prior cache (`python -m core.priors`); L_p/L_rn also need plane
+    # masks (`python -m core.plane_masks`). Staggered starts (PlanarGS 30k:
+    # 7k/14k/20k) let coarse geometry form first; scale them to shorter runs.
+    parser.add_argument("--planar_lambda", type=float, default=0.0,
+                        help="L_p co-planarity weight: per-instance LS plane fit "
+                             "on rendered depth, masked L1 pull toward the plane "
+                             "(PlanarGS 0.5). Needs priors/plane_mask. 0 = off.")
+    parser.add_argument("--planar_start", type=int, default=14000,
+                        help="Step to start L_p (fine phase only)")
+    parser.add_argument("--planar_detach",
+                        action=argparse.BooleanOptionalAction, default=False,
+                        help="Detach the plane fit (PlanarGS default keeps it "
+                             "attached — grad flows through both depth and fit)")
+    parser.add_argument("--prior_depth_lambda", type=float, default=0.0,
+                        help="L_rd prior-depth weight: rendered depth vs aligned "
+                             "MoGe cache, gated by conf x inverse-Canny edge x "
+                             "per-view depth_weight (PlanarGS 0.05). 0 = off.")
+    parser.add_argument("--prior_depth_start", type=int, default=7000,
+                        help="Step to start L_rd (fine phase only)")
+    parser.add_argument("--prior_normal_lambda", type=float, default=0.0,
+                        help="L_rn prior-normal weight: depth-derived normal vs "
+                             "MoGe cache normal (L1 + 1-cos), over planar-and-conf-"
+                             "and-edge pixels (PlanarGS 0.2). Needs plane_mask. 0=off.")
+    parser.add_argument("--prior_normal_start", type=int, default=20000,
+                        help="Step to start L_rn (fine phase only)")
     # Anti-aliasing (Mip-Splatting)
     parser.add_argument("--antialiased",
                         action=argparse.BooleanOptionalAction, default=True)

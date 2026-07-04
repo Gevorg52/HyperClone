@@ -260,6 +260,16 @@ class GsplatBackend(TrainingBackend):
             "mono_depth_lambda": 0.0,      # dense MoGe-2 prior depth sup. (WP-F1; ~0.05)
             "mono_depth_start": 2000,      # step to start mono-depth loss (fine phase)
             "mono_depth_use_weight": True, # scale by per-view align depth_weight
+            # Planar-prior losses (WP-F4, PlanarGS port). All 0 = OFF (production
+            # unchanged). Need the MoGe-2 cache; L_p/L_rn also need plane_mask/
+            # (`python -m core.plane_masks`). PlanarGS lambdas: 0.5/0.05/0.2.
+            "planar_lambda": 0.0,          # L_p co-planarity (needs plane_mask)
+            "planar_start": 14000,         # 30k-schedule start (scale to run len)
+            "planar_detach": False,        # keep the plane fit attached (PlanarGS)
+            "prior_depth_lambda": 0.0,     # L_rd prior-depth (conf×edge gated)
+            "prior_depth_start": 7000,
+            "prior_normal_lambda": 0.0,    # L_rn prior-normal (needs plane_mask)
+            "prior_normal_start": 20000,
             # EDGS-style dense-matcher triangulation init (WP-F2). OFF = production
             # unchanged (ALIKED sparse init). ON augments the SfM point cloud with
             # RoMa dense-triangulated points on textureless regions before seeding.
@@ -449,6 +459,18 @@ class GsplatBackend(TrainingBackend):
         args.append("--mono_depth_use_weight"
                     if extra.get("mono_depth_use_weight", True)
                     else "--no-mono_depth_use_weight")
+
+        # Planar-prior losses (WP-F4). Always passed (default 0 = off).
+        args.extend([
+            "--planar_lambda", str(extra.get("planar_lambda", 0.0)),
+            "--planar_start", str(extra.get("planar_start", 14000)),
+            "--prior_depth_lambda", str(extra.get("prior_depth_lambda", 0.0)),
+            "--prior_depth_start", str(extra.get("prior_depth_start", 7000)),
+            "--prior_normal_lambda", str(extra.get("prior_normal_lambda", 0.0)),
+            "--prior_normal_start", str(extra.get("prior_normal_start", 20000)),
+        ])
+        args.append("--planar_detach" if extra.get("planar_detach", False)
+                    else "--no-planar_detach")
 
         # erank_end: optional cutoff step (None = flag omitted = no cutoff)
         if extra.get("erank_end") is not None:

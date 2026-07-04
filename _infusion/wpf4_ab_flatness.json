@@ -1,0 +1,59 @@
+{
+  "metric": "deck plane RMS (rel residual, lower=flatter) + region VGG-LPIPS on every8 held-out views",
+  "deck_box_frac": {
+    "x0": 0.3,
+    "x1": 0.72,
+    "y0": 0.55,
+    "y1": 0.95
+  },
+  "tex_box_frac": {
+    "x0": 0.3,
+    "x1": 0.72,
+    "y0": 0.18,
+    "y1": 0.5
+  },
+  "data_dir": "_dataset/Laptop/apex_images/training/wps1/stack/data",
+  "factor": 2,
+  "arms": {
+    "off": {
+      "ckpt": "_dataset/Laptop/apex_images/training/wpf4_ab/off/output/ckpts/ckpt_14999_rank0.pt",
+      "n_views": 38,
+      "deck_plane_rms": 0.020680340586515328,
+      "allplane_rms": 0.01950872875906808,
+      "deck_lpips": 0.2947998737034045,
+      "tex_lpips": 0.28208094717640625,
+      "full_lpips": 0.3419221474936134
+    },
+    "on": {
+      "ckpt": "_dataset/Laptop/apex_images/training/wpf4_ab/on/output/ckpts/ckpt_14999_rank0.pt",
+      "n_views": 38,
+      "deck_plane_rms": 0.01678168500484203,
+      "allplane_rms": 0.011304790792253461,
+      "deck_lpips": 0.3280000051385478,
+      "tex_lpips": 0.3316139770965827,
+      "full_lpips": 0.3858826646679326
+    }
+  },
+  "delta": {
+    "deck_plane_rms": {
+      "abs": -0.003898655581673297,
+      "pct": -18.85198923762129
+    },
+    "allplane_rms": {
+      "abs": -0.008203937966814618,
+      "pct": -42.052652779855016
+    },
+    "deck_lpips": {
+      "abs": 0.03320013143514333,
+      "pct": 11.261921865185629
+    },
+    "tex_lpips": {
+      "abs": 0.04953302992017644,
+      "pct": 17.559863725641755
+    },
+    "full_lpips": {
+      "abs": 0.0439605171743192,
+      "pct": 12.856879116068468
+    }
+  }
+}
