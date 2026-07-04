@@ -544,8 +544,28 @@ per arm). GATE: a clear recommendation per mode — object scans: keep/drop back
 alpha-loss verdict; worlds mode unaffected. Evidence per §0.
 
 ═══════════════════════════════════════════════════════════════════════
-### WP-G1 — Glossy/specular lever (QUEUED; scope decided by WP-S1's residual diagnosis)
+### WP-G1 — Glossy/specular lever (PHASE 1 CLOSED; scope decided by WP-S1's residual diagnosis)
 ═══════════════════════════════════════════════════════════════════════
+> **STATUS: PHASE-1 CLOSED 2026-07-04 — 3DGS-DR ceiling probe = GATE FAILS on both scenes →
+> do NOT port 3DGS-DR (phase-2 negative).** Ran the UPSTREAM 3DGS-DR (2404.18454, deferred
+> reflection) on our two scenes vs the WP-S1 stack on the specular crops. Built its 4 CUDA
+> submodules AOT for sm_120 (torch 2.11 untouched) — new trap logged: `.cu` files pulling
+> `torch/extension.h` → `compiled_autograd.h` `C2872 'std' ambiguous` under nvcc+MSVC; fix =
+> pure-ATen shim in the 6 nvcc files (mirrors gsplat). **Region-LPIPS (the gate) is WORSE for
+> 3DGS-DR, not better: Laptop deck 0.2739→0.3675 (+34%, + broken outdoor background — out of its
+> bounded-scene domain); GPU_V4 backplate 0.3473→0.3580 (+3.1%) WITH env_scope.** 3DGS-DR does
+> win region-PSNR on GPU_V4 (+4.55 dB = better semi-gloss *tone*) but that is NOT a perceptual
+> (LPIPS) win — it softens etched microtext + blooms the chrome logo; the glossy laptop lid stays
+> mushy. No sharp view-consistent reflection. Judged by LPIPS (never PSNR alone, §0) = no win.
+> **Fallback per the research ranking below: (1) Spec-Gaussian ASG (MIT, color-function-only swap
+> into gsplat MCMC — RECOMMENDED next specular lever, stays in our stack, no domain fragility);
+> (2) accept-limitation + generative polish (GeoQuery/SwiftVR bake-off, also fixes the shared
+> microtext softness). 3DGS-DR full port NOT recommended.** ⚠️ Data correction found this WP:
+> the `gsplat_prod/data/images_2` frames are **FULL SCENES, not black-bg pre-multiplied** (both
+> stack + DR render full backgrounds) — contradicts DEVELOPER_NOTES; **WP-S2 must verify the real
+> production data mode before its background A/B.** Evidence: `_infusion/wpg1_RECORD.md` +
+> `qa/wpg1_{laptop,gpu}/scorecard.json` + strips; THIRD_PARTY.md updated.
+
 Research verdict (2026-07-03, verified primary-source): **"Apple SHARP" (2512.10685, apple/ml-sharp)
 identified and REJECTED** — single-image→3DGS for near-view synthesis, explicitly no view-dependent/
 reflective modeling (its own limitations section), torch 2.8 pin conflicts; name collision with our

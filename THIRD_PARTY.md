@@ -356,3 +356,35 @@ MoGe-2 mono-depth prior (`Ruicheng/moge-2-vitl-normal` MIT, logged under WP-F1),
 effective-rank hinge (paper 2406.11672 / erank_gs, logged under WP-Q2), and gsplat's gated
 LPIPS (torchmetrics VGG). Eval reuses the WP-Q1 6-scorer stack (crossscore/nova/tsed/
 raft_warp/nvs_sqa/flicker) — all previously logged. Evidence: `_infusion/wps1_RECORD.md`.
+
+---
+
+## WP-G1 — Glossy/specular lever, phase-1 feasibility probe (2026-07-04)
+Ran the UPSTREAM 3DGS-DR trainer (NOT ported into gsplat) on our two scenes to measure
+the specular ceiling before deciding on a gsplat port.
+- **3DGS-DR** ("3D Gaussian Splatting with Deferred Reflection", SIGGRAPH'24, arXiv 2404.18454)
+  — repo `gapszju/3DGS-DR` @ commit `4077f1d4b45891885e6ebd1089da7bc51bee8afc` (cloned to
+  `D:\REPOS\HYPERclone\3DGS-DR`). Deferred shading: per-pixel normal propagation + a learned
+  cubemap environment map + deferred specular composite `(1-refl)*base + refl*env(reflect(view,n))`.
+  License: Inria "Gaussian-Splatting License" (non-commercial research/eval), inherited from the
+  graphdeco 3DGS base it forks. Used as a separate upstream trainer; nothing vendored into
+  `apex-sfm/` yet (phase-2 port would re-implement the losses/kernels in gsplat).
+  - **CUDA submodules built AOT for sm_120** (house recipe: VS2022 vcvars64, CUDA v12.9,
+    `TORCH_CUDA_ARCH_LIST=12.0`, `--no-build-isolation`, constraints — torch 2.11.0+cu128
+    untouched): `diff-gaussian-rasterization_c7` (7-channel deferred rasterizer),
+    `diff-gaussian-rasterization_c3` (vanilla base pass), `cubemapencoder` (env map),
+    `simple-knn`. Build recipe: `_infusion/wpg1_build.bat`.
+  - **sm_120 / torch-2.11 build fixes** (recorded so the funded port can re-apply): (1) removed
+    `.data<T>()` → `.data_ptr<T>()` (removed API); (2) the `.cu`-reachable headers included the
+    full `<torch/extension.h>`/`<torch/torch.h>`, which under nvcc+MSVC pulls
+    `torch/csrc/dynamo/compiled_autograd.h` → `C2872 'std' ambiguous` — replaced with a
+    lightweight pure-ATen shim (`#include <ATen/ATen.h>` + `<ATen/Dispatch.h>` +
+    `namespace torch { using namespace at; }`) in the 6 nvcc-compiled files, keeping
+    `<torch/extension.h>` only in the cl-compiled pybind `.cpp` (mirrors gsplat's own pattern);
+    (3) `torch::kFloat32`/`kInt32` (torch-C++-API aliases, not in ATen) → `torch::kFloat`/`kInt`;
+    (4) made `open3d` import optional in `utils/general_utils.py` (used only by an unused
+    PLY-writer). No torch/CUDA reinstall.
+- **Provenance of inputs:** trained on our exported undistorted factor-2 PINHOLE frames
+  (`_infusion/wpg1_export_colmap.py` reuses our own `load_colmap_data`+`load_image` so GT is
+  byte-identical to the WP-S1 stack eval). Init = sparse ALIKED COLMAP points (3DGS-DR's
+  designed regime). Evidence: `_infusion/wpg1_RECORD.md`.
