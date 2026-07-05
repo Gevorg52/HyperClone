@@ -388,3 +388,30 @@ the specular ceiling before deciding on a gsplat port.
   (`_infusion/wpg1_export_colmap.py` reuses our own `load_colmap_data`+`load_image` so GT is
   byte-identical to the WP-S1 stack eval). Init = sparse ALIKED COLMAP points (3DGS-DR's
   designed regime). Evidence: `_infusion/wpg1_RECORD.md`.
+
+---
+
+## WP-S2 — Object-mode background study, object masks (2026-07-04)
+
+### BiRefNet object matting — `core/masking.py::run_birefnet_batch` (pre-existing masking engine)
+- **Idea/source:** "Bilateral Reference for High-Resolution Dichotomous Image Segmentation",
+  Zheng et al., **CAAI AIR 2024, arXiv 2401.03407**. Weights: HuggingFace
+  **`ZhengPeng7/BiRefNet`** ('general' variant, 1024×1024 input), loaded via
+  `transformers.AutoModelForImageSegmentation(..., trust_remote_code=True)` (the repo ships its
+  own `birefnet.py`/`BiRefNet_config.py` modeling code, auto-downloaded to the HF cache).
+- **Adoption:** used AS-IS through the project's existing headless masking engine
+  (`core/masking.py`, already in the tree) to auto-matte the GPU_V4 object on the factor-2
+  training frames — the same BiRefNet auto-matte the GUI masking stage exposes. Soft alpha,
+  threshold=0, erosion=0. No model code copied; weights + remote modeling code fetched from HF.
+- **License:** BiRefNet code **MIT** (github.com/ZhengPeng7/BiRefNet); the `ZhengPeng7/BiRefNet`
+  checkpoint is released for research use. (POC stance: not a filter — logged for the funded
+  rebuild, which may swap in a commercially-cleared matting model.)
+- **Note:** SAM 2.1 (the masking engine's interactive-correction path) is **not installed** in the
+  Windows env, so BiRefNet auto-matte was the sole mask source (quality spot-checked across the
+  orbit — `qa/wps2_mask_overlays/`). Evidence: `_infusion/wps2_RECORD.md`.
+
+### `--mono_depth_object_masked` trainer lever (new, default OFF)
+- **What we ship:** `core/training/gsplat_trainer.py` + `gsplat_backend.py` — an object-mode
+  toggle that restricts the WP-F1 mono-depth loss to inside the object mask (`pv &= mask>0.5`),
+  so object-only training never anchors Gaussians to background depth. OURS (~4 lines); no
+  external source. Default OFF → production (full-frame mono-depth) unchanged.

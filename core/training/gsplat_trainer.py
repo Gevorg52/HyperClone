@@ -1500,6 +1500,10 @@ def train(args):
         if mono_on and batch.get("prior_reliable", False):
             prior_d = batch["prior_depth"].to(device, non_blocking=True)   # (H,W)
             pv = torch.isfinite(prior_d)
+            # WP-S2 object-mode: only supervise depth inside the object mask, so
+            # object-only training never anchors Gaussians to background depth.
+            if args.mono_depth_object_masked and "mask" in batch:
+                pv = pv & (batch["mask"].to(device, non_blocking=True) > 0.5)
             if bool(pv.any()):
                 rendered_depth = renders[0][..., 3]                         # (H,W)
                 pvd = prior_d[pv]
@@ -1911,6 +1915,12 @@ def main():
                         action=argparse.BooleanOptionalAction, default=True,
                         help="Scale the per-view mono-depth loss by the "
                              "alignment-residual depth_weight from align.json")
+    parser.add_argument("--mono_depth_object_masked",
+                        action=argparse.BooleanOptionalAction, default=False,
+                        help="Object-mode (WP-S2): restrict mono-depth supervision "
+                             "to inside the object mask (pv &= mask>0.5). Default OFF "
+                             "= full-frame (production unchanged). Needs masks/ or "
+                             "masks_{factor}/ next to the images.")
     # Planar-prior losses (WP-F4, PlanarGS port). All default 0 = OFF. Need the
     # MoGe-2 prior cache (`python -m core.priors`); L_p/L_rn also need plane
     # masks (`python -m core.plane_masks`). Staggered starts (PlanarGS 30k:

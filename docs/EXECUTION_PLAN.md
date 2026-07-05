@@ -532,8 +532,27 @@ destabilizes MCMC — one loss at a time, per-loss scalars, `--no_priors` A/B al
 ---
 
 ═══════════════════════════════════════════════════════════════════════
-### WP-S2 — Object-mode background study (QUEUED; runs when GPU frees after WP-S1/F4)
+### WP-S2 — Object-mode background study (✅ CLOSED 2026-07-04, GPU_V4)
 ═══════════════════════════════════════════════════════════════════════
+> **STATUS: ✅ CLOSED 2026-07-04 — GATE PASSED (clear per-mode recommendation).** Verified the data
+> mode FIRST: GPU_V4 training frames are **FULL_SCENE** (11.4% near-black, corner-lum 89.5 — confirms
+> the WP-G1 correction), so **arm (a) full-scene = CURRENT PRODUCTION (control)** and object-only is
+> the NEW thing under test. Masks: BiRefNet 'general' (headless `core.masking`, SAM2 not installed),
+> 569 frames, mean 20.7% coverage, orbit-wide spot-check clean. 3 arms × 15k, seed 0, cap 1M, factor
+> 2, WP-S1 stacked config (dense_init 882k + mono 0.05 + erank + gated-LPIPS + pose_opt). New lever
+> `--mono_depth_object_masked` (default OFF) for correct object-mode depth sup. **RESULT: object-only
+> LOSES on object-region quality — obj-LPIPS 0.2277→0.2824 (+24%), obj-PSNR 23.5→20.9 (−2.6 dB),
+> obj-SSIM 0.737→0.667; alpha-loss (c) does NOT recover it (c≈b).** The black-opaque-floater hazard
+> barely materializes: of 882,902 dense-init pts, 421,347 (47.7%) are background/black-supervised, but
+> MCMC+opacity_reg drive them to NEAR-TRANSPARENT (low-opa 58% vs a's 12%) not black-opaque — arm (b)
+> WITHOUT alpha has only **7** black-opaque out-of-hull GS (a has 4,740 legit COLORED bg); alpha (c)
+> → 0, a marginal cleanup. Pose-drift regression CONFIRMED (modest): object-only +33% translation
+> drift (background anchors pose_opt). **RECOMMENDATION: OBJECT scans → KEEP background at training
+> (full-scene = prod); do NOT switch to object-only. Alpha-loss lever = leave OFF (unnecessary on this
+> recipe). WORLDS mode unaffected.** Evidence: `_infusion/wps2_RECORD.md` + `wps2_obj_metrics.json` +
+> `wps2_floater_analysis.json` + `qa/wps2_*`. Deviations: 15k/cap-1M/no-C2F fast A/B (not 30k prod),
+> single scene/seed (GPU_V4 = the one scene with a real dark background).
+
 **Product context (user, 2026-07-03): HYPERclone has two functions — scanning WORLDS and scanning
 OBJECTS. Both sample captures are objects → background is a means (SfM anchors), not a deliverable.**
 Pipeline has the masking stage (Stage 8, after SfM), but **WP-G1 discovered production training

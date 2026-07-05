@@ -1,0 +1,46 @@
+{
+  "metric": "OBJECT-region masked metrics (WP-Q1 core.qa.masked_metrics, tiled VGG-LPIPS normalize=True) on full-scene GT; obj=(mask>0.5), bg=(mask<=0.5); render black-bg antialiased on held-out every-8 views",
+  "eval_dir": "_dataset/GPU_V4/apex_images/training/wps2/eval/data",
+  "factor": 2,
+  "arms": {
+    "a_full": {
+      "ckpt": "_dataset/GPU_V4/apex_images/training/wps2/a_full/output/ckpts/ckpt_14999_rank0.pt",
+      "n_views": 72,
+      "n_gaussians": 1000000,
+      "obj_mean_frac": 0.19276368793927962,
+      "obj_lpips": 0.2277300994222363,
+      "obj_psnr": 23.505402681963545,
+      "obj_ssim": 0.7367853716843658,
+      "bg_psnr": 25.142492360562848,
+      "bg_ssim": 0.8658452207843462,
+      "full_lpips": 0.4087699150873555,
+      "full_psnr": 24.59530150713396
+    },
+    "b_obj": {
+      "ckpt": "_dataset/GPU_V4/apex_images/training/wps2/b_obj/output/ckpts/ckpt_14999_rank0.pt",
+      "n_views": 72,
+      "n_gaussians": 1000000,
+      "obj_mean_frac": 0.19276368793927962,
+      "obj_lpips": 0.2824134630047613,
+      "obj_psnr": 20.865564032088383,
+      "obj_ssim": 0.667358473667668,
+      "bg_psnr": 5.8386202490181205,
+      "bg_ssim": 0.024364261315592255,
+      "full_lpips": 0.6566496085789468,
+      "full_psnr": 6.5043227494228395
+    },
+    "c_obj_alpha": {
+      "ckpt": "_dataset/GPU_V4/apex_images/training/wps2/c_obj_alpha/output/ckpts/ckpt_14999_rank0.pt",
+      "n_views": 72,
+      "n_gaussians": 1000000,
+      "obj_mean_frac": 0.19276368793927962,
+      "obj_lpips": 0.2826399714168575,
+      "obj_psnr": 21.04395807131936,
+      "obj_ssim": 0.6695437400291363,
+      "bg_psnr": 5.838852395586532,
+      "bg_ssim": 0.024440855732084148,
+      "full_lpips": 0.6568048952354325,
+      "full_psnr": 6.505265816126583
+    }
+  }
+}

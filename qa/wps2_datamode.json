@@ -1,0 +1,16 @@
+{
+  "note": "near_black = max(R,G,B)<16/255; corner_lum/mean over 0-255 avg-of-3ch",
+  "images_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\GPU_V4\\apex_images\\training\\gsplat_prod\\data\\images_2",
+  "frame_h": 2000,
+  "frame_w": 3000,
+  "n_frames": 569,
+  "n_sampled": 64,
+  "near_black_pct": 11.382544270833334,
+  "mean_lum_0_255": 96.9790269434452,
+  "corner_lum_0_255": 89.53705364465714,
+  "near_black_pct_std": 7.062086812968823,
+  "mean_lum_std": 0.059674303978681564,
+  "corner_lum_std": 22.453063214669047,
+  "DATA_MODE_VERDICT": "FULL_SCENE",
+  "interpretation": "FULL_SCENE => arm (a) full-scene = CURRENT PRODUCTION (control); object-only (b/c) is the NEW thing under test. Confirms WP-G1 correction; refutes the DEVELOPER_NOTES 'pre-multiplied black-bg' claim."
+}

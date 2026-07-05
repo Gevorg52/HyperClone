@@ -1,0 +1,11 @@
+{
+  "method": "BiRefNet 'general' (ZhengPeng7/BiRefNet, trust_remote_code) soft alpha, threshold=0 erosion=0, run on factor-2 images_2 (headless core.masking.run_birefnet_batch)",
+  "n_masks": 569,
+  "mask_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\GPU_V4\\apex_images\\training\\wps2\\masks_2",
+  "n_sampled": 64,
+  "mean_fg_pct": 20.717655208333333,
+  "min_fg_pct": 7.071566666666667,
+  "max_fg_pct": 53.696149999999996,
+  "std_fg_pct": 11.527702504481564,
+  "overlays": "D:\\REPOS\\HYPERclone\\apex-sfm\\qa\\wps2_mask_overlays"
+}

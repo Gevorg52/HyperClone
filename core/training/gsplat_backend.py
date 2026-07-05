@@ -260,6 +260,7 @@ class GsplatBackend(TrainingBackend):
             "mono_depth_lambda": 0.0,      # dense MoGe-2 prior depth sup. (WP-F1; ~0.05)
             "mono_depth_start": 2000,      # step to start mono-depth loss (fine phase)
             "mono_depth_use_weight": True, # scale by per-view align depth_weight
+            "mono_depth_object_masked": False,  # WP-S2 object-mode: mono-depth only inside mask
             # Planar-prior losses (WP-F4, PlanarGS port). All 0 = OFF (production
             # unchanged). Need the MoGe-2 cache; L_p/L_rn also need plane_mask/
             # (`python -m core.plane_masks`). PlanarGS lambdas: 0.5/0.05/0.2.
@@ -459,6 +460,9 @@ class GsplatBackend(TrainingBackend):
         args.append("--mono_depth_use_weight"
                     if extra.get("mono_depth_use_weight", True)
                     else "--no-mono_depth_use_weight")
+        # WP-S2 object-mode mono-depth masking (BooleanOptionalAction; default off)
+        if extra.get("mono_depth_object_masked", False):
+            args.append("--mono_depth_object_masked")
 
         # Planar-prior losses (WP-F4). Always passed (default 0 = off).
         args.extend([

@@ -1,0 +1,99 @@
+{
+  "note": "(A) dense-init pts outside object mask = black-supervised hazard in b/c; (B) black-opaque floater = outside object hull(margin) AND max(rgb)<rgb_thr AND sigmoid(opa)>opa_thr; (C) pose drift = CameraOptModule embeds vs identity",
+  "rgb_thr": 0.15,
+  "opa_thr": 0.5,
+  "hull_margin": 0.1,
+  "scene_scale": 1.4542173679137371,
+  "init": {
+    "n_init_points": 882902,
+    "n_object_points": 461555,
+    "n_background_points": 421347,
+    "pct_background": 47.72296359052307,
+    "n_points_never_in_view": 0,
+    "mean_views_per_point": 468.1817302486573,
+    "n_object_points_after_trim": 452323
+  },
+  "arms": {
+    "a_full": {
+      "ckpt": "_dataset/GPU_V4/apex_images/training/wps2/a_full/output/ckpts/ckpt_14999_rank0.pt",
+      "floaters": {
+        "n_gaussians": 1000000,
+        "n_outside": 490786,
+        "pct_outside": 49.0786,
+        "n_outside_opaque": 17816,
+        "pct_outside_opaque": 1.7815999999999999,
+        "n_outside_black": 102282,
+        "n_BLACK_OPAQUE_outside": 4740,
+        "pct_BLACK_OPAQUE_outside": 0.47400000000000003,
+        "opacity_mass_outside": 49149.7578125,
+        "opacity_mass_outside_frac": 0.5342823674824665,
+        "mean_opacity_outside": 0.10014498978853226,
+        "mean_maxrgb_outside": 0.6519427299499512
+      },
+      "pose_drift": {
+        "n_views": 569,
+        "trans_norm_mean": 0.001320116687566042,
+        "trans_norm_p95": 0.0030290253926068544,
+        "trans_norm_max": 0.005048418417572975,
+        "trans_norm_mean_pct_scene": 0.09077849984169006,
+        "rot_deg_mean": 0.07832174748182297,
+        "rot_deg_p95": 0.1769387125968933,
+        "rot_deg_max": 0.37430012226104736
+      }
+    },
+    "b_obj": {
+      "ckpt": "_dataset/GPU_V4/apex_images/training/wps2/b_obj/output/ckpts/ckpt_14999_rank0.pt",
+      "floaters": {
+        "n_gaussians": 1000000,
+        "n_outside": 5125,
+        "pct_outside": 0.5125000000000001,
+        "n_outside_opaque": 7,
+        "pct_outside_opaque": 0.0007,
+        "n_outside_black": 5125,
+        "n_BLACK_OPAQUE_outside": 7,
+        "pct_BLACK_OPAQUE_outside": 0.0007,
+        "opacity_mass_outside": 90.99702453613281,
+        "opacity_mass_outside_frac": 0.005658663595283013,
+        "mean_opacity_outside": 0.01775551773607731,
+        "mean_maxrgb_outside": -0.01011332031339407
+      },
+      "pose_drift": {
+        "n_views": 569,
+        "trans_norm_mean": 0.0017610626528039575,
+        "trans_norm_p95": 0.0038771077524870634,
+        "trans_norm_max": 0.005400846712291241,
+        "trans_norm_mean_pct_scene": 0.12110037356615067,
+        "rot_deg_mean": 0.08315993845462799,
+        "rot_deg_p95": 0.20174118876457214,
+        "rot_deg_max": 0.3460501730442047
+      }
+    },
+    "c_obj_alpha": {
+      "ckpt": "_dataset/GPU_V4/apex_images/training/wps2/c_obj_alpha/output/ckpts/ckpt_14999_rank0.pt",
+      "floaters": {
+        "n_gaussians": 1000000,
+        "n_outside": 0,
+        "pct_outside": 0.0,
+        "n_outside_opaque": 0,
+        "pct_outside_opaque": 0.0,
+        "n_outside_black": 0,
+        "n_BLACK_OPAQUE_outside": 0,
+        "pct_BLACK_OPAQUE_outside": 0.0,
+        "opacity_mass_outside": 0.0,
+        "opacity_mass_outside_frac": 0.0,
+        "mean_opacity_outside": 0.0,
+        "mean_maxrgb_outside": 0.0
+      },
+      "pose_drift": {
+        "n_views": 569,
+        "trans_norm_mean": 0.001709956326521933,
+        "trans_norm_p95": 0.00378594221547246,
+        "trans_norm_max": 0.0057663987390697,
+        "trans_norm_mean_pct_scene": 0.11758603155612946,
+        "rot_deg_mean": 0.08149711787700653,
+        "rot_deg_p95": 0.21524786949157715,
+        "rot_deg_max": 0.37949180603027344
+      }
+    }
+  }
+}
