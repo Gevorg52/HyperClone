@@ -335,9 +335,15 @@ masked-LPIPS); if not, fall back to conf-masked L_abs + gradient loss without DI
 ═══════════════════════════════════════════════════════════════════════
 ### WP-F4 — Planar-prior losses (PlanarGS port) — 3–5 days
 ═══════════════════════════════════════════════════════════════════════
-> **STATUS: CODE COMPLETE + reviewed/fixed; GATE RAN 2026-07-04 → FAILED as-specced
-> (PlanarGS lambdas), diagnosed + fixable. Recalibration A/B recommended, NOT run
-> (GPU handed to WP-S2).** Shipped: `core/plane_masks.py` (plane-instance maps from
+> **STATUS: ✅ CLOSED 2026-07-05 — CONDITIONAL LEVER (gate failed twice, recorded honestly).**
+> As-specced (PlanarGS lambdas): flatness −18.9% deck-RMS, appearance +15.3% LPIPS (λ
+> mis-calibration, L_rn > photometric). RECALIBRATED (λ_rn 0.02/λ_rd 0.02/λ_p 0.5, FG-filtered
+> masks, contributions ~18% of photometric, no spike): flatness improves MORE (deck −19.9%,
+> all-planes −48.2%) but appearance still regresses (+4.0% deck / +4.3% masked-LPIPS, −0.45 dB)
+> → the flatness↔appearance trade is INTRINSIC on this scene, not calibration. No third attempt
+> per discipline. Lever ships DEFAULT-OFF as a conditional tool: use where geometric flatness
+> outranks perceptual fidelity (meshing/geometry deliverables/worlds walls), not perceptual object
+> delivery. Evidence: `_infusion/wpf4_ab_flatness_recal.json`, `qa/wpf4_ab_on_recal/`. Shipped: `core/plane_masks.py` (plane-instance maps from
 > the MoGe-2 cache — SAM route dropped: masks never preserved + GPU contention;
 > geometric inspection instead) built for Laptop (304/304 views, 8.57 planes/view).
 > Trainer + backend flags (all default OFF): `--planar_lambda` (L_p), `--prior_depth_lambda`
