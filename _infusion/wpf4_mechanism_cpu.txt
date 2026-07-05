@@ -1,0 +1,8 @@
+== WP-F4 planar-loss CPU mechanism check ==
+synthetic depth: 64x96, range [4.299, 6.971] (positive)
+T1 perfect-plane L_p rel-resid = 1.09e-07  (PASS if <1e-4)  -> PASS
+T2 bumped   L_p = 0.0725 (>0); grad finite+nonzero -> PASS
+T3 depth-normal vs true |cos| mean=1.0000 min=1.0000; toward-cam frac(z<0)=1.00 -> PASS
+T4 L_rn = 0.1007 (>0); finite+grad_nonzero+no_nan -> PASS
+ALL OUTPUTS FINITE: True
+OVERALL: PASS

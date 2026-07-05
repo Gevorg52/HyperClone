@@ -100,6 +100,7 @@ def _plane_depth_along(param: np.ndarray, rays: np.ndarray) -> np.ndarray:
 def build_view_mask(normal: np.ndarray, depth_raw: np.ndarray, inv_K: np.ndarray,
                     k_normal: int = 5, dist_thresh: float = 0.05,
                     min_area: int = 2000, min_frac: float = 0.005,
+                    fg_depth_pct: float | None = None,
                     subsample: int = 20000,
                     rng: np.random.Generator | None = None) -> tuple[np.ndarray, int]:
     """Return (label_map uint16 (H,W), n_instances). 0 = background.
@@ -108,6 +109,11 @@ def build_view_mask(normal: np.ndarray, depth_raw: np.ndarray, inv_K: np.ndarray
     fractional floor is what keeps the mask to a handful of substantial surfaces
     (deck/wall/table) instead of shattering high-res frames into specks (the raw
     2000-px PlanarGS floor was calibrated for ~512-px DUSt3R inputs).
+
+    `fg_depth_pct` (None = off): FOREGROUND/object filter — after building the
+    instances, drop any whose MEDIAN raw depth exceeds the given percentile of the
+    view's valid depths. Removes far background surfaces (distant ground, plants
+    mis-fit as planes) while keeping the near object + its support plane (the deck).
     """
     if rng is None:
         rng = np.random.default_rng(0)
@@ -189,6 +195,22 @@ def build_view_mask(normal: np.ndarray, depth_raw: np.ndarray, inv_K: np.ndarray
             labels[cc2 == big] = next_id
             next_id += 1
 
+    # Foreground/object filter: drop instances whose median raw depth is beyond
+    # the fg_depth_pct-th percentile of the view's valid depths, then compact
+    # labels to 1..M. Keeps the near object + deck; removes far background.
+    if fg_depth_pct is not None and next_id > 1:
+        cutoff = float(np.percentile(depth_raw[valid], fg_depth_pct))
+        compact = np.zeros_like(labels)
+        keep = 0
+        for lab in range(1, next_id):
+            sel = labels == lab
+            if not sel.any():
+                continue
+            if float(np.median(depth_raw[sel])) <= cutoff:
+                keep += 1
+                compact[sel] = keep
+        return compact, keep
+
     return labels, next_id - 1
 
 
@@ -198,7 +220,8 @@ def build_view_mask(normal: np.ndarray, depth_raw: np.ndarray, inv_K: np.ndarray
 
 def build_cache(data_dir: str, factor: int = 2, k_normal: int = 5,
                 dist_thresh: float = 0.05, min_area: int = 2000,
-                min_frac: float = 0.005, only: list[str] | None = None) -> dict:
+                min_frac: float = 0.005, fg_depth_pct: float | None = None,
+                only: list[str] | None = None) -> dict:
     """Build `<data_dir>/priors/plane_mask/{stem}.npy` from the MoGe cache."""
     t0 = time.time()
     prior_dir = Path(data_dir) / "priors"
@@ -247,7 +270,8 @@ def build_cache(data_dir: str, factor: int = 2, k_normal: int = 5,
             depth_raw = (depth_al - b) / s          # inf stays inf
         labels, n_pl = build_view_mask(
             normal, depth_raw, inv_K, k_normal=k_normal,
-            dist_thresh=dist_thresh, min_area=min_area, min_frac=min_frac, rng=rng)
+            dist_thresh=dist_thresh, min_area=min_area, min_frac=min_frac,
+            fg_depth_pct=fg_depth_pct, rng=rng)
         np.save(out_dir / f"{stem}.npy", labels.astype(np.uint16))
         n_written += 1
         total_planes += n_pl
@@ -264,6 +288,7 @@ def build_cache(data_dir: str, factor: int = 2, k_normal: int = 5,
         mean_planes_per_covered=(total_planes / covered) if covered else 0.0,
         median_plane_px_frac=(float(np.median(plane_px_frac)) if plane_px_frac else 0.0),
         k_normal=k_normal, dist_thresh=dist_thresh, min_area=min_area, min_frac=min_frac,
+        fg_depth_pct=fg_depth_pct,
         runtime_s=time.time() - t0,
     )
     print(f"[plane_masks] DONE {n_written} views | {covered} covered | "
@@ -284,13 +309,17 @@ def main():
     ap.add_argument("--min_area", type=int, default=2000)
     ap.add_argument("--min_frac", type=float, default=0.005,
                     help="fractional area floor (of H*W) for a plane region")
+    ap.add_argument("--fg_depth_pct", type=float, default=None,
+                    help="foreground filter: drop plane instances whose median raw "
+                         "depth exceeds this percentile of the view's valid depths "
+                         "(e.g. 60 keeps the near object+deck, drops far background)")
     ap.add_argument("--only", default=None,
                     help="comma-separated stems to (re)build (debug)")
     args = ap.parse_args()
     only = args.only.split(",") if args.only else None
     build_cache(args.data_dir, factor=args.factor, k_normal=args.k_normal,
                 dist_thresh=args.dist_thresh, min_area=args.min_area,
-                min_frac=args.min_frac, only=only)
+                min_frac=args.min_frac, fg_depth_pct=args.fg_depth_pct, only=only)
 
 
 if __name__ == "__main__":

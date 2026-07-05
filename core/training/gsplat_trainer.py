@@ -1420,6 +1420,16 @@ def train(args):
             rendered = _bil_slice(bil_grids, grid_xy,
                                   rendered.unsqueeze(0), iid)["rgb"][0]
 
+        # Object-extract refit (WP-D1): scope the photometric loss to the object.
+        # Composite render+GT over black inside the mask so background pixels (which
+        # the deleted background Gaussians no longer explain) contribute ~0 loss and
+        # exert no pull on the object. Default OFF; alpha_loss (below) still deletes
+        # any residual background alpha using the un-masked alpha channel.
+        if args.rgb_object_masked and "mask" in batch:
+            m_rgb = batch["mask"].to(device, non_blocking=True).unsqueeze(-1)  # (H,W,1)
+            rendered = rendered * m_rgb
+            gt_image = gt_image * m_rgb
+
         # L1 + SSIM loss
         l1_loss = F.l1_loss(rendered, gt_image)
 
@@ -1893,6 +1903,15 @@ def main():
                         help="Optional: push alpha ->1 INSIDE the mask "
                              "(mean((1-alpha)*mask)); fills see-through object holes. "
                              "Use sparingly (can thicken thin parts). 0 = off.")
+    parser.add_argument("--rgb_object_masked",
+                        action=argparse.BooleanOptionalAction, default=False,
+                        help="Delivery object-extract refit (WP-D1): composite BOTH "
+                             "render and GT over black inside the object mask before "
+                             "the L1+SSIM photometric loss, so a short self-refit of an "
+                             "already-extracted object is not pulled by background "
+                             "pixels the deleted background Gaussians can no longer "
+                             "explain. Default OFF (production unchanged). Needs masks/ "
+                             "or masks_{factor}/ next to the images.")
     # Sparse-depth supervision (free, faithful: rendered depth vs SfM points)
     parser.add_argument("--depth_lambda", type=float, default=0.0,
                         help="Weight of sparse depth loss: L1(rendered_depth, SfM_point_z) "
