@@ -165,6 +165,11 @@ NOVA and NVS-SQA clones are UNMODIFIED (drivers import them read-only).
   `tools/reference_sources/moge/`.
 - **License:** **MIT** (code + weights) — permissive, no re-license needed for the
   funded port; a commercial rebuild can ship the weights directly.
+- **WP-N1 addition (2026-07-05, OUR code, no new component):** `core/priors.py` gained
+  a default-OFF `--depth_only` build mode (drops per-view normal/img retention + skips
+  the normal/conf/edge_mask writes) so a **native factor-1** cache fits disk/RAM
+  (~256 GB → ~51 GB, ~400 GB → ~68 GB RAM) for mono-depth-only runs. Same MoGe-2
+  library call, unchanged; only our cache builder changed.
 - **Alignment references (idea only, no code copied):** DN-Splatter
   `align_depth.py` (closed-form scale/shift; the COLMAP reproj/track/depth filter
   thresholds) and the Inria hierarchical-3DGS `make_depth_scale.py` (median-ratio
@@ -415,3 +420,85 @@ the specular ceiling before deciding on a gsplat port.
   toggle that restricts the WP-F1 mono-depth loss to inside the object mask (`pv &= mask>0.5`),
   so object-only training never anchors Gaussians to background depth. OURS (~4 lines); no
   external source. Default OFF → production (full-frame mono-depth) unchanged.
+
+## WP-D1 — Delivery pass (+ WP-S2 synthesis: delivery-time object extraction, 2026-07-04)
+
+### PlayCanvas splat-transform — the delivery filter/decimate/SOG-compress CLI
+- **Idea/source:** **`@playcanvas/splat-transform` v2.7.1** (npmjs.com/package/@playcanvas/splat-transform,
+  github.com/playcanvas/splat-transform), the reference PlayCanvas/SuperSplat 3DGS delivery tool.
+- **Adoption:** used AS-IS as an external Node CLI (`npm install -g`, node ≥18), shelled from
+  `core/delivery.py::run_splat_transform`. Actions used: `--filter-nan`, `--filter-floaters`
+  (voxel edge scaled per-scene to world units = `floater_frac × robust_scene_diagonal`),
+  `--filter-cluster --seed-pos <object-center>` (keep the connected object cluster),
+  `--decimate N%` (pairwise-merge simplify — KEEPS N%), `--filter-harmonics 2` (drop SH>2 at
+  final export), `--morton-order`, and SOG compression (`-i` iters). GPU (WebGPU) path used for
+  filter-floaters/-cluster/SOG on the Blackwell adapter (`-g 0`); `-g cpu` fallback documented.
+  No code copied; invoked as a subprocess. Verified WebGPU works on sm_120 (3 NVIDIA adapters
+  enumerated via `--list-gpus`).
+- **License:** **MIT** (github.com/playcanvas/splat-transform). Output SOG / compressed-PLY open
+  in SuperSplat (supersplat.play.canvas.com) and any PlayCanvas engine viewer.
+
+### `core/delivery.py` — delivery orchestrator + delivery-time object extraction (OURS)
+- **What we ship:** a single-file CLI (default full-scene delivery; `--extract_object` opt-in)
+  that chains prune → splat-transform filters/decimate → short self-refit → SOG export → QA
+  scorecard. The object-extraction mode selects object Gaussians by **multi-view BiRefNet-mask
+  voting** on projected Gaussian centers. OURS; the projection loop reuses the
+  `fully_fused_projection(eps2d=0)` machinery from `_infusion/val_splatsure.py` /
+  `core/qa/visibility.py`, scene scale from `core/qa/scorers/common.py::robust_scene_scale`,
+  object center from `core/enhancement/coverage.py::object_center_from_cameras`, floater cleanup
+  from `core/training/prune.py`. No external code.
+
+### `--rgb_object_masked` trainer lever (new, default OFF)
+- **What we ship:** `core/training/gsplat_trainer.py` — for the delivery object-extract self-refit,
+  composites BOTH render and GT over black by the object mask before the L1+SSIM loss, so a short
+  refit of an already-extracted object is not pulled by background pixels. OURS (~4 lines); no
+  external source. Default OFF → production photometric loss unchanged.
+
+---
+
+## WP-P1 — Generative-polish bake-off (2026-07-04/05)
+
+Bake-off of released enhancers to polish the WP-S1 stack. All ran as SEPARATE upstream tools
+(nothing vendored into `apex-sfm/`); each got its own isolated venv so torch 2.11 is never
+clobbered. Verdict: none beat the no-op splat (see `_infusion/wpp1_RECORD.md`).
+
+### GeoQuery — 2D geometry-guided diffusion refiner (measured; NOT adopted)
+- **Source:** "GeoQuery: ..." SIGGRAPH 2026, **arXiv 2605.12399**, github.com/Xiaoc7/GeoQuery
+  (cloned `D:\REPOS\HYPERclone\GeoQuery`, shallow @ latest). **License: MIT.** Weights
+  `DIG-UESTC/GeoQuery` `geoquery_window_size3_down1.pkl` (5.2 GB) + auto-pull `stabilityai/sd-turbo`
+  (~5 GB; the `.pkl` is a LoRA/skip delta over sd-turbo's VAE+UNet, so sd-turbo is a hard runtime dep).
+- **Adoption:** used AS-SHIPPED as a 2D refiner (`src.model.GeoQuery.sample`) driven through OUR distill
+  machinery (rendered targets + nearest-train reference + MoGe depth + poses -> refined image -> resume-
+  train our gsplat stack), NOT its bundled gsplat example (avoids its pycolmap-fork + fused-ssim Windows
+  builds and guarantees normalization parity with our ckpt). No GeoQuery code modified. Our drivers
+  (`_infusion/wpp1_geoquery_*.py`) are ours.
+- **Env (venv `venvs/geoquery`, --system-site-packages, torch 2.11 untouched):** diffusers==0.25.1
+  (pinned - its UNet2DConditionModel structure must match the `.pkl` state_dict), transformers==4.38.0,
+  peft==0.9.0, huggingface-hub==0.25.1, **cupy-cuda12x==13.4.1** (its `softsplat.py` forward-warp needs
+  cupy; cupy 14.x fails via a stray `Python311\cuda.py` shadowing the `cuda` namespace pkg -> pin 13.4.1),
+  `xformers` stripped from requirements (unused on the refiner path). **Re-license:** MIT (permissive);
+  sd-turbo weights carry an SAI community license (not a POC filter).
+
+### SwiftVR — Wan2.2-TI2V-5B temporal video restorer (measured frame-level; NOT adopted)
+- **Source:** "SwiftVR: ..." **arXiv 2606.09516**, github.com/H-oliday/SwiftVR (cloned
+  `D:\REPOS\HYPERclone\SwiftVR`). **License: Apache-2.0.** Weights `H-oliday/SwiftVR` (~20 GB,
+  self-contained: a Wan2.2-TI2V-5B-derived DiT + REAE + precomputed empty-prompt embedding).
+- **Adoption:** run AS-SHIPPED via `scripts/inference.py` (`SwiftVRPipeline.restore_video`, image-folder
+  in -> PNG out, `--attention_backend sdpa`). No SwiftVR code modified. Restored a rendered orbit; scored
+  vs GT with our eval (`_infusion/wpp1_swiftvr_frame_eval.py`, ours).
+- **Env (venv `venvs/swiftvr`, --system-site-packages, torch 2.11 untouched):** SwiftVR installed
+  `pip install -e . --no-deps` (its `torch==2.10.0` pin must NOT downgrade 2.11) + diffusers==0.36.0,
+  decord==0.6.0, accelerate/safetensors/einops/imageio(-ffmpeg). **venv-local patch:**
+  `venvs/swiftvr/Lib/site-packages/diffusers/models/attention_dispatch.py` - wrapped the eager
+  `flash_attn`/`flash_attn_interface` imports in try/except so a BROKEN system-site-packages flash_attn_3
+  (the sm_120 landmine) falls back to SDPA. **Re-license:** Apache-2.0 (permissive).
+
+### ArtiFixer3D-bidir — incumbent (characterized from existing evidence, not re-run this WP)
+- **Source:** nv-tlabs/artifixer (NVIDIA, arXiv 2603.00492); WSL env `~/artifixer`, weights
+  `nvidia/ArtiFixer artifixer-14b.pt` (67.6 GB; code Apache-2.0, weights NVIDIA-NC). Already logged in
+  memory `artifixer-adoption` / `docs/ARTIFIXER_INVESTIGATION.md`. Not adopted (architecturally replaces
+  a splat rather than polishing our gsplat ckpt; causal path blocked on sm_120 block-sparse flash-attn).
+
+### FlashVSR — EXCLUDED (not cloned/run)
+- Hard block-sparse "locality-constrained sparse attention" dependency = the known sm_120 killer.
+  Excluded up-front per the researcher's landmine flag.

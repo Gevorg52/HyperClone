@@ -195,15 +195,24 @@ def build_cache(data_dir: str, factor: int = 2, model_name: str = DEFAULT_MODEL,
                 depth_min: float = 0.001, depth_max: float = 1000.0,
                 disp_thresh: float = 0.30,
                 global_rel_thresh: float = 0.30,
-                min_inliers_pv: int = 50) -> dict:
+                min_inliers_pv: int = 50,
+                depth_only: bool = False) -> dict:
     """Build the MoGe-2 prior cache under `<data_dir>/priors/`. Returns a stats
-    dict (also printed)."""
+    dict (also printed).
+
+    depth_only (WP-N1): build ONLY the aligned `depth/` maps + `align.json` and
+    skip the normal/conf/edge_mask subdirs. This is for runs that use the
+    mono-depth loss but NO planar losses (which alone read normal/conf/edge). At
+    native factor-1 (24 MP) the full cache is ~256 GB on disk and retaining the
+    per-view normal + image tensors OOMs system RAM (~400 GB); depth-only keeps
+    disk ~55 GB and RAM ~68 GB. Default OFF = existing full-cache behaviour."""
     from moge.model.v2 import MoGeModel
     import pycolmap
 
     t_start = time.time()
     out_root = Path(data_dir) / "priors"
-    for sub in ("depth", "normal", "conf", "edge_mask"):
+    subs = ("depth",) if depth_only else ("depth", "normal", "conf", "edge_mask")
+    for sub in subs:
         (out_root / sub).mkdir(parents=True, exist_ok=True)
 
     # Normalized geometry + the exact training frame (undistort maps, ROI, K_undist)
@@ -289,8 +298,11 @@ def build_cache(data_dir: str, factor: int = 2, model_name: str = DEFAULT_MODEL,
         n_infer_samples.append(len(d_s))
         al = _align_view(d_s, z_s, w_s, tau=0.05, rng=rng) if len(d_s) >= 10 else None
         per_view[stem] = al
+        # depth_only: drop the per-view normal + image tensors (~576 MB/view at
+        # 24 MP) — they are only needed for the normal/conf/edge writes we skip.
         view_meta[stem] = dict(H=H, W=W, valid=valid, depth_m=depth_m,
-                               normal=normal, img=img)
+                               normal=(None if depth_only else normal),
+                               img=(None if depth_only else img))
 
         if (i + 1) % 25 == 0 or i == n_views - 1:
             done = sum(1 for a in per_view.values() if a is not None)
@@ -355,6 +367,7 @@ def build_cache(data_dir: str, factor: int = 2, model_name: str = DEFAULT_MODEL,
         "global_scale": global_scale, "global_rel_thresh": global_rel_thresh,
         "reproj_max": reproj_max,
         "track_min": track_min, "resolution_level": resolution_level,
+        "depth_only": bool(depth_only),
     }, "images": {}}
 
     n_reliable = 0
@@ -399,11 +412,12 @@ def build_cache(data_dir: str, factor: int = 2, model_name: str = DEFAULT_MODEL,
         # aligned metric depth (normalized units), inf=invalid
         aligned = np.where(valid, s * vm["depth_m"] + b, np.inf).astype(np.float32)
         np.save(out_root / "depth" / f"{stem}.npy", aligned)
-        np.save(out_root / "normal" / f"{stem}.npy", vm["normal"].astype(np.float32))
-        np.save(out_root / "conf" / f"{stem}.npy", _conf_map(vm["depth_m"], valid))
-        gray = (np.clip(vm["img"].cpu().numpy(), 0, 1) * 255).astype(np.uint8)
-        gray = cv2.cvtColor(gray, cv2.COLOR_RGB2GRAY)
-        cv2.imwrite(str(out_root / "edge_mask" / f"{stem}.png"), _edge_mask(gray))
+        if not depth_only:
+            np.save(out_root / "normal" / f"{stem}.npy", vm["normal"].astype(np.float32))
+            np.save(out_root / "conf" / f"{stem}.npy", _conf_map(vm["depth_m"], valid))
+            gray = (np.clip(vm["img"].cpu().numpy(), 0, 1) * 255).astype(np.uint8)
+            gray = cv2.cvtColor(gray, cv2.COLOR_RGB2GRAY)
+            cv2.imwrite(str(out_root / "edge_mask" / f"{stem}.png"), _edge_mask(gray))
 
         align_json["images"][stem] = dict(
             scale=float(s), shift=float(b), n_inliers=int(n_inl),
@@ -443,9 +457,14 @@ def main():
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--resolution_level", type=int, default=9)
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--depth_only", action="store_true",
+                    help="Build only the aligned depth/ maps + align.json (skip "
+                         "normal/conf/edge_mask). For mono-depth-only runs; needed "
+                         "at native factor-1 to keep disk/RAM bounded (WP-N1).")
     args = ap.parse_args()
     build_cache(args.data_dir, factor=args.factor, model_name=args.model,
-                resolution_level=args.resolution_level, device=args.device)
+                resolution_level=args.resolution_level, device=args.device,
+                depth_only=args.depth_only)
 
 
 if __name__ == "__main__":

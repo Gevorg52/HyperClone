@@ -1,0 +1,21 @@
+{
+  "na": {
+    "train_loop_psnr_refined_last": 26.125,
+    "n_fine": 11,
+    "heldout_test_psnr": 26.08,
+    "heldout_test_ssim": 0.8451,
+    "train_test_gap_db": 0.045
+  },
+  "nb": {
+    "train_loop_psnr_refined_last": 26.939,
+    "n_fine": 11,
+    "heldout_test_psnr": 20.76,
+    "heldout_test_ssim": 0.8047,
+    "train_test_gap_db": 6.179
+  },
+  "note": "train_loop_psnr = trainer training-loop PSNR (uses pose_opt-REFINED train poses for pose_opt-ON arms), mean of steps>=29000; heldout = trainer [Eval] on 72 test views at ORIGINAL poses (factor 1). gap = the June overfitting signature. pose_opt OFF (na) -> ~0 gap; pose_opt ON (nb) -> ~6 dB gap = June reproduced.",
+  "pose_opt": {
+    "na": "OFF",
+    "nb": "ON (lr 1e-5)"
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "data_dir": "_dataset/GPU_V4/apex_images/training/wps1/n1/data",
+  "common_factor": 2,
+  "note": "native: PSNR+SSIM at full 24 MP (perceptual = region_eval region-LPIPS). common_res: render@f1 -> area-downsample to f2 GT shape, bbox LPIPS (== qa_report --factor 2). mask = build_visibility_mask (alpha_thresh 0.3). VGG-LPIPS normalize=True.",
+  "arms": {
+    "F2": {
+      "ckpt": "_dataset/GPU_V4/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+      "n_test": 72,
+      "native": {
+        "psnr": 22.769943341239166,
+        "ssim": 0.8177065642343627,
+        "obs": 100.0
+      },
+      "common_res": {
+        "psnr": 22.857881251305095,
+        "ssim": 0.8236791640520096,
+        "lpips": 0.4096973083085484,
+        "obs": 100.0
+      },
+      "n_train_sample": 72,
+      "train_psnr_native": 22.68874502408321,
+      "test_psnr_native": 22.769943341239166,
+      "train_test_gap_native": -0.08119831715595538
+    },
+    "N-a": {
+      "ckpt": "_dataset/GPU_V4/apex_images/training/wps1/n1/na/output/ckpts/ckpt_29999_rank0.pt",
+      "n_test": 72,
+      "native": {
+        "psnr": 26.081976164911232,
+        "ssim": 0.8451347971955935,
+        "obs": 100.0
+      },
+      "common_res": {
+        "psnr": 26.39974734712093,
+        "ssim": 0.8665846015016238,
+        "lpips": 0.43216070532798767,
+        "obs": 100.0
+      },
+      "n_train_sample": 72,
+      "train_psnr_native": 26.240276037403703,
+      "test_psnr_native": 26.081976164911232,
+      "train_test_gap_native": 0.15829987249247068
+    },
+    "N-b": {
+      "ckpt": "_dataset/GPU_V4/apex_images/training/wps1/n1/nb/output/ckpts/ckpt_29999_rank0.pt",
+      "n_test": 72,
+      "native": {
+        "psnr": 20.761845088271624,
+        "ssim": 0.8046993853317367,
+        "obs": 100.0
+      },
+      "common_res": {
+        "psnr": 20.79359489181091,
+        "ssim": 0.8058190064297782,
+        "lpips": 0.4642154764797952,
+        "obs": 100.0
+      },
+      "n_train_sample": 72,
+      "train_psnr_native": 20.666457220611488,
+      "test_psnr_native": 20.761845088271624,
+      "train_test_gap_native": -0.0953878676601363
+    }
+  }
+}

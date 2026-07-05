@@ -77,6 +77,21 @@ Gojcic, Turki, … — **same group as Difix3D+**), **SIGGRAPH 2026**. It is the
    > (a) native **without** pose_opt; (b) native + test-time pose alignment in eval; (c) native at 60–100k
    > steps; (d) match cap (3M vs 2M) to remove that confound. Until then **factor-2 remains the validated
    > production recipe.** Vindicates the research caveats ("capture/optimizer, not res, is the ceiling").
+   >
+   > **✅ RESOLVED (2026-07-05, WP-N1 isolation, GPU_V4, `_infusion/wpn1_RECORD.md`):** ran isolation (a)
+   > native **without** pose_opt vs native **with** pose_opt, both = the WP-S1 stacked recipe at factor-1
+   > (c2f 2→1, cap 3M, seed 0, dense-init + mono-depth[factor-1 cache] + erank + gated-LPIPS). **Root cause
+   > CONFIRMED = pose_opt, NOT under-convergence NOR resolution.** N-b (pose_opt ON) reproduced June exactly:
+   > held-out 20.76 dB, **train/test gap 6.18 dB** (train-loop-refined 26.94 / test 20.76). N-a (pose_opt
+   > OFF) eliminated the gap (**0.05 dB**) → test 26.08 dB, i.e. **+3.47 dB common-res PSNR and +0.04 SSIM
+   > OVER the factor-2 F2 stack**, and won ALL native-res microstructure crops (region-LPIPS −2.8…−4.9%;
+   > fins/etched-traces visibly crisper). The stack alone did NOT fix it — **pose_opt-OFF is required at
+   > native res.** Train PSNR was HIGH (26–27) both arms ⇒ NOT under-convergence ⇒ the 60k extension (c) is
+   > unwarranted. **BUT the gate is NOT passed:** the perceptual win is **resolution-matched** — N-a LOSES
+   > common-res (factor-2) masked-LPIPS to F2 (0.432 vs 0.410, both A=direct-f2 and B=render@f1→downsample
+   > agree), because F2 is gated-LPIPS-tuned at factor-2. Net: **native-res + pose_opt-OFF is validated for
+   > NATIVE 24 MP detail delivery, NOT as the factor-2 production default** (F2 still best at factor-2
+   > perceptual). VRAM: native 24 MP @ 3 M = only ~28 GB (96 GB → not the limiter). factor-2 stays prod.
 2. **The "3M ceiling" was a 24 GB + untuned-reg + Gaussian-EXTENT artifact, NOT a hard quality ceiling.**
    Mechanisms of our 8M divergence/OOM, all confirmed: (a) **giant/elongated Gaussians blow up tile-
    intersection buffers** → the 33 GB OOM (bound *scale*, not just count); (b) **MCMC SGLD noise ∝ covariance**
@@ -178,9 +193,12 @@ plausible-only; the engineering goal is to **gate** it so it never overwrites re
 - [ ] Rebuild env for Blackwell: gsplat AOT `arch=12.0`, CUDA ≥12.8, torch ≥2.7 cu128; verify whole stack on card (§2).
 
 **Tier 1 — Faithful wins:**
-- [x] ~~Native 24 MP training (the "certain win")~~ **DONE — REGRESSED ~4 dB on held-out (naive config).** Not
-      a free win; needs the pose_opt/convergence interaction solved first (§1.1 empirical update). Isolate via
-      native-without-pose_opt / test-pose-aligned eval / longer schedule before adopting. factor-2 stays prod.
+- [x] ~~Native 24 MP training (the "certain win")~~ **DONE + ISOLATED (WP-N1, 2026-07-05).** Naive config
+      regressed ~4 dB; **root cause = pose_opt overfitting train poses at 24 MP (6.18 dB train/test gap),
+      NOT resolution/convergence.** With **pose_opt OFF** (N-a), native beats the factor-2 stack by +3.5 dB
+      PSNR/+0.04 SSIM and wins all native microstructure crops — but LOSES factor-2 masked-LPIPS (resolution-
+      matched perceptual). **factor-2 stays prod; native+pose_opt-OFF validated for NATIVE 24 MP detail
+      delivery only.** Never use pose_opt with native-res training. (§1.1, `_infusion/wpn1_RECORD.md`.)
 - [ ] **Fix frame-selection / video-cull bug** (masked windowed VoL + motion gate, relative) (§3).
 
 **Tier 2 — Headline adoption (highest strategic leverage):**
