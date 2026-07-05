@@ -1,0 +1,42 @@
+{
+  "metric": "mean VGG-LPIPS (torchmetrics normalize=True) over every8 held-out views; region = fractional crop box; region_psnr from crop MSE",
+  "region_name": "deck",
+  "box_frac": {
+    "x0": 0.3,
+    "x1": 0.72,
+    "y0": 0.55,
+    "y1": 0.95
+  },
+  "data_dir": "_dataset/Laptop/apex_images/training/gsplat_prod/data",
+  "factor": 2,
+  "arms": {
+    "noop": {
+      "ckpt": "_dataset/Laptop/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+      "n_views": 38,
+      "full_lpips": 0.30958608655553116,
+      "region_lpips": 0.27390942918626887,
+      "region_psnr": 22.448176680925354
+    },
+    "geoquery": {
+      "ckpt": "qa/wpp1_gq_novel/refine_out/ckpts/ckpt_4999_rank0.pt",
+      "n_views": 38,
+      "full_lpips": 0.3245242206673873,
+      "region_lpips": 0.277556884837778,
+      "region_psnr": 24.809644228548276
+    }
+  },
+  "delta": {
+    "full_lpips": {
+      "abs": 0.014938134111856127,
+      "pct": 4.825195562907392
+    },
+    "region_lpips": {
+      "abs": 0.003647455651509146,
+      "pct": 1.3316283642899847
+    },
+    "region_psnr": {
+      "abs": 2.3614675476229223,
+      "pct": 10.519640776123731
+    }
+  }
+}

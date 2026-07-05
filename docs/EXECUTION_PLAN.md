@@ -606,6 +606,31 @@ in its Table 1) and **SwiftVR** (2606.09516, Wan2.2-5B, documented plain-SDPA). 
 unchanged since Jun; no 1.3B variant exists. FlashVSR: check its "locality-constrained sparse
 attention" against the sm_120 landmine before any use.
 
+═══════════════════════════════════════════════════════════════════════
+### WP-P1 — Generative-polish bake-off (CLOSED 2026-07-05 — GATE FAILS all candidates)
+═══════════════════════════════════════════════════════════════════════
+> **STATUS: CLOSED 2026-07-05 — NO released enhancer polishes our current-best (dense, well-observed)
+> stack → honest negative; do NOT adopt a generative polish stage for this regime.** Bake-off on the
+> WP-S1 Laptop STACK, judged so frame-level gains only count if they survive into a splat. No-op bar:
+> masked-LPIPS 0.3096 / deck 0.2739 / lid 0.2472. **GeoQuery (2605.12399, MIT, gsplat-native):
+> feasible on sm_120 (hand-rolled local attn, no flash-attn; smoke-verified), but FRAME-LEVEL NEGATIVE
+> (+10–19% LPIPS, robust across factor-2 & 960p) and SPLAT-LEVEL GATE FAIL — distilled into the stack
+> it REGRESSES masked-LPIPS 0.3096→0.3245 (+4.8%; deck +1.3%, lid +5.5%) while raising PSNR/tsed
+> (smoother, not perceptually faithful). This is (to our knowledge) the FIRST splat-level evidence for
+> GeoQuery = a clean negative on dense captures.** **SwiftVR (2606.09516, Apache-2.0, Wan2.2-5B):
+> feasible on sm_120 (EMPIRICALLY smoke-restored, 6.94 fps; new trap: diffusers 0.36 eagerly imports a
+> broken system flash_attn_3 → venv-local try/except guard → SDPA), but FRAME-LEVEL STRONGLY NEGATIVE
+> (+32–59% LPIPS; hallucinates a denser/distorted on-screen checker) → splat distill not run (foregone
+> larger regression).** **ArtiFixer3D-bidir (incumbent): architecturally REPLACES the splat (builds its
+> own 720p 3DGRUT), cannot ingest our gsplat ckpt; its ~0.306 masked-LPIPS (720p) only ≈ our no-op at
+> half res = not a win; plausible-not-faithful on well-observed views.** **FlashVSR: excluded (block-
+> sparse attn = sm_120 killer).** ROOT CAUSE = regime mismatch: these tools target sparse/degraded/
+> compressed inputs with heavy artifacts; our stack is near-artifact-free, so their re-synthesis trades
+> perceptual fidelity for smoothness/hallucination. Generative enhancement stays reserved for the
+> COMPLETION lane (obs%<100, GT invalid), NOT polish of well-observed splats. Residuals → in-stack
+> Spec-Gaussian ASG (WP-G1 phase-2) + higher train res. Evidence: `_infusion/wpp1_RECORD.md` +
+> `qa/wpp1_*` + `qa/wpp1_geoquery/scorecard.json`; THIRD_PARTY.md updated.
+
 ## Annex A — H100 causal-ArtiFixer probe (optional, ~$1, not excluded)
 Rent an H100 spot (sm_90: stock FA2/FA3 works). Steps: clone nv-tlabs/artifixer + weights
 (67.6 GB — provision download time or use HF cache on the box), copy one prepared scene
