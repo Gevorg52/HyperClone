@@ -1,0 +1,98 @@
+{
+  "name": "laptop",
+  "scene": "Laptop",
+  "mode": "full",
+  "argv": [
+    "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\delivery.py",
+    "--ckpt",
+    "_dataset/Laptop/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+    "--data_dir",
+    "_dataset/Laptop/apex_images/training/gsplat_prod/data",
+    "--name",
+    "laptop",
+    "--scene",
+    "Laptop",
+    "--factor",
+    "2",
+    "--decimate",
+    "60%",
+    "--refit_steps",
+    "3000"
+  ],
+  "ckpt": "_dataset/Laptop/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+  "data_dir": "_dataset/Laptop/apex_images/training/gsplat_prod/data",
+  "factor": 2,
+  "started": "2026-07-05 08:08:28",
+  "stages": {
+    "master": {
+      "n": 3000000,
+      "sh_degree": 3
+    },
+    "prune": {
+      "n_before": 3000000,
+      "n_after": 1706330,
+      "removed_low_opacity": 1293553,
+      "removed_outliers": 765,
+      "opacity_min": 0.01,
+      "sor_std": 2.0
+    },
+    "splat_transform": {
+      "floater_voxel": 0.09893,
+      "actions": [
+        "--filter-nan",
+        "--filter-floaters",
+        "0.09893,0.1,0.004",
+        "--decimate",
+        "60%"
+      ],
+      "n_after": 1016830,
+      "sh_degree": 3,
+      "decimate": "60%"
+    },
+    "refit": {
+      "steps": 3000,
+      "ply": "deliverables\\_work\\laptop_full\\refit\\ply\\point_cloud_2999.ply",
+      "object_masked": false,
+      "alpha_loss_lambda": 0.0,
+      "seconds": 89.2
+    }
+  },
+  "robust_scene_scale": 4.946495551275339,
+  "object_center": [
+    -0.07269433051840794,
+    0.04463285795717491,
+    0.24678163676691275
+  ],
+  "deliverable": {
+    "sog": "deliverables\\laptop_full.sog",
+    "sog_mb": 13.9,
+    "ply": "deliverables\\laptop_full.ply",
+    "ply_mb": 154.56,
+    "n_gaussians": 1016830,
+    "sh_degree": 2
+  },
+  "qa": {
+    "master": {
+      "masked_psnr": 21.957469,
+      "masked_ssim": 0.800108,
+      "masked_lpips": 0.309577,
+      "observed_area_pct": 99.997611
+    },
+    "reduced": {
+      "masked_psnr": 21.933935,
+      "masked_ssim": 0.800251,
+      "masked_lpips": 0.312995,
+      "observed_area_pct": 99.995465
+    },
+    "delivered": {
+      "masked_psnr": 22.147251,
+      "masked_ssim": 0.834376,
+      "masked_lpips": 0.337617,
+      "observed_area_pct": 99.993023
+    },
+    "delta_lpips_delivered_vs_master": 0.02804000000000001,
+    "delta_lpips_reduced_vs_master": 0.003418000000000032,
+    "lpips_recovered_by_refit": -0.024621999999999977
+  },
+  "seconds_total": 215.5
+}

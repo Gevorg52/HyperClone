@@ -1,0 +1,92 @@
+{
+  "name": "gpu",
+  "scene": "GPU_V4",
+  "mode": "full",
+  "argv": [
+    "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\delivery.py",
+    "--ckpt",
+    "_dataset/GPU_V4/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+    "--data_dir",
+    "_dataset/GPU_V4/apex_images/training/gsplat_prod/data",
+    "--name",
+    "gpu",
+    "--scene",
+    "GPU_V4",
+    "--factor",
+    "2",
+    "--decimate",
+    "60%"
+  ],
+  "ckpt": "_dataset/GPU_V4/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+  "data_dir": "_dataset/GPU_V4/apex_images/training/gsplat_prod/data",
+  "factor": 2,
+  "started": "2026-07-05 08:24:27",
+  "stages": {
+    "master": {
+      "n": 3000000,
+      "sh_degree": 3
+    },
+    "prune": {
+      "n_before": 3000000,
+      "n_after": 1461799,
+      "removed_low_opacity": 1537972,
+      "removed_outliers": 1702,
+      "opacity_min": 0.01,
+      "sor_std": 2.0
+    },
+    "splat_transform": {
+      "floater_voxel": 0.0693,
+      "actions": [
+        "--filter-nan",
+        "--filter-floaters",
+        "0.0693,0.1,0.004",
+        "--decimate",
+        "60%"
+      ],
+      "n_after": 875233,
+      "sh_degree": 3,
+      "decimate": "60%"
+    }
+  },
+  "robust_scene_scale": 3.464961747027593,
+  "object_center": [
+    0.1287723978438461,
+    0.4532107104534114,
+    0.11959299987854022
+  ],
+  "refit_enabled": false,
+  "deliverable": {
+    "sog": "deliverables\\gpu_full.sog",
+    "sog_mb": 13.29,
+    "ply": "deliverables\\gpu_full.ply",
+    "ply_mb": 133.04,
+    "n_gaussians": 875233,
+    "sh_degree": 2
+  },
+  "qa": {
+    "master": {
+      "masked_psnr": 22.933222,
+      "masked_ssim": 0.824875,
+      "masked_lpips": 0.407145,
+      "observed_area_pct": 100.0
+    },
+    "reduced": {
+      "masked_psnr": 22.825417,
+      "masked_ssim": 0.82482,
+      "masked_lpips": 0.412414,
+      "observed_area_pct": 100.0
+    },
+    "delivered": {
+      "masked_psnr": 22.120906,
+      "masked_ssim": 0.817278,
+      "masked_lpips": 0.41871,
+      "observed_area_pct": 100.0
+    },
+    "delta_lpips_delivered_vs_master": 0.011565000000000047,
+    "delta_lpips_delivered_vs_master_pct": 2.84,
+    "delta_lpips_reduced_vs_master": 0.005269000000000024,
+    "delta_lpips_delivered_vs_reduced": 0.006296000000000024,
+    "refit_enabled": false
+  },
+  "seconds_total": 230.8
+}

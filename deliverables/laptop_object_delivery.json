@@ -1,0 +1,131 @@
+{
+  "name": "laptop",
+  "scene": "Laptop",
+  "mode": "object",
+  "argv": [
+    "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\delivery.py",
+    "--extract_object",
+    "--ckpt",
+    "_dataset/Laptop/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+    "--data_dir",
+    "_dataset/Laptop/apex_images/training/gsplat_prod/data",
+    "--name",
+    "laptop",
+    "--scene",
+    "Laptop",
+    "--factor",
+    "2",
+    "--no_decimate",
+    "--refit_steps",
+    "3000"
+  ],
+  "ckpt": "_dataset/Laptop/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+  "data_dir": "_dataset/Laptop/apex_images/training/gsplat_prod/data",
+  "factor": 2,
+  "started": "2026-07-05 10:07:21",
+  "stages": {
+    "master": {
+      "n": 3000000,
+      "sh_degree": 3
+    },
+    "vote": {
+      "n_total": 3000000,
+      "n_kept": 1071216,
+      "kept_pct": 35.71,
+      "views_used": 266,
+      "mask_thresh": 0.5,
+      "vote_frac": 0.6,
+      "min_views": 4,
+      "stride": 1,
+      "median_observed_views": 110.0,
+      "n_never_observed": 929421
+    },
+    "prune": {
+      "n_before": 1071216,
+      "n_after": 876324,
+      "removed_low_opacity": 194884,
+      "removed_outliers": 59,
+      "opacity_min": 0.01,
+      "sor_std": 2.0
+    },
+    "splat_transform": {
+      "floater_voxel": 0.09893,
+      "cluster_res": 0.04946,
+      "actions": [
+        "--filter-nan",
+        "--filter-floaters",
+        "0.09893,0.1,0.004",
+        "--filter-cluster",
+        "0.04946,0.999,0.1",
+        "--seed-pos",
+        "-0.07269433051840794,0.04463285795717491,0.24678163676691275"
+      ],
+      "n_after": 862913,
+      "sh_degree": 3,
+      "decimate": null
+    },
+    "refit": {
+      "steps": 3000,
+      "ply": "deliverables\\_work\\laptop_object\\refit\\ply\\point_cloud_2999.ply",
+      "object_masked": true,
+      "alpha_loss_lambda": 0.1,
+      "seconds": 83.7
+    }
+  },
+  "robust_scene_scale": 4.946495551275339,
+  "object_center": [
+    -0.07269433051840794,
+    0.04463285795717491,
+    0.24678163676691275
+  ],
+  "refit_enabled": true,
+  "filter_harmonics": 3,
+  "deliverable": {
+    "sog": "deliverables\\laptop_object.sog",
+    "sog_mb": 12.93,
+    "ply": "deliverables\\laptop_object.ply",
+    "ply_mb": 203.65,
+    "n_gaussians": 862913,
+    "sh_degree": 3
+  },
+  "qa": {
+    "master_object": {
+      "n_views": 37,
+      "n_skipped_degenerate_mask": 1,
+      "obj_masked_psnr": 20.33474424435991,
+      "obj_masked_ssim": 0.716115760642129,
+      "obj_masked_lpips": 0.17734683073453,
+      "mean_object_area_pct": 33.25627010718391,
+      "mean_bg_bleed_alpha": 0.9966234065390922,
+      "max_bg_bleed_alpha": 0.9998561143875122,
+      "min_mask_frac": 0.02,
+      "strip": "D:\\REPOS\\HYPERclone\\apex-sfm\\qa\\wpd1_laptop_object\\strip_master.png"
+    },
+    "delivered_object": {
+      "n_views": 37,
+      "n_skipped_degenerate_mask": 1,
+      "obj_masked_psnr": 22.754345093178667,
+      "obj_masked_ssim": 0.816859250133102,
+      "obj_masked_lpips": 0.176584817267753,
+      "mean_object_area_pct": 33.25627010718391,
+      "mean_bg_bleed_alpha": 0.05029644372533201,
+      "max_bg_bleed_alpha": 0.694343090057373,
+      "min_mask_frac": 0.02,
+      "strip": "D:\\REPOS\\HYPERclone\\apex-sfm\\qa\\wpd1_laptop_object\\strip_delivered.png"
+    },
+    "delivered_scorecard_lpips": 0.401277,
+    "spatial_floaters": {
+      "n": 862913,
+      "radial_over_scale_p50": 0.07791979411201949,
+      "radial_over_scale_p90": 0.11201857915836894,
+      "radial_over_scale_p99": 0.1411895033741095,
+      "radial_over_scale_max": 2.8619788917581777,
+      "within_0.3_scale_pct": 99.981,
+      "within_0.5_scale_pct": 99.992,
+      "beyond_0.5_scale_count": 66,
+      "beyond_1.0_scale_count": 24
+    },
+    "delta_obj_lpips_delivered_vs_master": -0.0007620134667770118
+  },
+  "seconds_total": 197.6
+}

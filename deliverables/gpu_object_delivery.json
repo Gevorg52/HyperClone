@@ -1,0 +1,131 @@
+{
+  "name": "gpu",
+  "scene": "GPU_V4",
+  "mode": "object",
+  "argv": [
+    "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\delivery.py",
+    "--extract_object",
+    "--ckpt",
+    "_dataset/GPU_V4/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+    "--data_dir",
+    "_dataset/GPU_V4/apex_images/training/gsplat_prod/data",
+    "--name",
+    "gpu",
+    "--scene",
+    "GPU_V4",
+    "--factor",
+    "2",
+    "--no_decimate",
+    "--refit_steps",
+    "3000"
+  ],
+  "ckpt": "_dataset/GPU_V4/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+  "data_dir": "_dataset/GPU_V4/apex_images/training/gsplat_prod/data",
+  "factor": 2,
+  "started": "2026-07-05 09:56:11",
+  "stages": {
+    "master": {
+      "n": 3000000,
+      "sh_degree": 3
+    },
+    "vote": {
+      "n_total": 3000000,
+      "n_kept": 603352,
+      "kept_pct": 20.11,
+      "views_used": 497,
+      "mask_thresh": 0.5,
+      "vote_frac": 0.6,
+      "min_views": 4,
+      "stride": 1,
+      "median_observed_views": 142.0,
+      "n_never_observed": 1178505
+    },
+    "prune": {
+      "n_before": 603352,
+      "n_after": 481531,
+      "removed_low_opacity": 121767,
+      "removed_outliers": 120,
+      "opacity_min": 0.01,
+      "sor_std": 2.0
+    },
+    "splat_transform": {
+      "floater_voxel": 0.0693,
+      "cluster_res": 0.03465,
+      "actions": [
+        "--filter-nan",
+        "--filter-floaters",
+        "0.0693,0.1,0.004",
+        "--filter-cluster",
+        "0.03465,0.999,0.1",
+        "--seed-pos",
+        "0.1287723978438461,0.4532107104534114,0.11959299987854022"
+      ],
+      "n_after": 473842,
+      "sh_degree": 3,
+      "decimate": null
+    },
+    "refit": {
+      "steps": 3000,
+      "ply": "deliverables\\_work\\gpu_object\\refit\\ply\\point_cloud_2999.ply",
+      "object_masked": true,
+      "alpha_loss_lambda": 0.1,
+      "seconds": 255.9
+    }
+  },
+  "robust_scene_scale": 3.464961747027593,
+  "object_center": [
+    0.1287723978438461,
+    0.4532107104534114,
+    0.11959299987854022
+  ],
+  "refit_enabled": true,
+  "filter_harmonics": 3,
+  "deliverable": {
+    "sog": "deliverables\\gpu_object.sog",
+    "sog_mb": 8.13,
+    "ply": "deliverables\\gpu_object.ply",
+    "ply_mb": 111.83,
+    "n_gaussians": 473842,
+    "sh_degree": 3
+  },
+  "qa": {
+    "master_object": {
+      "n_views": 72,
+      "n_skipped_degenerate_mask": 0,
+      "obj_masked_psnr": 21.711757209541304,
+      "obj_masked_ssim": 0.6867314378420512,
+      "obj_masked_lpips": 0.23531860972030294,
+      "mean_object_area_pct": 19.27636554464698,
+      "mean_bg_bleed_alpha": 0.9878648287720151,
+      "max_bg_bleed_alpha": 0.999489963054657,
+      "min_mask_frac": 0.02,
+      "strip": "D:\\REPOS\\HYPERclone\\apex-sfm\\qa\\wpd1_gpu_object\\strip_master.png"
+    },
+    "delivered_object": {
+      "n_views": 72,
+      "n_skipped_degenerate_mask": 0,
+      "obj_masked_psnr": 25.884477175802033,
+      "obj_masked_ssim": 0.8102966157926453,
+      "obj_masked_lpips": 0.22478567053460413,
+      "mean_object_area_pct": 19.27636554464698,
+      "mean_bg_bleed_alpha": 0.025128819725877192,
+      "max_bg_bleed_alpha": 0.0782690942287445,
+      "min_mask_frac": 0.02,
+      "strip": "D:\\REPOS\\HYPERclone\\apex-sfm\\qa\\wpd1_gpu_object\\strip_delivered.png"
+    },
+    "delivered_scorecard_lpips": 0.546973,
+    "spatial_floaters": {
+      "n": 473842,
+      "radial_over_scale_p50": 0.09039682634848004,
+      "radial_over_scale_p90": 0.13836427343810728,
+      "radial_over_scale_p99": 0.15653318929439486,
+      "radial_over_scale_max": 6.810508905139881,
+      "within_0.3_scale_pct": 99.954,
+      "within_0.5_scale_pct": 99.984,
+      "beyond_0.5_scale_count": 77,
+      "beyond_1.0_scale_count": 23
+    },
+    "delta_obj_lpips_delivered_vs_master": -0.010532939185698809
+  },
+  "seconds_total": 422.0
+}

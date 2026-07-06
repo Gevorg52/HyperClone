@@ -483,8 +483,27 @@ canonical-unit-cube Gaussians (`save_ply` → standard 3DGS PLY) → similarity-
 the scene. **Gate:** beats WP-C1 on the same held-out backs under WP-Q1 metrics.
 
 ═══════════════════════════════════════════════════════════════════════
-### WP-D1 — Delivery pass — 1–2 days
+### WP-D1 — Delivery pass (+ WP-S2 synthesis: delivery-time object extraction)
 ═══════════════════════════════════════════════════════════════════════
+> **STATUS: ✅ CLOSED 2026-07-05 — GATE PASSED (both arms).** New `core/delivery.py` (CLI, default
+> full-scene; `--extract_object` opt-in) + `--rgb_object_masked` trainer lever (default OFF).
+> splat-transform v2.7.1 verified on Blackwell (WebGPU adapter 0; filter-floaters/-cluster/SOG all
+> run — `-g cpu` fallback not needed; `--decimate N%` keeps N% [V]). Deliverables (SuperSplat-openable):
+> `deliverables/{gpu,laptop}_{full,object}.sog` (+ `.ply`). **(a) FULL-SCENE:** decimation to ~29–34%
+> of the 3M master is NEAR-LOSSLESS (reduced SH3: +1.1–1.3% masked-LPIPS, PSNR≈master); shipped SH2
+> deliverable within a **+5% LPIPS bound** (GPU +2.8%, Laptop +4.4%). **Self-refit is OFF by default
+> for full-scene**: on the WP-S1 LPIPS-tuned masters the L1+SSIM refit trades LPIPS for PSNR (GPU
+> +2.07 dB PSNR but LPIPS worse; refit-SH3 0.4155 > decimate-only 0.4124) — it can't "recover ≥half
+> the decimation loss" in LPIPS because decimation is already ~lossless. **(b) OBJECT-EXTRACT:** clean
+> cut — multi-view BiRefNet-mask voting → object 99.98–99.99% spatially compact (66–77 stray Gaussians
+> of ~0.5–0.9M beyond 0.5×scene-scale), out-of-mask alpha ≈0.025 (GPU) vs 0.99 master control; the
+> object-masked self-refit makes the object-region metrics BETTER than the master's object region
+> (obj-LPIPS −0.0105/−0.0008, obj-PSNR +4.2/+2.4 dB). Objects ship SH3 (SH2 was the whole LPIPS
+> regression on the glossy laptop lid). Caveat: Laptop 2D-mask bleed (0.05) is a BiRefNet
+> under-segmentation artifact on ~2–4 outdoor frames (spatial-floater metric confirms clean). Evidence:
+> `_infusion/wpd1_RECORD.md` + `deliverables/*_delivery.json` + `qa/wpd1_*` (scorecards, strips,
+> refit-variant JSONs). Tests: 146 passed. THIRD_PARTY.md updated (splat-transform MIT).
+
 `npm install -g @playcanvas/splat-transform` (node ≥18, MIT, v2.7.1 [V]). New `core/delivery.py`
 + Stage-10 button: run `floater_report.py` → prune.py →
 `splat-transform -w in.ply --filter-nan --filter-floaters 0.05,0.1,0.004 --filter-cluster
