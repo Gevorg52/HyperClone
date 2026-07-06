@@ -591,7 +591,7 @@ def main():
     ap.add_argument("--cluster_res_frac", type=float, default=0.01,
                     help="cluster voxel resolution as fraction of robust scene diagonal")
     ap.add_argument("--decimate", default="60%", help="target count for splat-transform "
-                    "--decimate (keeps N or N%); e.g. 60% or 1500000")
+                    "--decimate (keeps N or N%%); e.g. 60%% or 1500000")
     ap.add_argument("--no_decimate", action="store_true")
     ap.add_argument("--filter_harmonics", type=int, default=None, choices=[0, 1, 2, 3],
                     help="drop SH bands above this at final export. Default: 3 for "
