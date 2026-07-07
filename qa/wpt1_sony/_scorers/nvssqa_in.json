@@ -1,0 +1,1 @@
+{"repo": "D:\\REPOS\\HYPERclone\\qa_repos\\NVS-SQA", "model_folder": "D:\\REPOS\\HYPERclone\\qa_repos\\NVS-SQA\\checkpoints\\v0.0.1\\models", "linear_head": "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\qa\\vendor\\nvs_sqa_linear_head.npz", "frames_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\qa\\wpt1_sony\\_scorers\\moving", "epo_offset": 100}

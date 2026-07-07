@@ -1,0 +1,129 @@
+{
+  "name": "sony_shoe",
+  "scene": "sony_shoe",
+  "mode": "object",
+  "argv": [
+    "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\delivery.py",
+    "--extract_object",
+    "--gen_masks",
+    "--ckpt",
+    "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\training\\gsplat\\output\\ckpts\\ckpt_29999_rank0.pt",
+    "--data_dir",
+    "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\training\\gsplat\\data",
+    "--name",
+    "sony_shoe",
+    "--factor",
+    "3"
+  ],
+  "ckpt": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\training\\gsplat\\output\\ckpts\\ckpt_29999_rank0.pt",
+  "data_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\training\\gsplat\\data",
+  "factor": 3,
+  "started": "2026-07-07 14:23:38",
+  "stages": {
+    "master": {
+      "n": 3000000,
+      "sh_degree": 3
+    },
+    "vote": {
+      "n_total": 3000000,
+      "n_kept": 1882165,
+      "kept_pct": 62.74,
+      "views_used": 514,
+      "mask_thresh": 0.5,
+      "vote_frac": 0.6,
+      "min_views": 4,
+      "stride": 1,
+      "median_observed_views": 463.0,
+      "n_never_observed": 896909
+    },
+    "prune": {
+      "n_before": 1882165,
+      "n_after": 1579567,
+      "removed_low_opacity": 302538,
+      "removed_outliers": 171,
+      "opacity_min": 0.01,
+      "sor_std": 2.0
+    },
+    "splat_transform": {
+      "floater_voxel": 0.07651,
+      "cluster_res": 0.03826,
+      "actions": [
+        "--filter-nan",
+        "--filter-floaters",
+        "0.07651,0.1,0.004",
+        "--filter-cluster",
+        "0.03826,0.999,0.1",
+        "--seed-pos",
+        "0.018493249268400878,0.10527156438313037,0.07462391423657415",
+        "--decimate",
+        "60%"
+      ],
+      "n_after": 939315,
+      "sh_degree": 3,
+      "decimate": "60%"
+    },
+    "refit": {
+      "steps": 3000,
+      "ply": "deliverables\\_work\\sony_shoe_object\\refit\\ply\\point_cloud_2999.ply",
+      "object_masked": true,
+      "alpha_loss_lambda": 0.1,
+      "seconds": 287.3
+    }
+  },
+  "robust_scene_scale": 3.82565822608947,
+  "object_center": [
+    0.018493249268400878,
+    0.10527156438313037,
+    0.07462391423657415
+  ],
+  "refit_enabled": true,
+  "filter_harmonics": 3,
+  "deliverable": {
+    "sog": "deliverables\\sony_shoe_object.sog",
+    "sog_mb": 14.02,
+    "ply": "deliverables\\sony_shoe_object.ply",
+    "ply_mb": 221.68,
+    "n_gaussians": 939315,
+    "sh_degree": 3
+  },
+  "qa": {
+    "master_object": {
+      "n_views": 74,
+      "n_skipped_degenerate_mask": 0,
+      "obj_masked_psnr": 22.703859074775696,
+      "obj_masked_ssim": 0.775429354326145,
+      "obj_masked_lpips": 0.18413854793116852,
+      "mean_object_area_pct": 29.53933055537778,
+      "mean_bg_bleed_alpha": 0.9351373226255983,
+      "max_bg_bleed_alpha": 0.9875465035438538,
+      "min_mask_frac": 0.02,
+      "strip": "D:\\REPOS\\HYPERclone\\apex-sfm\\qa\\wpd1_sony_shoe_object\\strip_master.png"
+    },
+    "delivered_object": {
+      "n_views": 74,
+      "n_skipped_degenerate_mask": 0,
+      "obj_masked_psnr": 25.416444301183393,
+      "obj_masked_ssim": 0.8776978632888278,
+      "obj_masked_lpips": 0.17596355362518415,
+      "mean_object_area_pct": 29.53933055537778,
+      "mean_bg_bleed_alpha": 0.02288352044903346,
+      "max_bg_bleed_alpha": 0.2042519897222519,
+      "min_mask_frac": 0.02,
+      "strip": "D:\\REPOS\\HYPERclone\\apex-sfm\\qa\\wpd1_sony_shoe_object\\strip_delivered.png"
+    },
+    "delivered_scorecard_lpips": 0.46548,
+    "spatial_floaters": {
+      "n": 939315,
+      "radial_over_scale_p50": 0.07934839352030217,
+      "radial_over_scale_p90": 0.12232151314665021,
+      "radial_over_scale_p99": 0.13562591487845946,
+      "radial_over_scale_max": 23.332717150630256,
+      "within_0.3_scale_pct": 99.969,
+      "within_0.5_scale_pct": 99.988,
+      "beyond_0.5_scale_count": 112,
+      "beyond_1.0_scale_count": 64
+    },
+    "delta_obj_lpips_delivered_vs_master": -0.008174994305984368
+  },
+  "seconds_total": 703.9
+}
