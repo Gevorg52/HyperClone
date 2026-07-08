@@ -1,0 +1,118 @@
+/* gui2 — Apex Reality wizard theme.
+   Soft base + custom CSS: dark, generous whitespace, ONE accent color, big cards.
+   (design §1 visual identity). Light-mode variables provided for completeness. */
+
+:root {
+  --apex-accent: #7c6cff;
+  --apex-accent-soft: rgba(124, 108, 255, 0.14);
+  --apex-accent-2: #a99bff;
+  --apex-bg: #0e0f13;
+  --apex-panel: #16181f;
+  --apex-panel-2: #1c1f28;
+  --apex-border: #262a35;
+  --apex-text: #e7e9ee;
+  --apex-muted: #99a0ad;
+  --apex-good: #3ecf8e;
+  --apex-warn: #f0a84a;
+}
+
+.gradio-container {
+  max-width: 1080px !important;
+  margin: 0 auto !important;
+  background: var(--apex-bg);
+  color: var(--apex-text);
+}
+
+/* ---- header + stepper ------------------------------------------------ */
+.apex-header h1 { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+.apex-header p  { color: var(--apex-muted); margin: 4px 0 0; }
+
+.apex-stepper { display: flex; gap: 10px; margin: 18px 0 26px; }
+.apex-step {
+  flex: 1; padding: 10px 14px; border-radius: 12px;
+  background: var(--apex-panel); border: 1px solid var(--apex-border);
+  color: var(--apex-muted); font-size: 0.86rem; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+}
+.apex-step .num {
+  width: 22px; height: 22px; border-radius: 999px; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 0.78rem;
+  background: var(--apex-panel-2); color: var(--apex-muted);
+}
+.apex-step.active { border-color: var(--apex-accent); color: var(--apex-text); }
+.apex-step.active .num { background: var(--apex-accent); color: #fff; }
+.apex-step.done .num { background: var(--apex-good); color: #05130d; }
+
+/* ---- mode cards ------------------------------------------------------ */
+.apex-modecard button {
+  width: 100%; min-height: 132px; text-align: left !important;
+  border-radius: 16px !important; border: 1.5px solid var(--apex-border) !important;
+  background: var(--apex-panel) !important; padding: 20px !important;
+  font-size: 1.02rem !important; line-height: 1.45 !important;
+  transition: border-color .15s ease, transform .12s ease, background .15s ease;
+  white-space: pre-line !important; color: var(--apex-text) !important;
+}
+.apex-modecard button:hover { transform: translateY(-2px); border-color: var(--apex-accent-2) !important; }
+
+/* ---- generous whitespace on groups ---------------------------------- */
+.apex-panel {
+  background: var(--apex-panel) !important; border: 1px solid var(--apex-border) !important;
+  border-radius: 16px !important; padding: 18px !important; margin-bottom: 14px;
+}
+
+/* ---- primary buttons pick up the single accent ---------------------- */
+button.primary, .apex-primary button {
+  background: var(--apex-accent) !important; border: none !important; color: #fff !important;
+  font-weight: 650 !important; border-radius: 12px !important;
+}
+.apex-primary button:hover { background: var(--apex-accent-2) !important; }
+
+/* ---- unified progress bar ------------------------------------------- */
+.apex-progress-outer {
+  height: 16px; border-radius: 999px; background: var(--apex-panel-2);
+  overflow: hidden; border: 1px solid var(--apex-border);
+}
+.apex-progress-inner {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--apex-accent), var(--apex-accent-2));
+  transition: width .4s ease;
+}
+.apex-progress-label { display: flex; justify-content: space-between; margin: 0 2px 8px;
+  font-size: 0.9rem; color: var(--apex-muted); }
+.apex-progress-label b { color: var(--apex-text); }
+
+.apex-stages { list-style: none; padding: 0; margin: 14px 0 0; }
+.apex-stages li {
+  display: flex; align-items: center; gap: 10px; padding: 7px 4px;
+  font-size: 0.9rem; color: var(--apex-muted); border-bottom: 1px solid var(--apex-border);
+}
+.apex-stages li:last-child { border-bottom: none; }
+.apex-dot { width: 9px; height: 9px; border-radius: 999px; background: var(--apex-border); flex: none; }
+.apex-stages li.running { color: var(--apex-text); }
+.apex-stages li.running .apex-dot { background: var(--apex-accent); box-shadow: 0 0 0 4px var(--apex-accent-soft); }
+.apex-stages li.done .apex-dot,
+.apex-stages li.skipped .apex-dot { background: var(--apex-good); }
+.apex-stages li.failed { color: #ff8c8c; }
+.apex-stages li.failed .apex-dot { background: #ff6b6b; }
+.apex-stages .frac { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 0.82rem; }
+
+/* ---- deliverable cards ---------------------------------------------- */
+.apex-deliv { display: flex; flex-direction: column; gap: 10px; }
+.apex-deliv .card {
+  display: flex; align-items: center; gap: 14px; padding: 16px 18px;
+  background: var(--apex-panel); border: 1px solid var(--apex-border); border-radius: 14px;
+}
+.apex-deliv .card .ico { font-size: 1.6rem; }
+.apex-deliv .card .name { font-weight: 650; color: var(--apex-text); }
+.apex-deliv .card .sub  { color: var(--apex-muted); font-size: 0.85rem; }
+
+.apex-log textarea { font-family: ui-monospace, "Cascadia Code", Consolas, monospace !important;
+  font-size: 0.8rem !important; }
+
+/* light mode: soften the near-black panels */
+@media (prefers-color-scheme: light) {
+  :root {
+    --apex-bg: #f5f6fa; --apex-panel: #ffffff; --apex-panel-2: #eef0f6;
+    --apex-border: #e2e5ee; --apex-text: #1c2230; --apex-muted: #667085;
+  }
+}

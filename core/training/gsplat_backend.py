@@ -551,10 +551,18 @@ class GsplatBackend(TrainingBackend):
         if extra.get("refine_stop_iter"):
             args.extend(["--refine_stop_iter", str(extra["refine_stop_iter"])])
 
-        # save_steps
+        # save_steps. NOTE: the trainer's --save_steps is nargs="*", so passing a
+        # separate --save_steps flag per step makes argparse keep only the LAST one
+        # (only the final checkpoint is written). Legacy callers rely on that single-
+        # checkpoint behavior (their ckpt/PLY selection is a lexical sort[-1]); opting
+        # in via extra["save_all"] passes ALL steps as ONE flag so intermediate
+        # checkpoints are actually written (needed for gui2 resume-from-checkpoint).
         save_steps = config.save_steps or [7_000, config.max_steps]
-        for s in save_steps:
-            args.extend(["--save_steps", str(s)])
+        if extra.get("save_all"):
+            args.extend(["--save_steps", *(str(s) for s in save_steps)])
+        else:
+            for s in save_steps:
+                args.extend(["--save_steps", str(s)])
 
         # Launch subprocess
         env = os.environ.copy()

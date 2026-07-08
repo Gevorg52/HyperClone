@@ -1,0 +1,488 @@
+{
+  "started": "2026-07-07 19:44:22",
+  "events": [
+    "19:44:23 subset: 39 frames -> D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\input_images",
+    "19:44:23 QC: 39f 3840x2160 8.3MP auto-factor 1->8.3MP hist=D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\_qc\\qc_hist.png",
+    "19:44:23 starting runner: env, factor=4, max_steps=500, cap=100k",
+    "19:44:28 stage DONE: qc (global 2.8%)",
+    "19:44:28 stage RUNNING: features",
+    "19:44:33 stage DONE: features (global 20.0%)",
+    "19:44:33 stage RUNNING: matching",
+    "19:45:18 stage DONE: matching (global 38.2%)",
+    "19:45:18 stage RUNNING: reconstruction",
+    "19:45:58 stage DONE: reconstruction (global 60.0%)",
+    "19:45:58 stage DONE: export (global 60.0%)",
+    "19:45:58 stage RUNNING: priors_dense",
+    "19:48:09 stage DONE: priors_dense (global 70.0%)",
+    "19:48:09 stage RUNNING: training",
+    "19:48:39 stage DONE: training (global 98.8%)",
+    "19:48:39 stage RUNNING: delivery",
+    "19:48:49 stage DONE: delivery (global 100.0%)",
+    "19:48:49 FINAL status=done : Done. Your deliverables are ready in Step 4.",
+    "19:48:49 env nav: next_env=4 next_obj=3 env_skips_review=True",
+    "19:48:49 defaults byte-for-byte: True",
+    "19:48:49 SMOKE ok=True  status=done  deliverables=2  elapsed=4.4min"
+  ],
+  "samples": [
+    {
+      "t": 0.0,
+      "frac": 0.0,
+      "stage": "qc",
+      "status": "running",
+      "log_len": 0
+    },
+    {
+      "t": 5.0,
+      "frac": 0.028,
+      "stage": "features",
+      "status": "running",
+      "log_len": 117
+    },
+    {
+      "t": 10.0,
+      "frac": 0.2,
+      "stage": "matching",
+      "status": "running",
+      "log_len": 382
+    },
+    {
+      "t": 15.0,
+      "frac": 0.2,
+      "stage": "matching",
+      "status": "running",
+      "log_len": 460
+    },
+    {
+      "t": 20.0,
+      "frac": 0.2,
+      "stage": "matching",
+      "status": "running",
+      "log_len": 460
+    },
+    {
+      "t": 25.0,
+      "frac": 0.2,
+      "stage": "matching",
+      "status": "running",
+      "log_len": 460
+    },
+    {
+      "t": 30.0,
+      "frac": 0.2,
+      "stage": "matching",
+      "status": "running",
+      "log_len": 460
+    },
+    {
+      "t": 35.0,
+      "frac": 0.2,
+      "stage": "matching",
+      "status": "running",
+      "log_len": 460
+    },
+    {
+      "t": 40.0,
+      "frac": 0.2,
+      "stage": "matching",
+      "status": "running",
+      "log_len": 460
+    },
+    {
+      "t": 45.0,
+      "frac": 0.2,
+      "stage": "matching",
+      "status": "running",
+      "log_len": 460
+    },
+    {
+      "t": 50.0,
+      "frac": 0.2,
+      "stage": "matching",
+      "status": "running",
+      "log_len": 460
+    },
+    {
+      "t": 55.0,
+      "frac": 0.382,
+      "stage": "reconstruction",
+      "status": "running",
+      "log_len": 538
+    },
+    {
+      "t": 60.0,
+      "frac": 0.382,
+      "stage": "reconstruction",
+      "status": "running",
+      "log_len": 622
+    },
+    {
+      "t": 65.0,
+      "frac": 0.382,
+      "stage": "reconstruction",
+      "status": "running",
+      "log_len": 622
+    },
+    {
+      "t": 70.0,
+      "frac": 0.382,
+      "stage": "reconstruction",
+      "status": "running",
+      "log_len": 622
+    },
+    {
+      "t": 75.0,
+      "frac": 0.382,
+      "stage": "reconstruction",
+      "status": "running",
+      "log_len": 622
+    },
+    {
+      "t": 80.0,
+      "frac": 0.382,
+      "stage": "reconstruction",
+      "status": "running",
+      "log_len": 622
+    },
+    {
+      "t": 85.0,
+      "frac": 0.382,
+      "stage": "reconstruction",
+      "status": "running",
+      "log_len": 622
+    },
+    {
+      "t": 90.0,
+      "frac": 0.382,
+      "stage": "reconstruction",
+      "status": "running",
+      "log_len": 622
+    },
+    {
+      "t": 95.0,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 884
+    },
+    {
+      "t": 100.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 105.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 110.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 115.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 120.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 125.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 130.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 135.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 140.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 145.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 150.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 155.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 160.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 165.1,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 170.3,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 175.3,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 180.3,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 185.3,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1222
+    },
+    {
+      "t": 190.4,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1400
+    },
+    {
+      "t": 195.4,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1400
+    },
+    {
+      "t": 200.4,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1400
+    },
+    {
+      "t": 205.4,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1400
+    },
+    {
+      "t": 210.4,
+      "frac": 0.6,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 1400
+    },
+    {
+      "t": 215.4,
+      "frac": 0.66,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 2652
+    },
+    {
+      "t": 220.4,
+      "frac": 0.66,
+      "stage": "priors_dense",
+      "status": "running",
+      "log_len": 2649
+    },
+    {
+      "t": 225.4,
+      "frac": 0.7,
+      "stage": "training",
+      "status": "running",
+      "log_len": 2944
+    },
+    {
+      "t": 230.4,
+      "frac": 0.7,
+      "stage": "training",
+      "status": "running",
+      "log_len": 2943
+    },
+    {
+      "t": 235.4,
+      "frac": 0.756,
+      "stage": "training",
+      "status": "running",
+      "log_len": 2943
+    },
+    {
+      "t": 240.4,
+      "frac": 0.868,
+      "stage": "training",
+      "status": "running",
+      "log_len": 2931
+    },
+    {
+      "t": 245.4,
+      "frac": 0.924,
+      "stage": "training",
+      "status": "running",
+      "log_len": 2919
+    },
+    {
+      "t": 250.4,
+      "frac": 0.98,
+      "stage": "training",
+      "status": "running",
+      "log_len": 2913
+    },
+    {
+      "t": 255.4,
+      "frac": 0.988,
+      "stage": "delivery",
+      "status": "running",
+      "log_len": 3527
+    },
+    {
+      "t": 260.4,
+      "frac": 0.991,
+      "stage": "delivery",
+      "status": "running",
+      "log_len": 3683
+    },
+    {
+      "t": 265.4,
+      "frac": 1.0,
+      "stage": "delivery",
+      "status": "done",
+      "log_len": 3738
+    }
+  ],
+  "seed": 0,
+  "ok": true,
+  "n_frames": 39,
+  "qc": {
+    "n_frames": 39,
+    "wh": [
+      3840,
+      2160
+    ],
+    "mp": 8.29,
+    "data_factor": 1,
+    "training_mp": 8.29,
+    "hist_png": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\_qc\\qc_hist.png",
+    "est_minutes": 23.9,
+    "summary_md": "### Capture check\n- **39 images** (images) at **3840x2160** = **8.3 MP**\n- Auto resolution: **factor 1** -> **training at 8.3 MP** (recommended)\n- Sharpness (sample of 39): median 1094, min 38\n- 7/39 sampled frames look soft (motion/defocus blur).\n- Estimated processing time: **~24 min** (crude, linear in frames)"
+  },
+  "settings": {
+    "data_factor": 4,
+    "target_mp": 6.0,
+    "max_steps": 500,
+    "strategy": "mcmc",
+    "cap_max": 100000,
+    "dense_init": true,
+    "mono_depth_lambda": 0.05,
+    "erank_lambda": 0.01,
+    "erank_start": 7000,
+    "lpips_lambda": 0.2,
+    "lpips_gated": true,
+    "pose_opt": true,
+    "antialiased": true,
+    "c2f": true,
+    "planar_lambda": 0.0,
+    "seed": 0,
+    "test_every": 8,
+    "decimate": "60%",
+    "extract_object": false,
+    "filter_harmonics": 2
+  },
+  "final_status": "done",
+  "final_global_pct": 100.0,
+  "monotonic": true,
+  "stages_seen_running": [
+    "delivery",
+    "features",
+    "matching",
+    "priors_dense",
+    "reconstruction",
+    "training"
+  ],
+  "stages_seen_done": [
+    "delivery",
+    "export",
+    "features",
+    "matching",
+    "priors_dense",
+    "qc",
+    "reconstruction",
+    "training"
+  ],
+  "deliverables": [
+    {
+      "name": "UI1_SMOKE_full.ply",
+      "path": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\UI1_SMOKE_full.ply",
+      "size_mb": 4.66
+    },
+    {
+      "name": "UI1_SMOKE_full.sog",
+      "path": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\UI1_SMOKE_full.sog",
+      "size_mb": 0.81
+    }
+  ],
+  "elapsed_min": 4.4,
+  "log_tail_final": "[priors] MoGe-2 cache @ factor 4 ...\n[Data] 38 images (33 train, 5 test)\n[Data] 54176 SfM points, scene_scale=2.203\n[priors] D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\apex_UI1_SMOKE\\training\\gsplat\\data | factor=4 | 38 views | 54176 sparse points | model=Ruicheng/moge-2-vitl-normal\n[priors] model loaded in 3.3s\n[priors]  25/38 views | aligned 21 | peakVRAM 2312MB | 5s\n[priors]  38/38 views | aligned 30 | peakVRAM 2312MB | 7s\n[priors] alignment: 30/38 views | median scale 1.7755 | log-MAD dispersion 0.355 | median inliers 291 | residual per-view 0.0084 vs global 0.1754 | mode=per-view (high dispersion but per-view well-determined (ample inliers, lower residual)) | global_scale=1.8897\n[priors] DONE per-view | reliable 30/38 | median reliable rel-residual 0.008425391321772682 | scale span [0.7407403919325433, 2.3921058558756005] | peakVRAM 2312MB | 10s\n[priors] built (per-view mode)\n=== Training the splat ===\n19:48:09 stage DONE: priors_dense (global 70.0%)\n19:48:09 stage RUNNING: training\nstep=100 loss=0.19881 psnr=15.02\nstep=200 loss=0.23598 psnr=15.69\nstep=300 loss=0.18536 psnr=17.09\nstep=400 loss=0.15068 psnr=19.23\nstep=500 loss=0.16261 psnr=18.34\n[train] done: 500 steps, psnr=17.50, ckpt=D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\apex_UI1_SMOKE\\training\\gsplat\\output\\ckpts\\ckpt_499_rank0.pt\n=== Delivering ===\n[delivery] -m core.delivery --ckpt D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\apex_UI1_SMOKE\\training\\gsplat\\output\\ckpts\\ckpt_499_rank0.pt --data_dir D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\apex_UI1_SMOKE\\training\\gsplat\\data --name UI1_SMOKE --factor 4 --out D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables --gpu 0 --decimate 60% --no_qa\n======================================================================\n[delivery] UI1_SMOKE mode=full scene=UI1_SMOKE\n======================================================================\n[Data] 38 images (33 train, 5 test)\n[Data] 54176 SfM points, scene_scale=2.203\n[scene] robust diagonal = 4.5492 world units; object center = (-0.201,0.134,0.119)\n[master] 54,176 Gaussians, SH degree 3\n[prune] 54,176 -> 51,237 (low-opa 1,070, outliers 1,961)\n  [splat-transform] -w -g 0 D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\_work\\UI1_SMOKE_full\\pruned.ply -m null\n  [splat-transform] -w -g 0 D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\_work\\UI1_SMOKE_full\\pruned.ply --filter-nan --filter-floaters 0.09098,0.1,0.004 --decimate 60% D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\_work\\UI1_SMOKE_full\\reduced.ply\n19:48:39 stage DONE: training (global 98.8%)\n19:48:39 stage RUNNING: delivery\n[reduce] -> 30,626 Gaussians (SH 3) at D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\_work\\UI1_SMOKE_full\\reduced.ply\n  [splat-transform] -w -g 0 D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\_work\\UI1_SMOKE_full\\reduced.ply --filter-harmonics 2 --morton-order D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\UI1_SMOKE_full.ply\n  [splat-transform] -w -g 0 -i 15 D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\UI1_SMOKE_full.ply D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\UI1_SMOKE_full.sog\n[deliver] 30,626 Gaussians (SH 2) -> D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\UI1_SMOKE_full.sog (0.81 MB), D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\UI1_SMOKE_full.ply (4.66 MB)\n[delivery] done in 8.3s. record -> D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\UI1_SMOKE_full_delivery.json\n[delivery] SOG: D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables\\UI1_SMOKE_full.sog\n[delivery] 2 deliverable(s) in D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\deliverables",
+  "env_nav": {
+    "next_step_env": 4,
+    "next_step_obj": 3,
+    "step4_visible": true,
+    "env_stepper_marks_skipped": true,
+    "obj_stepper_shows_review": true
+  },
+  "defaults_byte_for_byte": true,
+  "finished": "2026-07-07 19:48:49"
+}

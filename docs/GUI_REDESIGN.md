@@ -3,7 +3,7 @@
 **Goal:** replace the 10-tab expert GUI with a modern, simple, wizard-style app where the
 validated-optimal settings are the defaults, an untrained user gets a great splat with zero
 knob-turning, and an expert can still reach every lever. Two product modes: **Object Scan** and
-**Environment Scan**. Status: VALIDATED by user 2026-07-07 — Gradio-6 rebuild / SAM point-prompts / auto-strip preview all approved as recommended. BUILD IN PROGRESS (UI-1).
+**Environment Scan**. Status: VALIDATED by user 2026-07-07 — Gradio-6 rebuild / SAM point-prompts / auto-strip preview all approved as recommended. **UI-1 BUILT + smoke-gated 2026-07-07** (`gui2/`, `run2.py`; evidence `_infusion/ui1_RECORD.md`). UI-2/3/4 pending.
 
 ---
 
@@ -86,13 +86,45 @@ Detail-mode re-run · re-capture report (coverage gaps → "shoot these angles")
 
 | WP | Scope | Est |
 |---|---|---|
-| **UI-1** | `gui2/` skeleton: wizard shell, mode cards, QC card, Advanced drawer w/ validated defaults, pipeline runner (reuses stage handlers headless) + unified progress plumbing | 2–3 d |
+| **UI-1** ✅ | `gui2/` skeleton: wizard shell, mode cards, QC card, Advanced drawer w/ validated defaults, pipeline runner (reuses stage handlers headless) + unified progress plumbing | 2–3 d |
 | **UI-2** | Training preview system: checkpoint→turntable strip renderer (subprocess, cheap), auto-refresh, pause/resume/cancel; static route + SuperSplat iframe embed | 2 d |
 | **UI-3** | Mask Review: representative-view picker, matte overlay gallery, SAM 2.1 point-prompt service (needs SAM2 install verify), video-propagation, re-carve hook | 3–4 d |
 | **UI-4** | Deliver screen: quality card mapping, deliverable cards + viewer, "improve further" actions; Utilities menu | 2 d |
 
 Total ≈ 2 weeks of agent time; UI-1 alone is already usable end-to-end. Old GUI stays until
 parity, then `run.py` flips to `gui2`.
+
+### 5.1 UI-1 as built (2026-07-07) + hook points for UI-2/3/4
+
+Files (`gui2/`): `defaults.py` (mode defaults = single source of truth), `qc.py` (Capture
+QC), `runner.py` (`PipelineRunner`, full headless chain + unified weighted progress +
+cancel/resume), `app.py` (wizard shell), `theme.css`; launcher `run2.py` (port 7861, legacy
+`run.py` stays on 7860). Smoke-gated end-to-end (Env mode, 39-frame subset, factor 4, 500
+steps): monotonic progress through all 8 weighted stages, 2 deliverables, defaults byte-for-byte,
+Env skips Review. Evidence: `_infusion/ui1_RECORD.md`.
+
+**Hook points for later WPs (stable APIs the skeleton already exposes):**
+- **UI-2 (live preview + interactive viewer):** `runner.PipelineRunner` — add a
+  checkpoint-save callback in the training stage (a strip renderer subprocess) that writes to a
+  `<run_dir>/preview/` dir; `app._latest_preview(run_dir)` already surfaces the newest PNG into
+  the Step-② `preview_img` on the `gr.Timer` tick. A "Preview now" button wires to a new runner
+  method; the SuperSplat iframe mounts in Step② where `preview_img` sits (add a static file route
+  for the latest `.ply`/`.sog` — `runner.ckpt_path` / delivery output give the source).
+  Pause is documented as unavailable on Windows — the skeleton ships **Cancel + resume-from-stage**
+  (`runner.cancel()` + `RunConfig.resume=True`, which skips stages whose on-disk artifacts exist).
+- **UI-3 (mask review, Object only):** Step③ container already exists and is auto-skipped for
+  Environment via `app.next_step_after_processing(mode)` (returns 3 for object, 4 for env) — the
+  single place that policy lives. Masks are a DELIVERY input: the runner passes
+  `assemble_delivery_flags()` → `--extract_object --gen_masks` for Object mode; UI-3 replaces
+  `--gen_masks` with reviewed masks written under the run dir, and delivery's `--mask_dir` picks
+  them up. Representative-view picking can reuse the QC frame sample.
+- **UI-4 (quality card + utilities):** Step④ (`deliv_html`) already lists deliverables (name/
+  size/path) from `runner.snapshot()["deliverables"]`. UI-4 adds the quality card by reading the
+  delivery QA JSON (`<run_dir>/deliverables/<name>_<mode>_delivery.json`, produced when
+  `delivery_no_qa=False`) + `qa_report` scorecards; the Utilities menu wraps existing CLIs.
+- **Settings:** any new lever is one row in `defaults.SETTINGS` (+ `HELP`/`EVIDENCE`) and, if it
+  maps to the trainer, one line in `defaults.assemble_training_extra()`. The Advanced drawer,
+  reset button, and mode/detail reseeding all derive from `SETTINGS` automatically.
 
 ## 6. Open questions for the user (validate before build)
 

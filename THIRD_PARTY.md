@@ -502,3 +502,22 @@ clobbered. Verdict: none beat the no-op splat (see `_infusion/wpp1_RECORD.md`).
 ### FlashVSR — EXCLUDED (not cloned/run)
 - Hard block-sparse "locality-constrained sparse attention" dependency = the known sm_120 killer.
   Excluded up-front per the researcher's landmine flag.
+
+---
+
+## UI-1 — GUI 2.0 wizard skeleton (`gui2/`, added 2026-07-07)
+
+**No NEW third-party component.** UI-1 is a fresh wizard SHELL that reuses the UI
+framework and internal modules already logged above; nothing external was vendored.
+
+- **Gradio 6.11** — the wizard app (`gui2/app.py`) + progress plumbing. Same framework
+  already shipped for the legacy `gui/`. **License: Apache-2.0.** Built-in web app —
+  no API layer needed for the POC (a React/FastAPI rebuild is the funded phase, per
+  `docs/GUI_REDESIGN.md` §1). The interactive splat viewer it lacks (PlayCanvas
+  SuperSplat iframe) is UI-2, not UI-1.
+- **Everything the runner drives is our own / previously-logged code:** the WP-T1 SfM
+  stage handlers (`gui/stages/*`, HLoc ALIKED + LightGlue + NetVLAD + pycolmap),
+  MoGe-2 priors (WP-F1), RoMa dense-init (WP-F2), the gsplat MCMC trainer, and
+  `core/delivery.py` + PlayCanvas splat-transform (WP-D1). `gui2/` (defaults, qc,
+  runner, app, theme, `run2.py`) is entirely OURS.
+- **Re-license:** none needed (Apache-2.0 UI framework + our orchestration code).

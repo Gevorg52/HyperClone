@@ -1,0 +1,97 @@
+{
+  "started": "2026-07-07 22:35:01",
+  "events": [
+    "22:35:01 micro-checks: auto_factor_ok=True roundtrip_ok=True af={'12@6': 2, '36@6': 3, '10@6': 2, '60@6': 3, '24@6': 2, '8@6': 1, '8.29@6': 1, '60@15': 2}",
+    "22:35:01 [A] start (max_steps=1500); gpu=0 %, 2008 MiB",
+    "22:38:42 [A] mid-training frac=0.20; ckpts=['ckpt_374_rank0.pt']; trainer PIDs=[5132] -> CANCEL",
+    "22:38:46 [A] status=cancelled; orphan trainers=[]; gpu=80 %, 60961 MiB",
+    "22:38:46 [A] RESUME (resume=True)",
+    "22:39:50 [A] resume status=done; skipped={'features': 'skipped', 'matching': 'skipped', 'reconstruction': 'skipped', 'export': 'skipped'}; warm_start(log)=True; deliverables=2",
+    "22:39:50 [A] PASS=True",
+    "22:39:50 [B] start: resume + delivery_refit=True (nested self-refit trainer)",
+    "22:40:10 [B] nested refit trainer LIVE PIDs=[39540] (delivery frac=0.70) -> CANCEL",
+    "22:40:15 [B] saw_refit=[39540]; status=cancelled; orphans=[]; gpu=0 %, 20535 MiB; PASS=True",
+    "22:40:15 CANCEL/RESUME GATE PASS=True  (A=True B=True)"
+  ],
+  "checks": {
+    "auto_data_factor": {
+      "12@6": 2,
+      "36@6": 3,
+      "10@6": 2,
+      "60@6": 3,
+      "24@6": 2,
+      "8@6": 1,
+      "8.29@6": 1,
+      "60@15": 2
+    },
+    "auto_data_factor_ok": true,
+    "delivery_flag_roundtrip": {
+      "object": {
+        "flags": [
+          "--extract_object",
+          "--gen_masks",
+          "--decimate",
+          "60%",
+          "--filter_harmonics",
+          "3"
+        ],
+        "sh": "3",
+        "matches_default": true
+      },
+      "environment": {
+        "flags": [
+          "--decimate",
+          "60%",
+          "--filter_harmonics",
+          "2"
+        ],
+        "sh": "2",
+        "matches_default": true
+      },
+      "changed_reflects": true
+    },
+    "delivery_flag_roundtrip_ok": true
+  },
+  "scenario_A": {
+    "cancelled_at_frac": 0.2,
+    "ckpt_before_resume": [
+      "ckpt_374_rank0.pt"
+    ],
+    "status_after_cancel": "cancelled",
+    "orphan_trainers_after_cancel": [],
+    "gpu_after_cancel": "5 %, 60961 MiB",
+    "resume_status": "done",
+    "resume_skipped_stages": {
+      "features": "skipped",
+      "matching": "skipped",
+      "reconstruction": "skipped",
+      "export": "skipped"
+    },
+    "resume_warm_start_in_trainer_log": true,
+    "resume_log_has_warmstart_line": true,
+    "resume_deliverables": [
+      {
+        "name": "UI1_CANCEL_full.ply",
+        "path": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_CANCEL\\deliverables\\UI1_CANCEL_full.ply",
+        "size_mb": 6.5
+      },
+      {
+        "name": "UI1_CANCEL_full.sog",
+        "path": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_CANCEL\\deliverables\\UI1_CANCEL_full.sog",
+        "size_mb": 1.33
+      }
+    ],
+    "PASS": true
+  },
+  "scenario_B": {
+    "nested_refit_pids_seen": [
+      39540
+    ],
+    "status_after_cancel": "cancelled",
+    "orphan_trainers_after_cancel": [],
+    "gpu_after_cancel": "0 %, 20535 MiB",
+    "PASS": true
+  },
+  "gate_PASS": true,
+  "finished": "2026-07-07 22:40:15"
+}
