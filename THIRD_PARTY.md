@@ -170,6 +170,12 @@ NOVA and NVS-SQA clones are UNMODIFIED (drivers import them read-only).
   the normal/conf/edge_mask writes) so a **native factor-1** cache fits disk/RAM
   (~256 GB → ~51 GB, ~400 GB → ~68 GB RAM) for mono-depth-only runs. Same MoGe-2
   library call, unchanged; only our cache builder changed.
+- **WP-T2 (2026-07-08, NO new third-party component):** reused the `--depth_only` mode to build a
+  **factor-2** cache for the Sony shoe native-detail variant (588/588 reliable, median rel-residual
+  0.0146 — same alignment quality as factor-3). Also reused (all already logged): gsplat MCMC + erank,
+  dense_init RoMa sparse (WP-F2), gated-LPIPS, BiRefNet delivery masks, and the SplatSuRe
+  view-count/ρ diagnosis machinery (`core/qa/visibility.py`). New code is OURS/analysis-only
+  (`_infusion/wpt2_{diagnose,regions,gap}.py`, `_dataset/SONY_TEST/{downsample_f2.py,train_sony_t2.sh}`).
 - **Alignment references (idea only, no code copied):** DN-Splatter
   `align_depth.py` (closed-form scale/shift; the COLMAP reproj/track/depth filter
   thresholds) and the Inria hierarchical-3DGS `make_depth_scale.py` (median-ratio
@@ -521,3 +527,48 @@ framework and internal modules already logged above; nothing external was vendor
   `core/delivery.py` + PlayCanvas splat-transform (WP-D1). `gui2/` (defaults, qc,
   runner, app, theme, `run2.py`) is entirely OURS.
 - **Re-license:** none needed (Apache-2.0 UI framework + our orchestration code).
+
+---
+
+## UI-2 — Live training preview + interactive viewer (`gui2/`, added 2026-07-08)
+
+### PlayCanvas SuperSplat viewer — VENDORED (`gui2/viewer/`)
+- **What we ship:** the **prebuilt** static bundle of `@playcanvas/supersplat-viewer`
+  **v1.27.1** (npmjs.com/package/@playcanvas/supersplat-viewer,
+  github.com/playcanvas/supersplat-viewer) — the same open-source viewer that powers
+  superspl.at scene pages. Copied its published `public/` output verbatim:
+  `gui2/viewer/{index.html, index.css, index.js}` (index.js = the ~2.9 MB Rollup
+  bundle with the PlayCanvas engine v2.20.6 baked in; the 6.4 MB `index.js.map` was
+  dropped and its trailing `//# sourceMappingURL=` comment stripped). Obtained via
+  `npm pack @playcanvas/supersplat-viewer` + `tar -xzf` (no build step — the npm
+  package already includes the built `public/`).
+- **Adoption:** used AS-IS, **self-hosted same-origin**. `gui2/app.py::launch()` mounts
+  it at `/viewer` (FastAPI `StaticFiles` via `gr.mount_gradio_app`) alongside `/scenes`
+  (= `_dataset`), so the wizard, the viewer, and the exported `.sog` all share the
+  127.0.0.1 Gradio origin. The iframe is `<gr.HTML>` pointing at
+  `/viewer/index.html?content=/scenes/<scan>/preview/viewer_<step>.sog` (the viewer's
+  documented `?content=` param). No viewer code modified.
+- **Why self-hosted, not the HOSTED superspl.at viewer (verified 2026-07-08):** the
+  hosted viewer at `superspl.at` **cannot** load a localhost file — mixed content is NOT
+  the blocker (browsers exempt `127.0.0.1`/`localhost` loopback), but **CORS is**: a
+  fetch from the `https://superspl.at` origin to `http://127.0.0.1:...` is cross-origin,
+  and Gradio's `CustomCORSMiddleware` deliberately withholds `Access-Control-Allow-Origin`
+  for external origins hitting a local server (exactly to block remote-page-reads-local-
+  file). Self-hosting the same viewer same-origin sidesteps CORS entirely. `.sog` loads
+  natively (PlayCanvas engine ≥2.11 reads SOG directly).
+- **License:** **MIT** (Copyright (c) 2011-2026 PlayCanvas Ltd.) — permissive; the funded
+  port can vendor or rebuild freely. splat-transform (already logged under WP-D1) produces
+  the `.sog` it reads.
+
+### `gui2/preview.py` — turntable strip renderer + on-demand SOG export (OURS)
+- **What we ship:** a subprocess CLI (`python -m gui2.preview strip|export`) that (a)
+  renders a 6-frame turntable STRIP from a training checkpoint and (b) exports a
+  viewer-ready `.sog` on demand. All OURS; **reuses already-logged internals**:
+  `core.training.gsplat_trainer.{load_colmap_data, render_splats}` (same render path as
+  `core/enhancement/distill.py`), object-centering + orbit basis from
+  `core.enhancement.coverage.{object_center_from_cameras, estimate_up, _basis}`, and the
+  PLY→SOG conversion via `core.delivery.{run_splat_transform, export_ply}` (PlayCanvas
+  splat-transform, WP-D1). No new external component. Runner hooks
+  (`gui2/runner.py`: checkpoint-save → debounced strip subprocess; `preview_now`,
+  `list_checkpoints`, `export_viewer`) and the Step-② panel wiring (`gui2/app.py`) are
+  OURS. Default behavior unchanged for every non-gui2 caller.

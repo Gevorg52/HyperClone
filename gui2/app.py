@@ -113,17 +113,23 @@ def next_step_after_processing(mode: str) -> int:
 
 
 def _latest_preview(run_dir: str | None) -> str | None:
-    """Newest render/strip PNG under the run's training output (UI-2 will populate a
-    dedicated preview dir; for now we surface any render if one exists)."""
+    """Newest turntable strip under <run_dir>/preview/ (UI-2). Picks by step number
+    (falling back to mtime) so a re-render of the same step still refreshes."""
     if not run_dir:
         return None
-    root = Path(run_dir) / "training" / "gsplat" / "output"
-    if not root.is_dir():
+    pdir = Path(run_dir) / "preview"
+    if not pdir.is_dir():
         return None
-    pngs = list(root.rglob("*.png"))
-    if not pngs:
+    strips = list(pdir.glob("strip_*.png"))
+    if not strips:
         return None
-    return str(max(pngs, key=lambda p: p.stat().st_mtime))
+
+    def _s(p: Path) -> int:
+        try:
+            return int(p.stem.split("_")[1])
+        except (IndexError, ValueError):
+            return -1
+    return str(max(strips, key=lambda p: (_s(p), p.stat().st_mtime)))
 
 
 # ---------------------------------------------------------------------------
@@ -264,9 +270,18 @@ def create_app() -> gr.Blocks:
                                    for k, _ in STAGE_WEIGHTS},
                         "stage_labels": STAGE_LABELS}))
                 with gr.Column(scale=2):
-                    gr.Markdown("**Live preview** *(placeholder — UI-2 adds the "
-                                "auto-refreshing turntable)*")
-                    preview_img = gr.Image(label="", height=240, visible=True)
+                    gr.Markdown("**Live preview** — a 6-view turntable of the current "
+                                "checkpoint, refreshed as training saves.")
+                    preview_img = gr.Image(label="", height=300, visible=True)
+                    with gr.Row():
+                        preview_now_btn = gr.Button("Preview now", size="sm")
+                        open_viewer_btn = gr.Button("Open interactive preview",
+                                                    size="sm")
+                    ckpt_dropdown = gr.Dropdown(
+                        label="Checkpoint history (render an older step)",
+                        choices=[], value=None, interactive=True)
+                    preview_status = gr.Markdown("")
+                    viewer_html = gr.HTML(visible=False)
             with gr.Accordion("Live log", open=False):
                 log_box = gr.Textbox(label="", lines=12, max_lines=12,
                                      interactive=False, elem_classes="apex-log")
@@ -409,7 +424,7 @@ def create_app() -> gr.Blocks:
         def _tick(mode):
             if _RUNNER is None:
                 return (gr.update(), gr.update(), gr.update(), gr.update(),
-                        gr.update(), gr.update())
+                        gr.update(), gr.update(), gr.update(), gr.update())
             snap = _RUNNER.snapshot()
             prog = _progress_html(snap["global_pct"], snap["current_stage_label"],
                                   snap["elapsed_s"])
@@ -417,6 +432,10 @@ def create_app() -> gr.Blocks:
             log = snap["log_tail"]
             prev = _latest_preview(_RUNNER.cfg.run_dir)
             prev_up = gr.update(value=prev) if prev else gr.update()
+            # Refresh the checkpoint-history dropdown; gr.update(choices=…) keeps the
+            # user's current selection if that path is still present.
+            cks = _RUNNER.list_checkpoints()
+            ck_up = gr.update(choices=[(c["label"], c["path"]) for c in cks])
             done = snap["status"] == "done"
             if done:
                 nxt = ("Continue to review →" if mode == "object"
@@ -429,11 +448,42 @@ def create_app() -> gr.Blocks:
             else:
                 cont = gr.update(interactive=False)
                 status = snap["message"]
-            return prog, stages, log, prev_up, cont, status
+            # Only push preview_status on a systematic-failure note; otherwise leave it
+            # (no-op) so a button's transient message isn't clobbered every tick.
+            note = snap.get("preview_note", "")
+            pv_note = gr.update(value=f"⚠ {note}") if note else gr.update()
+            return prog, stages, log, prev_up, cont, status, ck_up, pv_note
 
         timer.tick(_tick, inputs=[mode_state],
                    outputs=[proc_progress, proc_stages, log_box, preview_img,
-                            continue_btn, proc_status])
+                            continue_btn, proc_status, ckpt_dropdown, preview_status])
+
+        # ---- Live-preview controls (UI-2) ----
+        def _preview_now():
+            if _RUNNER is None:
+                return gr.update(), "No run yet."
+            path, msg = _RUNNER.preview_now(wait=True, timeout=45)
+            return (gr.update(value=path) if path else gr.update()), msg
+        preview_now_btn.click(_preview_now,
+                              outputs=[preview_img, preview_status])
+
+        def _preview_ckpt(ckpt_path):
+            if _RUNNER is None or not ckpt_path:
+                return gr.update(), "Pick a checkpoint from the list."
+            path, msg = _RUNNER.preview_now(ckpt=ckpt_path, wait=True, timeout=45)
+            return (gr.update(value=path) if path else gr.update()), msg
+        ckpt_dropdown.change(_preview_ckpt, inputs=[ckpt_dropdown],
+                             outputs=[preview_img, preview_status])
+
+        def _open_viewer():
+            if _RUNNER is None:
+                return gr.update(visible=False), "No run yet."
+            sog, msg = _RUNNER.export_viewer()
+            if not sog:
+                return gr.update(visible=False), msg
+            return gr.update(value=_viewer_iframe_html(sog), visible=True), msg
+        open_viewer_btn.click(_open_viewer,
+                              outputs=[viewer_html, preview_status])
 
         cancel_btn.click(_cancel, outputs=[proc_status, resume_btn])
 
@@ -534,8 +584,46 @@ def _open_deliverables() -> str:
         return f"Folder: {folder} ({e})"
 
 
-def launch():
-    app = create_app()
-    app.queue(default_concurrency_limit=4)
-    app.launch(server_name="127.0.0.1", server_port=7861, share=False,
-               theme=gr.themes.Soft(), css=_CSS)
+def _viewer_iframe_html(sog_path: str) -> str:
+    """Build the same-origin SuperSplat iframe for an exported .sog. The scene file is
+    served from the `/scenes` static mount (= _dataset), the viewer bundle from
+    `/viewer`; both share the Gradio origin, so `?content=` resolves with no CORS or
+    mixed-content problem (the hosted superspl.at viewer is CORS-blocked for localhost —
+    see _infusion/ui2_RECORD.md)."""
+    from urllib.parse import quote
+    try:
+        rel = Path(sog_path).resolve().relative_to(_DATASET.resolve()).as_posix()
+        content = "/scenes/" + quote(rel)
+    except ValueError:  # outside _dataset — best-effort via Gradio's own file route
+        content = "/gradio_api/file=" + quote(str(Path(sog_path).resolve()))
+    src = f"/viewer/index.html?content={content}"
+    return (
+        f'<iframe src="{src}" title="Interactive splat preview" '
+        f'style="width:100%;height:70vh;min-height:440px;border:0;border-radius:12px;'
+        f'background:#111;" allow="xr-spatial-tracking; fullscreen"></iframe>'
+        f'<div style="font-size:12px;opacity:0.65;margin-top:6px;">Drag to orbit · '
+        f'scroll to zoom · right-drag to pan.</div>')
+
+
+def launch(server_port: int = 7861):
+    """Serve the wizard + the vendored SuperSplat viewer + scene files on ONE origin
+    (127.0.0.1:port). Same-origin serving is what makes the interactive viewer work:
+    the hosted superspl.at viewer is CORS-blocked from fetching localhost files, so we
+    self-host PlayCanvas's open-source `@playcanvas/supersplat-viewer` bundle under
+    /viewer and the exported .sog under /scenes (= _dataset)."""
+    import uvicorn
+    from fastapi import FastAPI
+    from fastapi.staticfiles import StaticFiles
+
+    _DATASET.mkdir(parents=True, exist_ok=True)
+    fastapi_app = FastAPI()
+    fastapi_app.mount("/viewer",
+                      StaticFiles(directory=str(_HERE / "viewer")), name="viewer")
+    fastapi_app.mount("/scenes",
+                      StaticFiles(directory=str(_DATASET)), name="scenes")
+
+    demo = create_app()
+    demo.queue(default_concurrency_limit=4)
+    app = gr.mount_gradio_app(fastapi_app, demo, path="/",
+                              theme=gr.themes.Soft(), css=_CSS)
+    uvicorn.run(app, host="127.0.0.1", port=server_port)

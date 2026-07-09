@@ -161,6 +161,19 @@ class PipelineRunner:
         self.started_at: Optional[float] = None
         self.finished_at: Optional[float] = None
 
+        # ---- UI-2 live preview state ----
+        self.preview_dir: str = str(Path(config.run_dir) / "preview")
+        self.ckpt_dir: Optional[str] = None       # set once training starts
+        self.ply_dir: Optional[str] = None
+        self._preview_proc: Optional[subprocess.Popen] = None
+        self._preview_logf = None
+        self._last_preview_step: int = -1
+        self._last_preview_check: float = 0.0
+        self._preview_last_out: Optional[str] = None
+        self._preview_evaluated: bool = True
+        self._preview_fail_streak: int = 0
+        self.preview_note: str = ""     # surfaced to the UI on systematic failure
+
     # ---- public API -------------------------------------------------------
 
     def start(self):
@@ -183,6 +196,8 @@ class PipelineRunner:
         # Delivery spawns a NESTED self-refit trainer subprocess; a plain terminate on
         # the delivery process orphans it. Kill the whole process TREE.
         _terminate_tree(self._active_proc)
+        # A preview strip render may be mid-burst on the GPU — stop it too.
+        _terminate_tree(self._preview_proc)
 
     def is_alive(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
@@ -203,6 +218,7 @@ class PipelineRunner:
                 "log_tail": "\n".join(list(self._log)[-40:]),
                 "deliverables": list(self.deliverables),
                 "elapsed_s": (time.time() - self.started_at) if self.started_at else 0.0,
+                "preview_note": self.preview_note,
             }
 
     # ---- progress helpers -------------------------------------------------
@@ -434,6 +450,8 @@ class PipelineRunner:
         # latest saved checkpoint and train only the REMAINING steps — instead of
         # throwing away all prior work and restarting from a fresh init at step 0.
         ckpt_dir = str(train_dir / "output" / "ckpts")
+        self.ckpt_dir = ckpt_dir
+        self.ply_dir = str(train_dir / "output" / "ply")
         init_ckpt: Optional[str] = None
         eff_max_steps = self.max_steps
         already_done = False
@@ -493,6 +511,15 @@ class PipelineRunner:
                            f"psnr={result.psnr:.2f}, ckpt={self.ckpt_path}")
             self._done("training", f"{result.steps_completed} steps")
         self._check_cancel()
+
+        # UI-2: guarantee a strip for the FINAL checkpoint. Waits (bounded) for any
+        # in-flight per-step render, then renders the true final strip unconditionally.
+        # Scoped to clean completion (this is AFTER the training _check_cancel — a
+        # cancelled run has no 'final' strip, by design).
+        try:
+            self._render_final_strip()
+        except Exception:
+            pass
 
         # ---- Stage 9: delivery ----
         self._begin("delivery", f"{cfg.mode} mode")
@@ -588,6 +615,12 @@ class PipelineRunner:
             frac = float(step) / max(float(total), 1.0)
             self._tick(key, frac, f"{step}/{total} steps")
             self._log_line(f"step={step} loss={loss:.5f} psnr={psnr:.2f}")
+            # UI-2: after each checkpoint save, kick off a strip render (subprocess,
+            # debounced) — never blocks training.
+            try:
+                self._maybe_render_preview()
+            except Exception:
+                pass
         return cb
 
     def _latest_ckpt(self, ckpt_dir: Optional[str]) -> Optional[str]:
@@ -604,6 +637,185 @@ class PipelineRunner:
             except (IndexError, ValueError):
                 return -1
         return str(max(cks, key=_step))
+
+    # ---- UI-2 live preview -------------------------------------------------
+
+    @staticmethod
+    def _ckpt_step(ckpt_path: str) -> int:
+        try:
+            return int(Path(ckpt_path).name.split("_")[1])
+        except (IndexError, ValueError):
+            return -1
+
+    def list_checkpoints(self) -> list[dict]:
+        """Newest-first list of on-disk checkpoints for the history dropdown."""
+        if not self.ckpt_dir:
+            return []
+        out = []
+        for c in Path(self.ckpt_dir).glob("ckpt_*_rank0.pt"):
+            if "pruned" in c.name:
+                continue
+            s = self._ckpt_step(str(c))
+            if s >= 0:
+                out.append({"step": s, "path": str(c),
+                            "label": f"step {s}"})
+        return sorted(out, key=lambda d: d["step"], reverse=True)
+
+    def latest_strip(self) -> Optional[str]:
+        """Newest strip PNG (by step) written under <run_dir>/preview/."""
+        d = Path(self.preview_dir)
+        if not d.is_dir():
+            return None
+        strips = list(d.glob("strip_*.png"))
+        if not strips:
+            return None
+
+        def _s(p: Path) -> int:
+            try:
+                return int(p.stem.split("_")[1])
+            except (IndexError, ValueError):
+                return -1
+        return str(max(strips, key=lambda p: (_s(p), p.stat().st_mtime)))
+
+    def _eval_last_preview(self):
+        """Assess the most recent preview subprocess once it has EXITED: reset the
+        failure streak on success, else bump it and — after 3 consecutive failures —
+        set a user-visible note (instead of a silently-stuck panel)."""
+        proc = self._preview_proc
+        if proc is None or self._preview_evaluated or proc.poll() is None:
+            return
+        self._preview_evaluated = True
+        ok = (proc.returncode == 0 and self._preview_last_out
+              and os.path.isfile(self._preview_last_out))
+        if ok:
+            self._preview_fail_streak = 0
+            self.preview_note = ""
+        else:
+            self._preview_fail_streak += 1
+            if self._preview_fail_streak >= 3:
+                self.preview_note = "Live preview unavailable — see preview/render.log"
+                self._log_line(f"[preview] {self._preview_fail_streak} consecutive "
+                               f"render failures — see {self.preview_dir}/render.log")
+
+    def _render_final_strip(self, wait_inflight: float = 15.0):
+        """Wait (bounded) for any in-flight per-step preview to finish, then render the
+        TRUE final-checkpoint strip UNCONDITIONALLY (bypasses the step + in-flight
+        guards that can no-op the per-step trigger). Scoped to CLEAN completion — a
+        cancelled run has no 'final' and correctly skips this."""
+        proc = self._preview_proc
+        if proc is not None and proc.poll() is None:
+            try:
+                proc.wait(timeout=wait_inflight)
+            except Exception:
+                pass
+        latest = self._latest_ckpt(self.ckpt_dir)
+        if not latest:
+            return
+        step = self._ckpt_step(latest)
+        self._last_preview_step = max(self._last_preview_step, step)
+        self._spawn_preview(latest, step, blocking=True, timeout=60)
+
+    def _maybe_render_preview(self):
+        """Called every training step. Time-throttled; fires a strip render only when a
+        NEW checkpoint has appeared and no render is already in flight (debounce)."""
+        self._eval_last_preview()
+        now = time.time()
+        if now - self._last_preview_check < 1.5:
+            return
+        self._last_preview_check = now
+        latest = self._latest_ckpt(self.ckpt_dir)
+        if not latest:
+            return
+        step = self._ckpt_step(latest)
+        if step <= self._last_preview_step:
+            return
+        if self._preview_proc is not None and self._preview_proc.poll() is None:
+            return   # a render is still running — don't stack
+        self._last_preview_step = step
+        self._spawn_preview(latest, step)
+
+    def _spawn_preview(self, ckpt: str, step: int, height: int = 360,
+                       cols: int = 3, blocking: bool = False,
+                       timeout: float = 30.0) -> Optional[str]:
+        """Launch the strip renderer as a subprocess (own GPU context, seconds-long
+        burst) writing <run_dir>/preview/strip_<step>.png. Returns the target path."""
+        if not self.data_dir:
+            return None
+        Path(self.preview_dir).mkdir(parents=True, exist_ok=True)
+        out_png = str(Path(self.preview_dir) / f"strip_{step}.png")
+        self._preview_last_out = out_png
+        self._preview_evaluated = False
+        cmd = [sys.executable, "-m", "gui2.preview", "strip",
+               "--ckpt", ckpt, "--data_dir", self.data_dir, "--out", out_png,
+               "--step", str(step), "--factor", str(self.data_factor),
+               "--height", str(height), "--cols", str(cols), "--gpu", "0",
+               "--mode", self.cfg.mode,
+               "--test_every", str(int(self.cfg.settings.get("test_every", 8)))]
+        env = dict(os.environ)
+        env["PYTHONPATH"] = _REPO + os.pathsep + env.get("PYTHONPATH", "")
+        # close a previous render log handle if any
+        if self._preview_logf is not None:
+            try:
+                self._preview_logf.close()
+            except Exception:
+                pass
+        self._preview_logf = open(Path(self.preview_dir) / "render.log", "a",
+                                  encoding="utf-8")
+        self._preview_logf.write(f"\n=== strip step {step} @ {time.strftime('%H:%M:%S')} ===\n")
+        self._preview_logf.flush()
+        self._log_line(f"[preview] rendering strip for step {step} -> {out_png}")
+        proc = subprocess.Popen(cmd, cwd=_REPO, stdout=self._preview_logf,
+                                stderr=subprocess.STDOUT, text=True, env=env)
+        self._preview_proc = proc
+        if blocking:
+            try:
+                proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                self._log_line(f"[preview] strip render exceeded {timeout:.0f}s")
+        return out_png
+
+    def preview_now(self, ckpt: Optional[str] = None, wait: bool = True,
+                    timeout: float = 30.0) -> tuple[Optional[str], str]:
+        """'Preview now' / history-dropdown handler: render a strip from `ckpt`
+        (default = newest on disk), even mid-phase. Returns (png_path_or_None, msg)."""
+        target = ckpt or self._latest_ckpt(self.ckpt_dir)
+        if not target or not os.path.isfile(target):
+            return None, "No checkpoint yet — a preview appears after the first save."
+        if not self.data_dir:
+            return None, "Training data not ready yet."
+        step = self._ckpt_step(target)
+        self._last_preview_step = max(self._last_preview_step, step)
+        out = self._spawn_preview(target, step, blocking=wait, timeout=timeout)
+        if wait and out and os.path.isfile(out):
+            return out, f"Preview rendered from step {step}."
+        return out, f"Rendering preview from step {step}…"
+
+    def export_viewer(self, ckpt: Optional[str] = None,
+                      gpu: str = "0") -> tuple[Optional[str], str]:
+        """'Open interactive preview' handler: export the current (or given) checkpoint
+        to a viewer-ready SOG under <run_dir>/preview/. Blocking (splat-transform,
+        seconds). Returns (sog_path_or_None, msg)."""
+        target = ckpt or self.ckpt_path or self._latest_ckpt(self.ckpt_dir)
+        if not target or not os.path.isfile(target):
+            return None, "No checkpoint to export yet."
+        step = self._ckpt_step(target)
+        out_sog = str(Path(self.preview_dir) / f"viewer_{step}.sog")
+        Path(self.preview_dir).mkdir(parents=True, exist_ok=True)
+        cmd = [sys.executable, "-m", "gui2.preview", "export",
+               "--ckpt", target, "--ply_dir", (self.ply_dir or ""),
+               "--out", out_sog, "--gpu", str(gpu)]
+        env = dict(os.environ)
+        env["PYTHONPATH"] = _REPO + os.pathsep + env.get("PYTHONPATH", "")
+        self._log_line(f"[preview] exporting SOG from step {step} -> {out_sog}")
+        logp = Path(self.preview_dir) / "export.log"
+        with open(logp, "a", encoding="utf-8") as lf:
+            lf.write(f"\n=== export step {step} @ {time.strftime('%H:%M:%S')} ===\n")
+            lf.flush()
+            r = subprocess.run(cmd, cwd=_REPO, stdout=lf, stderr=subprocess.STDOUT,
+                               text=True, env=env)
+        if r.returncode != 0 or not os.path.isfile(out_sog):
+            return None, f"Export failed (see {logp})."
+        return out_sog, f"Interactive model ready (step {step})."
 
 
 # ---------------------------------------------------------------------------

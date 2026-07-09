@@ -1,0 +1,14 @@
+UI-2 GPU-contention burst measurement @ 2026-07-09 08:30:25
+### cap3m
+  ckpt=D:\REPOS\HYPERclone\apex-sfm\_dataset\GPU_V4\apex_images\training\wpx1\cap3m\output\ckpts\ckpt_29999_rank0.pt
+  data_dir=D:\REPOS\HYPERclone\apex-sfm\_dataset\GPU_V4\apex_images\training\gsplat_prod\data factor=2 mode=object
+[Data] 569 images (497 train, 72 test)
+[Data] 123289 SfM points, scene_scale=1.454
+[preview] gpu_render_burst=0.24s (6 frames @ 540x360, 3000000 gaussians)
+  [cap3m] run 1: subprocess_equiv_wall=4.42s (gpu_render_burst printed on the line above)
+[Data] 569 images (497 train, 72 test)
+[Data] 123289 SfM points, scene_scale=1.454
+[preview] gpu_render_burst=0.06s (6 frames @ 540x360, 3000000 gaussians)
+  [cap3m] run 2: subprocess_equiv_wall=2.49s (gpu_render_burst printed on the line above)
+
+DONE — gpu_render_burst is the trainer's worst-case GPU-contention window.

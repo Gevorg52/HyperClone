@@ -1,0 +1,46 @@
+{
+  "wizard": {
+    "url": "http://127.0.0.1:7899/",
+    "status": 200,
+    "ctype": "text/html; charset=utf-8",
+    "clen": "122132",
+    "content_range": null
+  },
+  "viewer_html": {
+    "url": "http://127.0.0.1:7899/viewer/index.html",
+    "status": 200,
+    "ctype": "text/html; charset=utf-8",
+    "clen": "49250",
+    "content_range": null
+  },
+  "viewer_js": {
+    "url": "http://127.0.0.1:7899/viewer/index.js",
+    "status": 200,
+    "ctype": "application/javascript",
+    "clen": "2911299",
+    "content_range": null
+  },
+  "gate_sog_full": {
+    "url": "http://127.0.0.1:7899/scenes/UI2_SMOKE/preview/viewer_499.sog",
+    "status": 200,
+    "ctype": "text/plain; charset=utf-8",
+    "clen": "1458849",
+    "content_range": null
+  },
+  "gate_sog_range": {
+    "url": "http://127.0.0.1:7899/scenes/UI2_SMOKE/preview/viewer_499.sog",
+    "status": 206,
+    "ctype": "text/plain; charset=utf-8",
+    "clen": "2048",
+    "content_range": "bytes 0-2047/1458849"
+  },
+  "viewer_with_content": {
+    "url": "http://127.0.0.1:7899/viewer/index.html?content=/scenes/UI2_SMOKE/preview/viewer_499.sog",
+    "status": 200,
+    "ctype": "text/html; charset=utf-8",
+    "clen": "49250",
+    "content_range": null
+  },
+  "iframe_src": "/viewer/index.html?content=/scenes/UI2_SMOKE/preview/viewer_499.sog",
+  "click_url": "http://127.0.0.1:7899/viewer/index.html?content=/scenes/UI2_SMOKE/preview/viewer_499.sog"
+}

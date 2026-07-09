@@ -1,0 +1,118 @@
+{
+  "config": {
+    "mode": "environment",
+    "input": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\input_images",
+    "run_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI2_SMOKE",
+    "max_steps": 500,
+    "data_factor": 4,
+    "cap_max": 100000,
+    "delivery_no_qa": true,
+    "save_all": true,
+    "seed": 0
+  },
+  "status": "done",
+  "elapsed_s": 223.4,
+  "n_strips": 3,
+  "strip_steps": [
+    124,
+    249,
+    499
+  ],
+  "strips": {
+    "strip_124.png": {
+      "t": 1783611299.3547752,
+      "size": 1720742,
+      "step": 124
+    },
+    "strip_249.png": {
+      "t": 1783611304.7609787,
+      "size": 1686912,
+      "step": 249
+    },
+    "strip_499.png": {
+      "t": 1783611307.7630699,
+      "size": 1605401,
+      "step": 499
+    }
+  },
+  "spawn_events": [
+    {
+      "t": 1783611295.7060237,
+      "step": 124,
+      "blocking": false
+    },
+    {
+      "t": 1783611299.3552775,
+      "step": 249,
+      "blocking": true
+    },
+    {
+      "t": 1783611304.941576,
+      "step": 499,
+      "blocking": true
+    }
+  ],
+  "preview_now": {
+    "path": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI2_SMOKE\\preview\\strip_249.png",
+    "msg": "Preview rendered from step 249.",
+    "exists": true,
+    "ckpt": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI2_SMOKE\\apex_UI2_SMOKE\\training\\gsplat\\output\\ckpts\\ckpt_249_rank0.pt",
+    "at_frac": 0.6,
+    "mtime_before": null,
+    "mtime_after": 1783611302.920793,
+    "mtime_advanced": true
+  },
+  "export_viewer": {
+    "sog": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI2_SMOKE\\preview\\viewer_499.sog",
+    "msg": "Interactive model ready (step 499).",
+    "exists": true,
+    "size_mb": 1.46,
+    "scene_url": "/scenes/UI2_SMOKE/preview/viewer_499.sog"
+  },
+  "trainer_stall": {
+    "n_steps_logged": 5,
+    "median_step_s": 2.4353,
+    "p95_step_s": 2.6853,
+    "max_step_gap_s": 2.685,
+    "max_gap_at_step": 500,
+    "max_gap_in_preview_window_s": 2.685,
+    "top5_gaps": [
+      {
+        "to_step": 500,
+        "dt": 2.685
+      },
+      {
+        "to_step": 400,
+        "dt": 2.586
+      },
+      {
+        "to_step": 300,
+        "dt": 2.285
+      },
+      {
+        "to_step": 200,
+        "dt": 1.834
+      }
+    ]
+  },
+  "deliverables": [
+    {
+      "name": "UI2_SMOKE_full.ply",
+      "path": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI2_SMOKE\\deliverables\\UI2_SMOKE_full.ply",
+      "size_mb": 4.71
+    },
+    {
+      "name": "UI2_SMOKE_full.sog",
+      "path": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI2_SMOKE\\deliverables\\UI2_SMOKE_full.sog",
+      "size_mb": 0.82
+    }
+  ],
+  "gate": {
+    "run_done": true,
+    "strips_ge_3": true,
+    "preview_now_ok": true,
+    "viewer_export_ok": true,
+    "trainer_stall_under_5s": true,
+    "PASS": true
+  }
+}

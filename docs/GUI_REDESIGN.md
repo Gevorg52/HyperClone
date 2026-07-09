@@ -3,7 +3,7 @@
 **Goal:** replace the 10-tab expert GUI with a modern, simple, wizard-style app where the
 validated-optimal settings are the defaults, an untrained user gets a great splat with zero
 knob-turning, and an expert can still reach every lever. Two product modes: **Object Scan** and
-**Environment Scan**. Status: VALIDATED by user 2026-07-07 — Gradio-6 rebuild / SAM point-prompts / auto-strip preview all approved as recommended. **UI-1 BUILT + smoke-gated 2026-07-07** (`gui2/`, `run2.py`; evidence `_infusion/ui1_RECORD.md`). UI-2/3/4 pending.
+**Environment Scan**. Status: VALIDATED by user 2026-07-07 — Gradio-6 rebuild / SAM point-prompts / auto-strip preview all approved as recommended. **UI-1 BUILT + smoke-gated 2026-07-07** (`gui2/`, `run2.py`; evidence `_infusion/ui1_RECORD.md`). **UI-2 BUILT + gated 2026-07-08** (live preview strip + interactive SuperSplat viewer; evidence `_infusion/ui2_RECORD.md`). UI-3/4 pending.
 
 ---
 
@@ -87,7 +87,7 @@ Detail-mode re-run · re-capture report (coverage gaps → "shoot these angles")
 | WP | Scope | Est |
 |---|---|---|
 | **UI-1** ✅ | `gui2/` skeleton: wizard shell, mode cards, QC card, Advanced drawer w/ validated defaults, pipeline runner (reuses stage handlers headless) + unified progress plumbing | 2–3 d |
-| **UI-2** | Training preview system: checkpoint→turntable strip renderer (subprocess, cheap), auto-refresh, pause/resume/cancel; static route + SuperSplat iframe embed | 2 d |
+| **UI-2** ✅ | Training preview system: checkpoint→turntable strip renderer (subprocess, cheap), auto-refresh, Preview-now, ckpt-history dropdown; same-origin static route + self-hosted SuperSplat `.sog` iframe embed. Gated 2026-07-08 (`_infusion/ui2_RECORD.md`). | 2 d |
 | **UI-3** | Mask Review: representative-view picker, matte overlay gallery, SAM 2.1 point-prompt service (needs SAM2 install verify), video-propagation, re-carve hook | 3–4 d |
 | **UI-4** | Deliver screen: quality card mapping, deliverable cards + viewer, "improve further" actions; Utilities menu | 2 d |
 
@@ -125,6 +125,43 @@ Env skips Review. Evidence: `_infusion/ui1_RECORD.md`.
 - **Settings:** any new lever is one row in `defaults.SETTINGS` (+ `HELP`/`EVIDENCE`) and, if it
   maps to the trainer, one line in `defaults.assemble_training_extra()`. The Advanced drawer,
   reset button, and mode/detail reseeding all derive from `SETTINGS` automatically.
+
+### 5.2 UI-2 as built (2026-07-08) — live preview + interactive viewer
+
+New: `gui2/preview.py` (subprocess strip renderer + ckpt→SOG export) and
+`gui2/viewer/` (vendored PlayCanvas `@playcanvas/supersplat-viewer` v1.27.1 bundle, MIT).
+Runner + app wired per §5.1. Gate PASSED (5/5): evidence `_infusion/ui2_RECORD.md`
+(+ `ui2_gate_trace.json`, `ui2_burst.json`, `ui2_viewer_http_probe.json`,
+`ui2_strip_step{124,499}.png`).
+
+- **Strip renderer** (`gui2/preview.py::render_strip`, subprocess `python -m gui2.preview strip`),
+  mode-specific: **OBJECT** = synthesized 6-view turntable (spread azimuths at the median captured
+  elevation around the object center — `coverage.object_center_from_cameras` + orbit basis,
+  point-median fallback); **ENVIRONMENT** = 6 REAL training-camera poses spread across the capture
+  (`select_real_poses`) — a synthesized orbit around a divergent scene can point into
+  unreconstructed void, real poses can't. Composited 3×2 (~720px tall, `--cols`/`--height`),
+  reusing the exact `gsplat_trainer.render_splats` path. GPU burst **~0.24 s even for a 3M-Gaussian
+  model** — the rest of the subprocess is CPU-side import/COLMAP-load, so the trainer never stalls
+  (measured <1 s vs the 5 s bar; re-runnable via `_infusion/ui2_burst_measure.py`).
+- **Runner hooks** (`gui2/runner.py`): `_train_cb` → `_maybe_render_preview()` (debounced 1.5 s,
+  skips if a render is in flight; rides UI-1's `save_all` quarterly ckpts) writes
+  `<run_dir>/preview/strip_<step>.png`. On CLEAN completion, `_render_final_strip()` waits (bounded
+  15 s) for any in-flight render, then renders the true final strip unconditionally (a CANCELLED
+  run has no "final" and correctly skips it). 3 consecutive render failures surface a visible note
+  (`preview_note` → Step②). Public: `preview_now(ckpt=None)`, `list_checkpoints()`,
+  `export_viewer()`. `cancel()` also tree-kills a live preview.
+- **Interactive viewer**: served **same-origin** — `launch()` mounts `/viewer` (bundle) + `/scenes`
+  (= `_dataset`) as FastAPI StaticFiles via `gr.mount_gradio_app`; the iframe is
+  `/viewer/index.html?content=/scenes/<scan>/preview/viewer_<step>.sog`. The HOSTED superspl.at
+  viewer is a dead end for localhost (CORS — Gradio withholds `Access-Control-Allow-Origin` from
+  external origins by design; mixed content is exempt for loopback), hence self-hosting.
+- **Step② panel**: preview image (auto-refresh on the Timer tick via `app._latest_preview` reading
+  `<run_dir>/preview/`), **Preview now**, **Open interactive preview**, **checkpoint-history
+  dropdown** (render a strip from an older ckpt — cheap time-travel).
+- **Hook for UI-3/4:** the same `/scenes` static mount + `_viewer_iframe_html()` embed serve the
+  Step④ deliverable viewers and any Step③ overlay files with zero extra plumbing.
+- **Answers §6-Q3:** auto-refreshing turntable strip + on-demand interactive viewer is what shipped
+  (not a permanently-docked heavier viewer) — the user-validated balance.
 
 ## 6. Open questions for the user (validate before build)
 

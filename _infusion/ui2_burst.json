@@ -1,0 +1,14 @@
+{
+  "note": "Direct GPU-contention measurement: the trainer only shares the GPU for the render burst; the rest of the preview subprocess wall-time is CPU-side (torch import + COLMAP parse).",
+  "gate_model_gaussians": 54435,
+  "gate_model_gpu_burst_s": 0.18,
+  "gate_model_subprocess_wall_s": 4.0,
+  "production_cap_model_gaussians": 3000000,
+  "production_cap_gpu_burst_s": 0.22,
+  "production_cap_subprocess_wall_s": 8.9,
+  "gate_run_max_100step_window_s": 2.607,
+  "gate_run_min_100step_window_s": 1.769,
+  "stall_bound_s": 2.607,
+  "stall_bar_s": 5.0,
+  "under_bar": true
+}
