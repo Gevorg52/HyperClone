@@ -1,0 +1,786 @@
+{
+  "ckpt": "D:/REPOS/HYPERclone/apex-sfm/_dataset/SONY_TEST/training/gsplat/output/ckpts/ckpt_29999_rank0.pt",
+  "data_dir": "D:/REPOS/HYPERclone/apex-sfm/_dataset/SONY_TEST/training/gsplat/data",
+  "factor": 3,
+  "n_gaussians": 3000000,
+  "k": 3,
+  "cluster": [
+    400,
+    512
+  ],
+  "global_obs": {
+    "seen_ge1_pct": 70.10303333333333,
+    "seen_gek_pct": 70.1029,
+    "opacity_weighted_under_pct": 0.7805369794368744,
+    "n_obs_p05": 0.0,
+    "n_obs_p50": 463.0,
+    "n_obs_p95": 498.0
+  },
+  "distance": {
+    "min": 0.5166586903063147,
+    "median": 0.9659057934774469,
+    "max": 1.759667720310067,
+    "spread": 3.405861071003764
+  },
+  "summary": {
+    "cluster_400_512": {
+      "n_views": 15,
+      "mean_masked_psnr": 22.31397850198945,
+      "mean_masked_lpips": 0.4648586352666219,
+      "mean_under_frac": 0.0,
+      "mean_dist": 1.011531511564058,
+      "mean_belowness": -0.7073497316212867
+    },
+    "rest": {
+      "n_views": 59,
+      "mean_masked_psnr": 24.338842428151064,
+      "mean_masked_lpips": 0.3956068759247408,
+      "mean_under_frac": 0.0,
+      "mean_dist": 0.9788777577996524,
+      "mean_belowness": -0.024461755744529974
+    }
+  },
+  "cluster_vs_rest_under_ratio": NaN,
+  "per_view": [
+    {
+      "idx": 0,
+      "name": "DSC01203.JPG",
+      "dist": 0.8580956483013827,
+      "belowness": 0.46334541722630757,
+      "masked_psnr": 25.373936717370714,
+      "masked_lpips": 0.3989669978618622,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 8,
+      "name": "DSC01211.JPG",
+      "dist": 0.8844606246141572,
+      "belowness": 0.39852729807356735,
+      "masked_psnr": 27.543348509533846,
+      "masked_lpips": 0.38276299834251404,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 16,
+      "name": "DSC01219.JPG",
+      "dist": 0.9436089845015425,
+      "belowness": 0.4172705986626202,
+      "masked_psnr": 25.548838003086466,
+      "masked_lpips": 0.38089826703071594,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 24,
+      "name": "DSC01227.JPG",
+      "dist": 0.9952845038882014,
+      "belowness": 0.39858888720250263,
+      "masked_psnr": 22.733512493105632,
+      "masked_lpips": 0.40063634514808655,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 32,
+      "name": "DSC01235.JPG",
+      "dist": 0.9658639129999648,
+      "belowness": 0.4306023481068795,
+      "masked_psnr": 23.194862472036853,
+      "masked_lpips": 0.4090880751609802,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 40,
+      "name": "DSC01243.JPG",
+      "dist": 1.00281132190543,
+      "belowness": 0.3941125759684064,
+      "masked_psnr": 25.871515487615127,
+      "masked_lpips": 0.41398102045059204,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 48,
+      "name": "DSC01251.JPG",
+      "dist": 1.0208686647077085,
+      "belowness": 0.4325868389136995,
+      "masked_psnr": 23.817148874189456,
+      "masked_lpips": 0.43888387084007263,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 56,
+      "name": "DSC01259.JPG",
+      "dist": 1.0346353612940586,
+      "belowness": 0.4214843531652812,
+      "masked_psnr": 22.42848073164179,
+      "masked_lpips": 0.4499777555465698,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 64,
+      "name": "DSC01267.JPG",
+      "dist": 0.9434957708926311,
+      "belowness": 0.4772763000944407,
+      "masked_psnr": 25.126145070727468,
+      "masked_lpips": 0.378227561712265,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 72,
+      "name": "DSC01275.JPG",
+      "dist": 0.8783835827306423,
+      "belowness": 0.5668239793304231,
+      "masked_psnr": 25.373459281751053,
+      "masked_lpips": 0.3869609832763672,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 80,
+      "name": "DSC01283.JPG",
+      "dist": 0.862767538187558,
+      "belowness": 0.5881366988274149,
+      "masked_psnr": 24.859322040230158,
+      "masked_lpips": 0.3717259168624878,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 88,
+      "name": "DSC01291.JPG",
+      "dist": 0.8724266205202409,
+      "belowness": 0.5514098739689791,
+      "masked_psnr": 22.049572160785807,
+      "masked_lpips": 0.37962839007377625,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 96,
+      "name": "DSC01299.JPG",
+      "dist": 0.9663875906182426,
+      "belowness": 0.5196104551048791,
+      "masked_psnr": 26.99308026732064,
+      "masked_lpips": 0.3336528539657593,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 104,
+      "name": "DSC01307.JPG",
+      "dist": 0.9949061776153911,
+      "belowness": 0.5149505685618191,
+      "masked_psnr": 24.166007097788878,
+      "masked_lpips": 0.37127208709716797,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 112,
+      "name": "DSC01315.JPG",
+      "dist": 1.045354417876288,
+      "belowness": 0.4866642717523063,
+      "masked_psnr": 25.29706249640015,
+      "masked_lpips": 0.3824981451034546,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 120,
+      "name": "DSC01323.JPG",
+      "dist": 1.0891158253594264,
+      "belowness": 0.40492616600583425,
+      "masked_psnr": 25.414587961043217,
+      "masked_lpips": 0.38718557357788086,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 128,
+      "name": "DSC01331.JPG",
+      "dist": 1.0927347893023514,
+      "belowness": 0.3942695734078151,
+      "masked_psnr": 26.57572521737525,
+      "masked_lpips": 0.37686124444007874,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 136,
+      "name": "DSC01339.JPG",
+      "dist": 1.067176402103031,
+      "belowness": 0.43539909506540503,
+      "masked_psnr": 24.565145814145318,
+      "masked_lpips": 0.4029025435447693,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 144,
+      "name": "DSC01347.JPG",
+      "dist": 0.8170181649276985,
+      "belowness": 0.27439114187894925,
+      "masked_psnr": 25.53591024959518,
+      "masked_lpips": 0.3888903260231018,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 152,
+      "name": "DSC01355.JPG",
+      "dist": 0.9048504517650867,
+      "belowness": 0.08118192675328174,
+      "masked_psnr": 24.67380476057251,
+      "masked_lpips": 0.37293165922164917,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 160,
+      "name": "DSC01363.JPG",
+      "dist": 0.8459500954227085,
+      "belowness": -0.0489700259258773,
+      "masked_psnr": 24.715140694762745,
+      "masked_lpips": 0.3597525954246521,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 168,
+      "name": "DSC01371.JPG",
+      "dist": 0.953215454472562,
+      "belowness": -0.34679138887346805,
+      "masked_psnr": 24.47283885286525,
+      "masked_lpips": 0.38031119108200073,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 176,
+      "name": "DSC01379.JPG",
+      "dist": 0.9788742422023533,
+      "belowness": -0.3688246819890096,
+      "masked_psnr": 25.692106334884677,
+      "masked_lpips": 0.3685159981250763,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 184,
+      "name": "DSC01387.JPG",
+      "dist": 0.9466275990197442,
+      "belowness": -0.3550406204288621,
+      "masked_psnr": 25.685479460143,
+      "masked_lpips": 0.37197935581207275,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 192,
+      "name": "DSC01395.JPG",
+      "dist": 0.9591342548981694,
+      "belowness": -0.34551465725247615,
+      "masked_psnr": 24.587796013745425,
+      "masked_lpips": 0.3781893253326416,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 200,
+      "name": "DSC01403.JPG",
+      "dist": 1.0119265878284296,
+      "belowness": -0.3308794607647919,
+      "masked_psnr": 24.595837855609247,
+      "masked_lpips": 0.4102155566215515,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 208,
+      "name": "DSC01411.JPG",
+      "dist": 1.1164103574491882,
+      "belowness": -0.24796372732086322,
+      "masked_psnr": 25.2917459206075,
+      "masked_lpips": 0.433248370885849,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 216,
+      "name": "DSC01419.JPG",
+      "dist": 1.0900193293785252,
+      "belowness": -0.21748157973375828,
+      "masked_psnr": 25.176217782587734,
+      "masked_lpips": 0.4246866703033447,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 224,
+      "name": "DSC01427.JPG",
+      "dist": 0.9106618525917299,
+      "belowness": -0.20094492124791766,
+      "masked_psnr": 24.98269861205405,
+      "masked_lpips": 0.3994842767715454,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 232,
+      "name": "DSC01435.JPG",
+      "dist": 0.7612793800937914,
+      "belowness": -0.1639287940265051,
+      "masked_psnr": 22.906211173364003,
+      "masked_lpips": 0.4059450030326843,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 240,
+      "name": "DSC01443.JPG",
+      "dist": 0.7754497177455724,
+      "belowness": -0.1179365793090986,
+      "masked_psnr": 23.853923607244354,
+      "masked_lpips": 0.3688933551311493,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 248,
+      "name": "DSC01451.JPG",
+      "dist": 0.822955851232956,
+      "belowness": -0.08739105285515301,
+      "masked_psnr": 25.854869995700987,
+      "masked_lpips": 0.3271529972553253,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 256,
+      "name": "DSC01459.JPG",
+      "dist": 0.8520239403248816,
+      "belowness": -0.06491407228669208,
+      "masked_psnr": 25.110137085404276,
+      "masked_lpips": 0.3537610173225403,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 264,
+      "name": "DSC01467.JPG",
+      "dist": 1.4473103097920237,
+      "belowness": 0.025833392996523274,
+      "masked_psnr": 25.007197593037066,
+      "masked_lpips": 0.3982175588607788,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 272,
+      "name": "DSC01475.JPG",
+      "dist": 1.7362979590041407,
+      "belowness": -0.11468210006670808,
+      "masked_psnr": 23.90135030782412,
+      "masked_lpips": 0.3902921676635742,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 280,
+      "name": "DSC01483.JPG",
+      "dist": 1.6846059219941567,
+      "belowness": -0.12748251697172028,
+      "masked_psnr": 24.319233939550355,
+      "masked_lpips": 0.37753140926361084,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 288,
+      "name": "DSC01491.JPG",
+      "dist": 1.1751296820682395,
+      "belowness": -0.2125312635532829,
+      "masked_psnr": 25.19702754067378,
+      "masked_lpips": 0.3766493797302246,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 296,
+      "name": "DSC01499.JPG",
+      "dist": 1.1242526264497215,
+      "belowness": -0.25068339258722994,
+      "masked_psnr": 24.743165127897065,
+      "masked_lpips": 0.39331236481666565,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 304,
+      "name": "DSC01507.JPG",
+      "dist": 1.1355844651117717,
+      "belowness": -0.24515034611710018,
+      "masked_psnr": 25.16820949086471,
+      "masked_lpips": 0.40325555205345154,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 312,
+      "name": "DSC01515.JPG",
+      "dist": 1.1680706194299777,
+      "belowness": -0.26331374990701323,
+      "masked_psnr": 24.099210024583982,
+      "masked_lpips": 0.40171438455581665,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 320,
+      "name": "DSC01523.JPG",
+      "dist": 1.2425909895182545,
+      "belowness": -0.23980704284412546,
+      "masked_psnr": 24.10996062385445,
+      "masked_lpips": 0.42467281222343445,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 328,
+      "name": "DSC01531.JPG",
+      "dist": 1.2770544007091482,
+      "belowness": -0.2030265724750859,
+      "masked_psnr": 22.540881940201317,
+      "masked_lpips": 0.43639490008354187,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 336,
+      "name": "DSC01539.JPG",
+      "dist": 0.8924514118423866,
+      "belowness": -0.20940085338951284,
+      "masked_psnr": 23.84402814001009,
+      "masked_lpips": 0.4352036714553833,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 344,
+      "name": "DSC01547.JPG",
+      "dist": 0.9043975563382195,
+      "belowness": -0.18183449056566206,
+      "masked_psnr": 24.914924834577157,
+      "masked_lpips": 0.41715896129608154,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 352,
+      "name": "DSC01555.JPG",
+      "dist": 1.0263564278649577,
+      "belowness": -0.8704539164921176,
+      "masked_psnr": 23.351974154199556,
+      "masked_lpips": 0.41604140400886536,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 360,
+      "name": "DSC01563.JPG",
+      "dist": 1.10237053744767,
+      "belowness": -0.8048310532498543,
+      "masked_psnr": 23.069351561391848,
+      "masked_lpips": 0.4151437282562256,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 368,
+      "name": "DSC01571.JPG",
+      "dist": 1.2225072529437968,
+      "belowness": -0.6813684262389219,
+      "masked_psnr": 20.709110742610388,
+      "masked_lpips": 0.4327448010444641,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 376,
+      "name": "DSC01579.JPG",
+      "dist": 1.2776066351540953,
+      "belowness": -0.6460169975180963,
+      "masked_psnr": 21.78786826661601,
+      "masked_lpips": 0.4698944687843323,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 384,
+      "name": "DSC01587.JPG",
+      "dist": 1.3317422391296778,
+      "belowness": -0.6050946765467436,
+      "masked_psnr": 22.71697150022184,
+      "masked_lpips": 0.46107444167137146,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 392,
+      "name": "DSC01595.JPG",
+      "dist": 1.3677886380469837,
+      "belowness": -0.5990958896248862,
+      "masked_psnr": 22.154875298144262,
+      "masked_lpips": 0.4586155414581299,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 400,
+      "name": "DSC01603.JPG",
+      "dist": 1.2816377225003068,
+      "belowness": -0.71248159873013,
+      "masked_psnr": 19.923404217592562,
+      "masked_lpips": 0.46012741327285767,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 408,
+      "name": "DSC01611.JPG",
+      "dist": 1.1611873432182382,
+      "belowness": -0.8072713337877517,
+      "masked_psnr": 24.283271322374414,
+      "masked_lpips": 0.4289091229438782,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 416,
+      "name": "DSC01619.JPG",
+      "dist": 1.230610982536612,
+      "belowness": -0.8812368612552969,
+      "masked_psnr": 23.499155206408172,
+      "masked_lpips": 0.47672367095947266,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 424,
+      "name": "DSC01627.JPG",
+      "dist": 1.18433006418802,
+      "belowness": -0.8379562713526278,
+      "masked_psnr": 23.29064042541375,
+      "masked_lpips": 0.4748600125312805,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 432,
+      "name": "DSC01635.JPG",
+      "dist": 1.2411879721841967,
+      "belowness": -0.8074309663515793,
+      "masked_psnr": 23.63038861948668,
+      "masked_lpips": 0.5103225708007812,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 440,
+      "name": "DSC01643.JPG",
+      "dist": 1.2194185903035055,
+      "belowness": -0.8562640748738899,
+      "masked_psnr": 23.546987910262427,
+      "masked_lpips": 0.47806277871131897,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 448,
+      "name": "DSC01651.JPG",
+      "dist": 1.1780755696532959,
+      "belowness": -0.9241032322586269,
+      "masked_psnr": 21.85304127870449,
+      "masked_lpips": 0.480551540851593,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 456,
+      "name": "DSC01659.JPG",
+      "dist": 1.142318077047476,
+      "belowness": -0.9410777532239722,
+      "masked_psnr": 24.508372022210402,
+      "masked_lpips": 0.46090710163116455,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 464,
+      "name": "DSC01667.JPG",
+      "dist": 1.1777709612393137,
+      "belowness": -0.882129974612833,
+      "masked_psnr": 23.472693943510592,
+      "masked_lpips": 0.45352059602737427,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 472,
+      "name": "DSC01675.JPG",
+      "dist": 0.6035118607566994,
+      "belowness": -0.11594214974884925,
+      "masked_psnr": 23.6146660962131,
+      "masked_lpips": 0.37597915530204773,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 480,
+      "name": "DSC01683.JPG",
+      "dist": 0.7813648257009328,
+      "belowness": -0.14601721855227515,
+      "masked_psnr": 22.716856573919728,
+      "masked_lpips": 0.3866890072822571,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 488,
+      "name": "DSC01691.JPG",
+      "dist": 0.6953539810143243,
+      "belowness": -0.6573449393897719,
+      "masked_psnr": 21.006037838765025,
+      "masked_lpips": 0.4917883276939392,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 496,
+      "name": "DSC01699.JPG",
+      "dist": 0.7065016920077801,
+      "belowness": -0.5625168371194087,
+      "masked_psnr": 19.39641583739433,
+      "masked_lpips": 0.5173719525337219,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 504,
+      "name": "DSC01707.JPG",
+      "dist": 0.7702536285494658,
+      "belowness": -0.6806791462876601,
+      "masked_psnr": 20.157680486548713,
+      "masked_lpips": 0.5003044009208679,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 512,
+      "name": "DSC01715.JPG",
+      "dist": 0.799449402560704,
+      "belowness": -0.7977936167746261,
+      "masked_psnr": 19.810065751037364,
+      "masked_lpips": 0.4767618775367737,
+      "under_frac": 0.0,
+      "in_cluster": true
+    },
+    {
+      "idx": 520,
+      "name": "DSC01723.JPG",
+      "dist": 0.692882941977385,
+      "belowness": -0.9993497007112917,
+      "masked_psnr": 21.674745398506484,
+      "masked_lpips": 0.4671422243118286,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 528,
+      "name": "DSC01731.JPG",
+      "dist": 0.5740500590947185,
+      "belowness": -0.12790823535310905,
+      "masked_psnr": 24.799266244343873,
+      "masked_lpips": 0.3736132085323334,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 536,
+      "name": "DSC01739.JPG",
+      "dist": 0.5506506751135157,
+      "belowness": -0.16300461222957618,
+      "masked_psnr": 24.426354360436335,
+      "masked_lpips": 0.35456138849258423,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 544,
+      "name": "DSC01747.JPG",
+      "dist": 0.5218861303857997,
+      "belowness": -0.18227223482539978,
+      "masked_psnr": 24.640108628861928,
+      "masked_lpips": 0.33851248025894165,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 552,
+      "name": "DSC01755.JPG",
+      "dist": 0.5637794477225739,
+      "belowness": -0.2291489470086422,
+      "masked_psnr": 25.127240733880765,
+      "masked_lpips": 0.3168591260910034,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 560,
+      "name": "DSC01763.JPG",
+      "dist": 0.5870565163781165,
+      "belowness": -0.23075699723000223,
+      "masked_psnr": 23.44096473464599,
+      "masked_lpips": 0.34894534945487976,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 568,
+      "name": "DSC01771.JPG",
+      "dist": 0.6449644233085893,
+      "belowness": -0.22326942881443101,
+      "masked_psnr": 23.982778395423484,
+      "masked_lpips": 0.36223137378692627,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 576,
+      "name": "DSC01779.JPG",
+      "dist": 0.6058944480915316,
+      "belowness": 0.5815938037900127,
+      "masked_psnr": 22.059050728446728,
+      "masked_lpips": 0.45526209473609924,
+      "under_frac": 0.0,
+      "in_cluster": false
+    },
+    {
+      "idx": 584,
+      "name": "DSC01787.JPG",
+      "dist": 0.6317303784903892,
+      "belowness": 0.6048358525503689,
+      "masked_psnr": 24.13938385482052,
+      "masked_lpips": 0.4256925582885742,
+      "under_frac": 0.0,
+      "in_cluster": false
+    }
+  ]
+}

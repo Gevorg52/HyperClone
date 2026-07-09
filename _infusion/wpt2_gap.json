@@ -1,0 +1,20 @@
+{
+  "data_dir": "_dataset/SONY_TEST/training/gsplat/data",
+  "factor": 2,
+  "n_train_sample": 60,
+  "n_test": 74,
+  "arms": {
+    "prod": {
+      "ckpt": "_dataset/SONY_TEST/training/gsplat/output/ckpts/ckpt_29999_rank0.pt",
+      "train_psnr": 24.00579457115511,
+      "test_psnr": 23.858239286507377,
+      "gap": 0.1475552846477335
+    },
+    "detail": {
+      "ckpt": "_dataset/SONY_TEST/training/gsplat/output_t2/ckpts/ckpt_29999_rank0.pt",
+      "train_psnr": 24.692125736922755,
+      "test_psnr": 24.282376040996358,
+      "gap": 0.4097496959263971
+    }
+  }
+}

@@ -92,6 +92,18 @@ Gojcic, Turki, … — **same group as Difix3D+**), **SIGGRAPH 2026**. It is the
    > agree), because F2 is gated-LPIPS-tuned at factor-2. Net: **native-res + pose_opt-OFF is validated for
    > NATIVE 24 MP detail delivery, NOT as the factor-2 production default** (F2 still best at factor-2
    > perceptual). VRAM: native 24 MP @ 3 M = only ~28 GB (96 GB → not the limiter). factor-2 stays prod.
+   > **✅ GENERALIZES to a 2nd, independent capture (WP-T2, 2026-07-08, Sony ASICS shoe, factor-3 prod
+   > vs factor-2 detail; `_infusion/wpt2_RECORD.md`):** the native-detail recipe (higher-res + pose_opt
+   > OFF) reproduced the EXACT WP-N1 pattern on a specular product orbit — detail wins PSNR/SSIM at BOTH
+   > eval res + the resolution-limited **lace/mesh microstructure region-LPIPS −5.8% (common f3) / −10.4%
+   > (native f2)** (visibly crisper mesh/lace/etching in strips), but common-res whole-frame LPIPS
+   > regresses +3.0% (resolution-matched). pose_opt-OFF gave a clean +0.41 dB train/test gap (NO overfit;
+   > vs WP-N1's 6.18 dB pose_opt-ON catastrophe). NEW nuance from WP-T2's per-Gaussian diagnosis: higher
+   > res only helps **resolution-limited** regions (mesh/lace) — the **appearance-limited** ones (specular
+   > silver/green metallic, dark rubber tread; the weak view cluster is fully-observed, under-frac 0, NOT
+   > under-sampled) gain ~nothing and even regress at common res. Resolution is a microstructure lever,
+   > not a specular/flat-texture fix. **Rule holds: pose_opt OFF for native-res; higher-res = native-detail
+   > delivery variant, not the factor-N production default.**
 2. **The "3M ceiling" was a 24 GB + untuned-reg + Gaussian-EXTENT artifact, NOT a hard quality ceiling.**
    Mechanisms of our 8M divergence/OOM, all confirmed: (a) **giant/elongated Gaussians blow up tile-
    intersection buffers** → the 33 GB OOM (bound *scale*, not just count); (b) **MCMC SGLD noise ∝ covariance**

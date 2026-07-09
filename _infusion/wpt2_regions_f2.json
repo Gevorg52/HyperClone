@@ -1,0 +1,76 @@
+{
+  "data_dir": "_dataset/SONY_TEST/training/gsplat/data",
+  "factor": 2,
+  "metric": "VGG-LPIPS normalize=True; region crop box fractional; region_psnr from crop MSE",
+  "views": {
+    "448_lace_mesh": {
+      "view_idx": 448,
+      "name": "lace_mesh",
+      "box": [
+        0.45,
+        0.8,
+        0.4,
+        0.75
+      ],
+      "image": "DSC01651.JPG",
+      "arms": {
+        "prod": {
+          "full_lpips": 0.5420098900794983,
+          "region_lpips": 0.4236226975917816,
+          "region_psnr": 18.99376699675456
+        },
+        "detail": {
+          "full_lpips": 0.534572958946228,
+          "region_lpips": 0.37952932715415955,
+          "region_psnr": 22.35874229964704
+        }
+      }
+    },
+    "96_sole_tread": {
+      "view_idx": 96,
+      "name": "sole_tread",
+      "box": [
+        0.46,
+        0.88,
+        0.38,
+        0.74
+      ],
+      "image": "DSC01299.JPG",
+      "arms": {
+        "prod": {
+          "full_lpips": 0.40121257305145264,
+          "region_lpips": 0.4098418951034546,
+          "region_psnr": 25.82949918175434
+        },
+        "detail": {
+          "full_lpips": 0.41036108136177063,
+          "region_lpips": 0.4054493308067322,
+          "region_psnr": 27.53178233188462
+        }
+      }
+    },
+    "248_metallic": {
+      "view_idx": 248,
+      "name": "metallic",
+      "box": [
+        0.13,
+        0.58,
+        0.26,
+        0.62
+      ],
+      "image": "DSC01451.JPG",
+      "arms": {
+        "prod": {
+          "full_lpips": 0.40198421478271484,
+          "region_lpips": 0.30750763416290283,
+          "region_psnr": 23.278957709120725
+        },
+        "detail": {
+          "full_lpips": 0.406340628862381,
+          "region_lpips": 0.2940836250782013,
+          "region_psnr": 24.650904835973215
+        }
+      }
+    }
+  }
+}
