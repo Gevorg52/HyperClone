@@ -572,3 +572,33 @@ framework and internal modules already logged above; nothing external was vendor
   (`gui2/runner.py`: checkpoint-save → debounced strip subprocess; `preview_now`,
   `list_checkpoints`, `export_viewer`) and the Step-② panel wiring (`gui2/app.py`) are
   OURS. Default behavior unchanged for every non-gui2 caller.
+
+### SAM 2.1 (Segment Anything 2) — interactive + video mask review (UI-3)
+- **Source:** Meta `facebookresearch/sam2` — local clone `D:\REPOS\HYPERclone\sam2`
+  (repo dated 2026-02-27), checkpoint `sam2.1_hiera_large.pt` (898 MB, already downloaded).
+- **License:** **Apache-2.0** (code) + the sam2.1 weights (Apache-2.0 per the repo). Permissive.
+- **Install (2026-07-09):** `SAM2_BUILD_CUDA=0 pip install -e . --no-build-isolation -c
+  tools/blackwell_session_2026-06/constraints.txt`. torch/torchvision UNTOUCHED
+  (2.11.0+cu128 already satisfies `torch>=2.5.1`); pip only pulled the pure-python deps
+  (hydra-core, omegaconf, iopath, portalocker). The `_C` connected-components CUDA
+  extension is intentionally **NOT built** on sm_120 — it is only used for hole/sprinkle
+  fill, which we disable (`predictor.fill_hole_area = 0`; image predictor defaults
+  max_hole/sprinkle=0). Everything else in SAM 2 is plain attention / **SDPA, which works
+  on sm_120** (verified: image predictor forward 0.33 s cold / 5 ms warm, 1.4 GB VRAM;
+  video predictor full 588-frame track, 8.6 GB VRAM, no `_C` error).
+- **Adoption (UI-3 Mask Review):**
+  - `core/masking.py` (pre-existing) SAM 2.1 **image predictor** helpers `load_sam2` /
+    `predict_mask_sam2` drive the interactive per-frame edit (click include / exclude).
+  - `gui2/sam_service.py` (OURS) wraps the SAM 2.1 **video predictor**
+    (`build_sam2_video_predictor` → `init_state` / `add_new_points_or_box` /
+    `propagate_in_video`) to track the clicked object across the whole orbit sequence
+    (frames ordered by orbit index = a video). Frames are downsampled to `--max_side`
+    (=1024, the model's internal image size) for light VRAM; masks come back at that
+    resolution and delivery/trainer `cv2.resize` them to the image, so resolution is
+    irrelevant downstream. Multi-anchor propagation: each edited frame is tracked
+    independently and the **nearest seed (linear frame distance, per-seed claim radius)
+    wins** per frame — so a correction on a hard view fixes its local window without
+    hijacking the well-tracked far frames (SAM 2 propagation is sequential from the min
+    conditioning frame, so naive multi-conditioning regresses; this merge is OURS).
+  - No SAM 2 source modified; used as an installed package. `gui2/review.py` +
+    `gui2/app.py` Step-③ wiring are OURS.

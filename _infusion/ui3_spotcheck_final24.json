@@ -1,0 +1,209 @@
+{
+ "config": "per-seed merge; anchors [294 primary, 107 radius=45 corrective]",
+ "iteration": "seed 294 + sole corrective 107 (the RECORD's 24-view spot-check)",
+ "criterion": "sam_frac>0.02 and sam/bref area ratio>=0.4 (collapse detector)",
+ "bref_source": "masks_2_birefnet_bak (canonical BiRefNet mattes)",
+ "propagate_seconds": 56.91,
+ "peak_vram_gb": 8.63,
+ "seed_idxs": [
+  294,
+  107
+ ],
+ "n": 24,
+ "pass": 23,
+ "pct": 95.8,
+ "views": [
+  {
+   "idx": 0,
+   "stem": "DSC01203",
+   "sam_frac": 0.3067,
+   "bref_frac": 0.3928,
+   "ratio": 0.781,
+   "ok": true
+  },
+  {
+   "idx": 26,
+   "stem": "DSC01229",
+   "sam_frac": 0.2411,
+   "bref_frac": 0.3196,
+   "ratio": 0.754,
+   "ok": true
+  },
+  {
+   "idx": 51,
+   "stem": "DSC01254",
+   "sam_frac": 0.1485,
+   "bref_frac": 0.1778,
+   "ratio": 0.835,
+   "ok": true
+  },
+  {
+   "idx": 77,
+   "stem": "DSC01280",
+   "sam_frac": 0.1122,
+   "bref_frac": 0.3495,
+   "ratio": 0.321,
+   "ok": false
+  },
+  {
+   "idx": 102,
+   "stem": "DSC01305",
+   "sam_frac": 0.1576,
+   "bref_frac": 0.2711,
+   "ratio": 0.581,
+   "ok": true
+  },
+  {
+   "idx": 128,
+   "stem": "DSC01331",
+   "sam_frac": 0.1382,
+   "bref_frac": 0.2161,
+   "ratio": 0.639,
+   "ok": true
+  },
+  {
+   "idx": 153,
+   "stem": "DSC01356",
+   "sam_frac": 0.2644,
+   "bref_frac": 0.3195,
+   "ratio": 0.828,
+   "ok": true
+  },
+  {
+   "idx": 179,
+   "stem": "DSC01382",
+   "sam_frac": 0.2587,
+   "bref_frac": 0.3126,
+   "ratio": 0.828,
+   "ok": true
+  },
+  {
+   "idx": 204,
+   "stem": "DSC01407",
+   "sam_frac": 0.1984,
+   "bref_frac": 0.2039,
+   "ratio": 0.973,
+   "ok": true
+  },
+  {
+   "idx": 230,
+   "stem": "DSC01433",
+   "sam_frac": 0.4644,
+   "bref_frac": 0.4801,
+   "ratio": 0.967,
+   "ok": true
+  },
+  {
+   "idx": 255,
+   "stem": "DSC01458",
+   "sam_frac": 0.3725,
+   "bref_frac": 0.3895,
+   "ratio": 0.956,
+   "ok": true
+  },
+  {
+   "idx": 281,
+   "stem": "DSC01484",
+   "sam_frac": 0.0577,
+   "bref_frac": 0.0768,
+   "ratio": 0.751,
+   "ok": true
+  },
+  {
+   "idx": 306,
+   "stem": "DSC01509",
+   "sam_frac": 0.1767,
+   "bref_frac": 0.2168,
+   "ratio": 0.815,
+   "ok": true
+  },
+  {
+   "idx": 332,
+   "stem": "DSC01535",
+   "sam_frac": 0.2389,
+   "bref_frac": 0.2512,
+   "ratio": 0.951,
+   "ok": true
+  },
+  {
+   "idx": 357,
+   "stem": "DSC01560",
+   "sam_frac": 0.2485,
+   "bref_frac": 0.2548,
+   "ratio": 0.975,
+   "ok": true
+  },
+  {
+   "idx": 383,
+   "stem": "DSC01586",
+   "sam_frac": 0.167,
+   "bref_frac": 0.1963,
+   "ratio": 0.851,
+   "ok": true
+  },
+  {
+   "idx": 408,
+   "stem": "DSC01611",
+   "sam_frac": 0.195,
+   "bref_frac": 0.2234,
+   "ratio": 0.873,
+   "ok": true
+  },
+  {
+   "idx": 434,
+   "stem": "DSC01637",
+   "sam_frac": 0.1274,
+   "bref_frac": 0.1333,
+   "ratio": 0.955,
+   "ok": true
+  },
+  {
+   "idx": 459,
+   "stem": "DSC01662",
+   "sam_frac": 0.2019,
+   "bref_frac": 0.2054,
+   "ratio": 0.983,
+   "ok": true
+  },
+  {
+   "idx": 485,
+   "stem": "DSC01688",
+   "sam_frac": 0.4234,
+   "bref_frac": 0.4429,
+   "ratio": 0.956,
+   "ok": true
+  },
+  {
+   "idx": 510,
+   "stem": "DSC01713",
+   "sam_frac": 0.3459,
+   "bref_frac": 0.3534,
+   "ratio": 0.979,
+   "ok": true
+  },
+  {
+   "idx": 536,
+   "stem": "DSC01739",
+   "sam_frac": 0.639,
+   "bref_frac": 0.6641,
+   "ratio": 0.962,
+   "ok": true
+  },
+  {
+   "idx": 561,
+   "stem": "DSC01764",
+   "sam_frac": 0.5989,
+   "bref_frac": 0.6066,
+   "ratio": 0.987,
+   "ok": true
+  },
+  {
+   "idx": 587,
+   "stem": "DSC01790",
+   "sam_frac": 0.4421,
+   "bref_frac": 0.462,
+   "ratio": 0.957,
+   "ok": true
+  }
+ ]
+}

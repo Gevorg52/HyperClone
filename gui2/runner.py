@@ -538,7 +538,36 @@ class PipelineRunner:
                "--ckpt", self.ckpt_path, "--data_dir", self.data_dir,
                "--name", cfg.scan_name, "--factor", str(self.data_factor),
                "--out", out_dir, "--gpu", "0"]
-        cmd += D.assemble_delivery_flags(cfg.settings)
+        # UI-3: if the Mask Review step accepted masks, deliver from those (via
+        # --mask_dir) instead of regenerating BiRefNet mattes (--gen_masks). Reviewed
+        # masks are the object cut-out the user confirmed (e.g. shoe without its stand).
+        # The accept is written atomically with a completion marker; require that marker
+        # AND a matching on-disk mask count, else fall back to --gen_masks so we never
+        # deliver from a half-written / legacy (unmarked) masks_reviewed dir.
+        from gui2.review import MASKS_COMPLETE_MARKER
+        reviewed = Path(cfg.run_dir) / "masks_reviewed"
+        reviewed_dir = None
+        if reviewed.is_dir():
+            marker = reviewed / MASKS_COMPLETE_MARKER
+            pngs = list(reviewed.glob("*.png"))
+            if marker.is_file():
+                try:
+                    want = int(marker.read_text().strip())
+                except (ValueError, OSError):
+                    want = -1
+                if pngs and want == len(pngs):
+                    reviewed_dir = str(reviewed)
+                    self._log_line(f"[delivery] using {len(pngs)} reviewed masks "
+                                   f"(accept marker ok): {reviewed_dir}")
+                else:
+                    self._log_line(f"[delivery] masks_reviewed marker/count mismatch "
+                                   f"(marker={want}, on-disk={len(pngs)}); "
+                                   f"falling back to --gen_masks (BiRefNet)")
+            else:
+                self._log_line("[delivery] masks_reviewed present but no completion "
+                               "marker (partial or legacy accept); falling back to "
+                               "--gen_masks (BiRefNet)")
+        cmd += D.assemble_delivery_flags(cfg.settings, reviewed_mask_dir=reviewed_dir)
         if cfg.delivery_refit is not None:
             cmd.append("--refit" if cfg.delivery_refit else "--no-refit")
         if cfg.delivery_no_qa:

@@ -1,0 +1,55 @@
+{
+ "n_checks": 12,
+ "n_pass": 12,
+ "all_pass": true,
+ "checks": {
+  "app_builds": {
+   "pass": true,
+   "info": ""
+  },
+  "spread_indices": {
+   "pass": true,
+   "info": "idxs=[0, 53, 107, 160, 213, 267, 320, 374, 427, 480, 534, 587]"
+  },
+  "ordered_images": {
+   "pass": true,
+   "info": "n=588"
+  },
+  "prepare_working_frames": {
+   "pass": true,
+   "info": "n=588 in 0.0s (reuse)"
+  },
+  "ensure_mattes": {
+   "pass": true,
+   "info": "mattes=12/12"
+  },
+  "gallery_items": {
+   "pass": true,
+   "info": "n=12"
+  },
+  "prompt_frame": {
+   "pass": true,
+   "info": "mask fg frac=0.176"
+  },
+  "overlay_rgb": {
+   "pass": true,
+   "info": ""
+  },
+  "accept_reviewed": {
+   "pass": true,
+   "info": "staged=588 -> D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\masks_reviewed"
+  },
+  "delivery_flags_reviewed": {
+   "pass": true,
+   "info": "--extract_object --mask_dir D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\masks_reviewed --decimate 60% --filter_harmonics 3"
+  },
+  "delivery_flags_default_unchanged": {
+   "pass": true,
+   "info": "--extract_object --gen_masks --decimate 60% --filter_harmonics 3"
+  },
+  "clear_reviewed": {
+   "pass": true,
+   "info": ""
+  }
+ }
+}

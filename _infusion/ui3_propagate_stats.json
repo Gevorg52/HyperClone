@@ -1,0 +1,412 @@
+{
+ "scan": "SONY_TEST",
+ "frames": 588,
+ "work_max_side": 1024,
+ "seed_prompts": [
+  {
+   "frame_idx": 294,
+   "n_points": 8,
+   "n_include": 5,
+   "n_exclude": 3,
+   "radius": null
+  },
+  {
+   "frame_idx": 107,
+   "n_points": 5,
+   "n_include": 3,
+   "n_exclude": 2,
+   "radius": 45
+  },
+  {
+   "frame_idx": 75,
+   "n_points": 7,
+   "n_include": 4,
+   "n_exclude": 3,
+   "radius": 30
+  },
+  {
+   "frame_idx": 150,
+   "n_points": 6,
+   "n_include": 4,
+   "n_exclude": 2,
+   "radius": 30
+  }
+ ],
+ "final_propagation": {
+  "seed_idxs": [
+   294,
+   107,
+   75,
+   150
+  ],
+  "seconds": 93.48,
+  "fps": 25.16,
+  "peak_vram_gb": 8.63,
+  "n_masks": 588
+ },
+ "single_seed_baseline": {
+  "seed_idxs": [
+   294
+  ],
+  "seconds": 36.35,
+  "fps": 16.18,
+  "peak_vram_gb": 8.63,
+  "note": "one include+exclude seed; forward+reverse; sole-on view (idx107) collapsed"
+ },
+ "spotcheck_sweep": {
+  "stride": 15,
+  "n": 40,
+  "pass": 40,
+  "pct": 100.0,
+  "criterion": "sam_frac>0.02 and sam/bref area ratio>=0.4 (collapse detector)",
+  "views": [
+   {
+    "idx": 0,
+    "stem": "DSC01203",
+    "sam_frac": 0.3067,
+    "bref_frac": 0.3925,
+    "ratio": 0.781,
+    "shoe_only": true
+   },
+   {
+    "idx": 15,
+    "stem": "DSC01218",
+    "sam_frac": 0.2509,
+    "bref_frac": 0.3237,
+    "ratio": 0.775,
+    "shoe_only": true
+   },
+   {
+    "idx": 30,
+    "stem": "DSC01233",
+    "sam_frac": 0.2289,
+    "bref_frac": 0.3025,
+    "ratio": 0.757,
+    "shoe_only": true
+   },
+   {
+    "idx": 45,
+    "stem": "DSC01248",
+    "sam_frac": 0.1926,
+    "bref_frac": 0.2646,
+    "ratio": 0.728,
+    "shoe_only": true
+   },
+   {
+    "idx": 60,
+    "stem": "DSC01263",
+    "sam_frac": 0.2052,
+    "bref_frac": 0.2569,
+    "ratio": 0.799,
+    "shoe_only": true
+   },
+   {
+    "idx": 75,
+    "stem": "DSC01278",
+    "sam_frac": 0.2489,
+    "bref_frac": 0.345,
+    "ratio": 0.721,
+    "shoe_only": true
+   },
+   {
+    "idx": 90,
+    "stem": "DSC01293",
+    "sam_frac": 0.2558,
+    "bref_frac": 0.3365,
+    "ratio": 0.76,
+    "shoe_only": true
+   },
+   {
+    "idx": 105,
+    "stem": "DSC01308",
+    "sam_frac": 0.1598,
+    "bref_frac": 0.2688,
+    "ratio": 0.594,
+    "shoe_only": true
+   },
+   {
+    "idx": 120,
+    "stem": "DSC01323",
+    "sam_frac": 0.1533,
+    "bref_frac": 0.1809,
+    "ratio": 0.847,
+    "shoe_only": true
+   },
+   {
+    "idx": 135,
+    "stem": "DSC01338",
+    "sam_frac": 0.1942,
+    "bref_frac": 0.2433,
+    "ratio": 0.798,
+    "shoe_only": true
+   },
+   {
+    "idx": 150,
+    "stem": "DSC01353",
+    "sam_frac": 0.2447,
+    "bref_frac": 0.2997,
+    "ratio": 0.817,
+    "shoe_only": true
+   },
+   {
+    "idx": 165,
+    "stem": "DSC01368",
+    "sam_frac": 0.2546,
+    "bref_frac": 0.2609,
+    "ratio": 0.976,
+    "shoe_only": true
+   },
+   {
+    "idx": 180,
+    "stem": "DSC01383",
+    "sam_frac": 0.2703,
+    "bref_frac": 0.3202,
+    "ratio": 0.844,
+    "shoe_only": true
+   },
+   {
+    "idx": 195,
+    "stem": "DSC01398",
+    "sam_frac": 0.231,
+    "bref_frac": 0.2781,
+    "ratio": 0.83,
+    "shoe_only": true
+   },
+   {
+    "idx": 210,
+    "stem": "DSC01413",
+    "sam_frac": 0.1246,
+    "bref_frac": 0.1476,
+    "ratio": 0.845,
+    "shoe_only": true
+   },
+   {
+    "idx": 225,
+    "stem": "DSC01428",
+    "sam_frac": 0.2882,
+    "bref_frac": 0.2989,
+    "ratio": 0.964,
+    "shoe_only": true
+   },
+   {
+    "idx": 240,
+    "stem": "DSC01443",
+    "sam_frac": 0.4346,
+    "bref_frac": 0.4551,
+    "ratio": 0.955,
+    "shoe_only": true
+   },
+   {
+    "idx": 255,
+    "stem": "DSC01458",
+    "sam_frac": 0.3725,
+    "bref_frac": 0.3894,
+    "ratio": 0.956,
+    "shoe_only": true
+   },
+   {
+    "idx": 270,
+    "stem": "DSC01473",
+    "sam_frac": 0.0434,
+    "bref_frac": 0.0625,
+    "ratio": 0.694,
+    "shoe_only": true
+   },
+   {
+    "idx": 285,
+    "stem": "DSC01488",
+    "sam_frac": 0.1399,
+    "bref_frac": 0.1762,
+    "ratio": 0.794,
+    "shoe_only": true
+   },
+   {
+    "idx": 300,
+    "stem": "DSC01503",
+    "sam_frac": 0.1835,
+    "bref_frac": 0.2237,
+    "ratio": 0.82,
+    "shoe_only": true
+   },
+   {
+    "idx": 315,
+    "stem": "DSC01518",
+    "sam_frac": 0.1649,
+    "bref_frac": 0.2004,
+    "ratio": 0.823,
+    "shoe_only": true
+   },
+   {
+    "idx": 330,
+    "stem": "DSC01533",
+    "sam_frac": 0.2321,
+    "bref_frac": 0.2445,
+    "ratio": 0.949,
+    "shoe_only": true
+   },
+   {
+    "idx": 345,
+    "stem": "DSC01548",
+    "sam_frac": 0.347,
+    "bref_frac": 0.3588,
+    "ratio": 0.967,
+    "shoe_only": true
+   },
+   {
+    "idx": 360,
+    "stem": "DSC01563",
+    "sam_frac": 0.2277,
+    "bref_frac": 0.2341,
+    "ratio": 0.973,
+    "shoe_only": true
+   },
+   {
+    "idx": 375,
+    "stem": "DSC01578",
+    "sam_frac": 0.1781,
+    "bref_frac": 0.2113,
+    "ratio": 0.843,
+    "shoe_only": true
+   },
+   {
+    "idx": 390,
+    "stem": "DSC01593",
+    "sam_frac": 0.1535,
+    "bref_frac": 0.1788,
+    "ratio": 0.858,
+    "shoe_only": true
+   },
+   {
+    "idx": 405,
+    "stem": "DSC01608",
+    "sam_frac": 0.1936,
+    "bref_frac": 0.2197,
+    "ratio": 0.881,
+    "shoe_only": true
+   },
+   {
+    "idx": 420,
+    "stem": "DSC01623",
+    "sam_frac": 0.1791,
+    "bref_frac": 0.2034,
+    "ratio": 0.881,
+    "shoe_only": true
+   },
+   {
+    "idx": 435,
+    "stem": "DSC01638",
+    "sam_frac": 0.1277,
+    "bref_frac": 0.1337,
+    "ratio": 0.955,
+    "shoe_only": true
+   },
+   {
+    "idx": 450,
+    "stem": "DSC01653",
+    "sam_frac": 0.1738,
+    "bref_frac": 0.177,
+    "ratio": 0.982,
+    "shoe_only": true
+   },
+   {
+    "idx": 465,
+    "stem": "DSC01668",
+    "sam_frac": 0.2027,
+    "bref_frac": 0.2064,
+    "ratio": 0.982,
+    "shoe_only": true
+   },
+   {
+    "idx": 480,
+    "stem": "DSC01683",
+    "sam_frac": 0.4553,
+    "bref_frac": 0.4704,
+    "ratio": 0.968,
+    "shoe_only": true
+   },
+   {
+    "idx": 495,
+    "stem": "DSC01698",
+    "sam_frac": 0.3608,
+    "bref_frac": 0.365,
+    "ratio": 0.988,
+    "shoe_only": true
+   },
+   {
+    "idx": 510,
+    "stem": "DSC01713",
+    "sam_frac": 0.3459,
+    "bref_frac": 0.3533,
+    "ratio": 0.979,
+    "shoe_only": true
+   },
+   {
+    "idx": 525,
+    "stem": "DSC01728",
+    "sam_frac": 0.5345,
+    "bref_frac": 0.5525,
+    "ratio": 0.967,
+    "shoe_only": true
+   },
+   {
+    "idx": 540,
+    "stem": "DSC01743",
+    "sam_frac": 0.6445,
+    "bref_frac": 0.6738,
+    "ratio": 0.956,
+    "shoe_only": true
+   },
+   {
+    "idx": 555,
+    "stem": "DSC01758",
+    "sam_frac": 0.6793,
+    "bref_frac": 0.6973,
+    "ratio": 0.974,
+    "shoe_only": true
+   },
+   {
+    "idx": 570,
+    "stem": "DSC01773",
+    "sam_frac": 0.4756,
+    "bref_frac": 0.4803,
+    "ratio": 0.99,
+    "shoe_only": true
+   },
+   {
+    "idx": 585,
+    "stem": "DSC01788",
+    "sam_frac": 0.4705,
+    "bref_frac": 0.4881,
+    "ratio": 0.964,
+    "shoe_only": true
+   }
+  ]
+ },
+ "iteration_history": [
+  {
+   "anchors": [
+    294
+   ],
+   "spot12_pass": "11/12 (91.7%)",
+   "note": "sole-on DSC01310 collapsed"
+  },
+  {
+   "anchors": [
+    294,
+    107
+   ],
+   "spot24_pass": "23/24 (95.8%)",
+   "note": "sole-on fixed via local corrective; sole-arc edges weak"
+  },
+  {
+   "anchors": [
+    294,
+    107,
+    75,
+    150
+   ],
+   "sweep40_pass": "40/40 (100%)",
+   "note": "3 corrective anchors cover the hard sole/underside arc"
+  }
+ ]
+}

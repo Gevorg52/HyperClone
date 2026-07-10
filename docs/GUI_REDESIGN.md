@@ -3,7 +3,7 @@
 **Goal:** replace the 10-tab expert GUI with a modern, simple, wizard-style app where the
 validated-optimal settings are the defaults, an untrained user gets a great splat with zero
 knob-turning, and an expert can still reach every lever. Two product modes: **Object Scan** and
-**Environment Scan**. Status: VALIDATED by user 2026-07-07 — Gradio-6 rebuild / SAM point-prompts / auto-strip preview all approved as recommended. **UI-1 BUILT + smoke-gated 2026-07-07** (`gui2/`, `run2.py`; evidence `_infusion/ui1_RECORD.md`). **UI-2 BUILT + gated 2026-07-08** (live preview strip + interactive SuperSplat viewer; evidence `_infusion/ui2_RECORD.md`). UI-3/4 pending.
+**Environment Scan**. Status: VALIDATED by user 2026-07-07 — Gradio-6 rebuild / SAM point-prompts / auto-strip preview all approved as recommended. **UI-1 BUILT + smoke-gated 2026-07-07** (`gui2/`, `run2.py`; evidence `_infusion/ui1_RECORD.md`). **UI-2 BUILT + gated 2026-07-08** (live preview strip + interactive SuperSplat viewer; evidence `_infusion/ui2_RECORD.md`). **UI-3 BUILT + gated 2026-07-09** (SAM 2.1 mask review: point-prompts + video propagation → shoe-only masks; evidence `_infusion/ui3_RECORD.md`). UI-4 pending.
 
 ---
 
@@ -88,7 +88,7 @@ Detail-mode re-run · re-capture report (coverage gaps → "shoot these angles")
 |---|---|---|
 | **UI-1** ✅ | `gui2/` skeleton: wizard shell, mode cards, QC card, Advanced drawer w/ validated defaults, pipeline runner (reuses stage handlers headless) + unified progress plumbing | 2–3 d |
 | **UI-2** ✅ | Training preview system: checkpoint→turntable strip renderer (subprocess, cheap), auto-refresh, Preview-now, ckpt-history dropdown; same-origin static route + self-hosted SuperSplat `.sog` iframe embed. Gated 2026-07-08 (`_infusion/ui2_RECORD.md`). | 2 d |
-| **UI-3** | Mask Review: representative-view picker, matte overlay gallery, SAM 2.1 point-prompt service (needs SAM2 install verify), video-propagation, re-carve hook | 3–4 d |
+| **UI-3** ✅ | Mask Review: representative-view picker, matte overlay gallery, SAM 2.1 point-prompt service, video-propagation, delivery re-carve hook. Gated 2026-07-09 (`_infusion/ui3_RECORD.md`). | 3–4 d |
 | **UI-4** | Deliver screen: quality card mapping, deliverable cards + viewer, "improve further" actions; Utilities menu | 2 d |
 
 Total ≈ 2 weeks of agent time; UI-1 alone is already usable end-to-end. Old GUI stays until
@@ -162,6 +162,54 @@ Runner + app wired per §5.1. Gate PASSED (5/5): evidence `_infusion/ui2_RECORD.
   Step④ deliverable viewers and any Step③ overlay files with zero extra plumbing.
 - **Answers §6-Q3:** auto-refreshing turntable strip + on-demand interactive viewer is what shipped
   (not a permanently-docked heavier viewer) — the user-validated balance.
+
+### 5.3 UI-3 as built (2026-07-09) — Mask Review (SAM 2.1 point-prompts + video propagation)
+
+New: `gui2/sam_service.py` (SAM 2.1 service) and `gui2/review.py` (review logic); Step-③
+in `gui2/app.py` is now the real screen (was a stub). Delivery wired via `gui2/defaults.py`
++ `gui2/runner.py` + a minimal `core/delivery.py::ensure_masks` change. Gate PASSED on the
+SONY_TEST shoe-stand scan; evidence `_infusion/ui3_RECORD.md` (+ `ui3_propagate_stats.json`,
+`ui3_delivery_check.json`, `ui3_ui_smoke.json`, `ui3_strips/*.png`, and the re-runnable
+`ui3_delivery_check.py` / `ui3_ui_smoke.py`).
+
+- **SAM 2.1 install (first task):** was NOT installed; installed editable with
+  `SAM2_BUILD_CUDA=0` + constraints (torch untouched). sm_120 OK (SDPA; `_C` skipped and
+  `fill_hole_area=0` so it is never called). Checkpoint `sam2.1_hiera_large.pt` (898 MB)
+  was already present. Logged in THIRD_PARTY.md.
+- **`gui2/sam_service.py`:** (a) `prompt_frame(image, points, labels)` — interactive
+  single-frame segmentation via the SAM 2.1 image predictor (0.33 s cold / 5 ms warm, in
+  the app process); (b) `propagate(frames_dir, prompts, out_masks_dir)` — subprocess
+  (`python -m gui2.sam_service propagate`, mirrors `preview.py`) that tracks the object
+  across the orbit with the SAM 2.1 **video predictor**. Frames downsampled to 1024 long
+  edge (draft-decode of the 60 MP Sony **MPO** frames: 588-frame prep **91.7 s**);
+  propagation **8.6 GB VRAM**, ~16 fps single-seed (36 s / 588 frames), ~93 s for the
+  4-anchor gate run. Multi-anchor merge = **nearest seed wins, per-seed claim radius**
+  (a corrective click fixes its local window only) — OURS; naive multi-conditioning
+  regresses because SAM 2 propagates sequentially from the min conditioning frame.
+- **Step-③ UI:** ~12 representative views (uniform orbit stride) with the current BiRefNet
+  matte tinted (red) → **Looks right** (keep matte; delivery uses `--gen_masks`) / **Fix
+  it** → click include (green) / exclude (red) with a `gr.Radio` mode toggle (Gradio click
+  events carry no mouse button), live SAM re-seg on `gr.Image.select`, edit multiple views,
+  **Propagate**, 4 spot-check overlays, **Accept**. Accepted masks → `<run_dir>/masks_reviewed/`.
+- **Delivery wiring:** `runner._run_delivery` passes `--mask_dir masks_reviewed` (dropping
+  `--gen_masks`) when reviewed masks exist; `assemble_delivery_flags(reviewed_mask_dir=…)`
+  and `ensure_masks` (now treats an explicit `--mask_dir` as authoritative, re-staging over
+  stale `masks_{factor}`) — both **default-compatible** (unchanged when no reviewed masks).
+- **Parallelism:** a "Review masks (while training)" button in Step-② is enabled as soon as
+  the SfM export exists (masks only need the frames); accepting during a live run returns to
+  Processing and the masks are applied at delivery — zero added wall-clock (masks are a
+  delivery input, WP-S2).
+- **Gate results (SONY_TEST shoe on a stand):** single include/exclude seed → 91.7% shoe-only
+  spot-checks (only the sole-on view collapsed); the design's iterate loop (3 sole-arc
+  corrective clicks) → **40/40 (100%)** on an every-15-frame sweep. Reviewed-mask delivery
+  extract = 884k Gaussians with **mean out-of-shoe-mask alpha 0.013** vs the BiRefNet baseline
+  (with stand) 0.104 (8× less) — the stand is removed from the object SOG (visual +
+  render-alpha evidence). UI flow smoke: 12/12 checks.
+- **Limitations:** interactive exclude uses a Radio mode toggle, not a real right-click
+  (Gradio limitation); per-frame brush touch-up deferred to the funded phase; the sole/underside
+  arc of a 360° turntable is the hard region and typically needs 1–3 corrective clicks; the
+  parallel-review→delivery hand-off is best-effort (delivery reads `masks_reviewed` at delivery
+  time — if the user is still reviewing when training ends, delivery falls back to BiRefNet).
 
 ## 6. Open questions for the user (validate before build)
 

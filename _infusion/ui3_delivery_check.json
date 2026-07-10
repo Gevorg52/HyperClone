@@ -1,0 +1,36 @@
+{
+ "reviewed_ply": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\deliverables_reviewed\\sony_shoe_object.ply",
+ "baseline_ply": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\deliverables\\sony_shoe_detail_object.ply",
+ "reviewed_n_gaussians": 884140,
+ "baseline_n_gaussians": 942289,
+ "factor": 2,
+ "views": [
+  {
+   "idx": 0,
+   "stem": "DSC01203.JPG",
+   "reviewed_out_of_mask_alpha": 0.01397,
+   "baseline_out_of_mask_alpha": 0.1252
+  },
+  {
+   "idx": 196,
+   "stem": "DSC01399.JPG",
+   "reviewed_out_of_mask_alpha": 0.00361,
+   "baseline_out_of_mask_alpha": 0.06156
+  },
+  {
+   "idx": 391,
+   "stem": "DSC01594.JPG",
+   "reviewed_out_of_mask_alpha": 0.00358,
+   "baseline_out_of_mask_alpha": 0.02635
+  },
+  {
+   "idx": 587,
+   "stem": "DSC01790.JPG",
+   "reviewed_out_of_mask_alpha": 0.03061,
+   "baseline_out_of_mask_alpha": 0.20449
+  }
+ ],
+ "mean_reviewed_out_of_mask_alpha": 0.01294,
+ "mean_baseline_out_of_mask_alpha": 0.1044,
+ "stand_removed": true
+}

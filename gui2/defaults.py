@@ -292,15 +292,24 @@ def assemble_training_extra(d: dict[str, Any], data_factor: int,
     return extra
 
 
-def assemble_delivery_flags(d: dict[str, Any]) -> list[str]:
+def assemble_delivery_flags(d: dict[str, Any],
+                            reviewed_mask_dir: str | None = None) -> list[str]:
     """CLI flags for `python -m core.delivery` derived from the mode settings.
 
     Only passes overrides; delivery already applies the correct per-mode SH/refit
     defaults when the flags are omitted.
+
+    reviewed_mask_dir: if given (UI-3 Mask Review produced accepted masks), delivery
+    consumes those via ``--mask_dir`` instead of regenerating BiRefNet mattes with
+    ``--gen_masks``. Production behaviour is unchanged when it is None (the default).
     """
     flags: list[str] = []
     if bool(d.get("extract_object", False)):
-        flags += ["--extract_object", "--gen_masks"]
+        flags += ["--extract_object"]
+        if reviewed_mask_dir:
+            flags += ["--mask_dir", reviewed_mask_dir]
+        else:
+            flags += ["--gen_masks"]
     decimate = str(d.get("decimate", "60%"))
     flags += ["--decimate", decimate]
     # SH level: emit explicitly so the drawer lever is LIVE (delivery's per-mode

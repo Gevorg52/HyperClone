@@ -24,6 +24,8 @@ import gradio as gr
 
 from gui2 import defaults as D
 from gui2 import qc as QC
+from gui2 import review as RV
+from gui2 import sam_service as SAM
 from gui2.runner import (PipelineRunner, RunConfig, STAGE_WEIGHTS, STAGE_LABELS)
 
 _HERE = Path(__file__).resolve().parent
@@ -110,6 +112,49 @@ def next_step_after_processing(mode: str) -> int:
     step (3) and goes straight to Deliver (4); Object goes to Review (3).
     (design §3: Review is Object-mode only.) Module-level so it is unit-testable."""
     return 4 if mode == "environment" else 3
+
+
+def _colmap_num_images(sparse_dir: Path) -> int | None:
+    """Registered-image count of a COLMAP model. Reads images.bin's leading uint64
+    (num_reg_images) — the cheapest exact count — falling back to counting images.txt
+    entries (two lines per image). None if neither is readable."""
+    binp = sparse_dir / "images.bin"
+    if binp.is_file():
+        try:
+            import struct
+            with open(binp, "rb") as f:
+                return int(struct.unpack("<Q", f.read(8))[0])
+        except Exception:
+            return None
+    txtp = sparse_dir / "images.txt"
+    if txtp.is_file():
+        try:
+            n = sum(1 for ln in txtp.read_text().splitlines()
+                    if ln.strip() and not ln.startswith("#"))
+            return n // 2
+        except Exception:
+            return None
+    return None
+
+
+def _export_ready_for_review(run_dir: str) -> bool:
+    """True only once the SfM export has copied ALL registered images.
+
+    create_3dgs_directory writes sparse/0's .bin files FIRST and copies images AFTER,
+    so gating on sparse/0 alone would open review on a half-copied images dir (review
+    reads export/images). Gate instead on export/images holding >= the registered image
+    count read from the sparse model."""
+    exp = Path(run_dir) / "export"
+    sparse = exp / "sparse" / "0"
+    images = exp / "images"
+    if not sparse.is_dir() or not images.is_dir():
+        return False
+    need = _colmap_num_images(sparse)
+    if not need or need <= 0:
+        return False
+    have = sum(1 for p in images.iterdir()
+               if p.suffix.lower() in (".jpg", ".jpeg", ".png"))
+    return have >= need
 
 
 def _latest_preview(run_dir: str | None) -> str | None:
@@ -208,6 +253,8 @@ def create_app() -> gr.Blocks:
         mode_state = gr.State("object")
         detail_state = gr.State(False)
         qc_state = gr.State({})          # {input_dir, source_mp, is_video, n_frames, scan_name}
+        rv_ctx = gr.State({})            # UI-3 review context {run_dir, frames_dir, stems, indices, matte_dir, n_frames}
+        rv_prompts = gr.State({})        # UI-3 per-frame prompts {frame_idx: {points, labels}}
 
         with gr.Row(elem_classes="apex-header"):
             gr.HTML('<div class="apex-header"><h1>Apex Reality</h1>'
@@ -289,19 +336,50 @@ def create_app() -> gr.Blocks:
             with gr.Row():
                 cancel_btn = gr.Button("Cancel", variant="stop")
                 resume_btn = gr.Button("Resume from last stage", visible=False)
+                review_now_btn = gr.Button("Review masks (while training)", visible=False)
                 continue_btn = gr.Button("Continue →", interactive=False,
                                          elem_classes="apex-primary")
             timer = gr.Timer(1.5, active=True)
 
         # ================= STEP 3 — REVIEW (object only) =================
         with gr.Column(visible=False) as step3:
-            gr.Markdown("### 3 · Mask review")
-            gr.Markdown("**Mask review — coming in UI-3.** Here you will confirm the "
-                        "object cut-out (BiRefNet overlay) and fix it with SAM 2.1 "
-                        "point-prompts. Masks feed delivery, not training, so this runs "
-                        "in parallel and costs no extra time.")
-            to_deliver_btn = gr.Button("Continue to results →",
-                                       elem_classes="apex-primary")
+            gr.Markdown("### 3 · Mask review — confirm the object cut-out")
+            gr.Markdown(
+                "These ~12 views span the orbit with the **current object matte** tinted "
+                "on top. If it is just your subject, choose **Looks right**. If it grabbed "
+                "part of the stand / rig (the classic shoe-stand problem), choose **Fix "
+                "it**, click to include (green) or exclude (red), and **Propagate** — the "
+                "correction tracks across every view. Masks feed delivery, not training, "
+                "so this costs no extra wall-clock.")
+            rv_gallery = gr.Gallery(label="Representative views — current matte",
+                                    columns=4, height=380, show_label=True)
+            rv_status = gr.Markdown("")
+            with gr.Row():
+                looks_right_btn = gr.Button("Looks right ✓",
+                                            elem_classes="apex-primary", variant="primary")
+                fix_it_btn = gr.Button("Fix it ✎")
+
+            with gr.Column(visible=False) as rv_edit:
+                gr.Markdown("**Edit** — pick a view, choose what your click adds, then "
+                            "click on the image. SAM 2.1 re-segments live. Edit as many "
+                            "views as you need (the first is the primary anchor), then "
+                            "propagate to the whole orbit.")
+                with gr.Row():
+                    rv_frame_dd = gr.Dropdown(label="View to edit", choices=[], value=None,
+                                              scale=2)
+                    rv_point_mode = gr.Radio(
+                        ["Include (object)", "Exclude (rig)"],
+                        value="Include (object)", label="Click adds", scale=2)
+                    rv_clear_btn = gr.Button("Clear this view", size="sm", scale=1)
+                rv_edit_img = gr.Image(label="Click to add points", height=460,
+                                       interactive=True, show_label=True)
+                rv_edit_note = gr.Markdown("")
+                rv_propagate_btn = gr.Button("Propagate to all views →",
+                                             elem_classes="apex-primary")
+                rv_spotcheck = gr.Gallery(label="Spot-check after propagation",
+                                          columns=4, height=300, visible=False)
+                rv_accept_btn = gr.Button("Accept masks ✓",
+                                          elem_classes="apex-primary", visible=False)
 
         # ================= STEP 4 — DELIVER =================
         with gr.Column(visible=False) as step4:
@@ -452,11 +530,20 @@ def create_app() -> gr.Blocks:
             # (no-op) so a button's transient message isn't clobbered every tick.
             note = snap.get("preview_note", "")
             pv_note = gr.update(value=f"⚠ {note}") if note else gr.update()
-            return prog, stages, log, prev_up, cont, status, ck_up, pv_note
+            # UI-3 parallelism: enable "Review masks" for Object scans once the SfM
+            # export has copied ALL registered images (review reads export/images) and
+            # while the run isn't finished. Gating on export/images completeness (not on
+            # sparse/0, which is written first) avoids opening review on a half-copied set.
+            rv_now = gr.update()
+            if mode == "object":
+                rv_now = gr.update(
+                    visible=_export_ready_for_review(_RUNNER.cfg.run_dir) and not done)
+            return prog, stages, log, prev_up, cont, status, ck_up, pv_note, rv_now
 
         timer.tick(_tick, inputs=[mode_state],
                    outputs=[proc_progress, proc_stages, log_box, preview_img,
-                            continue_btn, proc_status, ckpt_dropdown, preview_status])
+                            continue_btn, proc_status, ckpt_dropdown, preview_status,
+                            review_now_btn])
 
         # ---- Live-preview controls (UI-2) ----
         def _preview_now():
@@ -520,15 +607,190 @@ def create_app() -> gr.Blocks:
         continue_btn.click(
             _after_processing, inputs=[mode_state],
             outputs=[step2, step3, step4, stepper, deliv_html])
+        # (object) populate the review gallery once Step-③ is shown — registered in the
+        # UI-3 wiring block below, after _init_review is defined.
 
-        def _to_deliver(mode):
-            items = _RUNNER.snapshot()["deliverables"] if _RUNNER else []
-            rd = _RUNNER.cfg.run_dir if _RUNNER else ""
+        # ---- UI-3 Mask Review wiring ----
+        def _init_review(mode):
+            """Prepare working frames + representative-view mattes + the gallery."""
+            if mode != "object" or _RUNNER is None:
+                return gr.update(), {}, gr.update(choices=[]), gr.update()
+            run_dir = _RUNNER.cfg.run_dir
+            try:
+                fdir, stems, _images = RV.prepare_working_frames(run_dir)
+            except Exception as e:
+                return (gr.update(value=[]), {}, gr.update(choices=[]),
+                        f"**Could not load frames for review: {e}**")
+            n = len(stems)
+            idxs = RV.spread_indices(n, 12)
+            matte_dir = str(Path(run_dir) / "sam_work" / "mattes")
+            existing = None
+            dd = getattr(_RUNNER, "data_dir", None)
+            df = getattr(_RUNNER, "data_factor", None)
+            if dd and df:
+                existing = str(Path(dd) / f"masks_{df}")
+            RV.ensure_mattes(fdir, stems, idxs, matte_dir, existing_mask_dir=existing)
+            items = RV.gallery_items(fdir, stems, idxs, matte_dir, tint=RV.BIREFNET_TINT)
+            ctx = {"run_dir": run_dir, "frames_dir": fdir, "stems": stems,
+                   "indices": idxs, "matte_dir": matte_dir, "n_frames": n}
+            dd_up = gr.update(choices=[(f"view {i} · {stems[i]}", i) for i in idxs],
+                              value=idxs[len(idxs) // 2])
+            return (items, ctx, dd_up,
+                    f"Orbit has {n} views; showing {len(idxs)} spread across it. "
+                    "Green tint would be your object; red tint = the current matte "
+                    "(which may still include the stand).")
+
+        def _pick_edit_frame(idx, ctx, prompts):
+            if not ctx or idx is None:
+                return gr.update(), "Pick a view to edit."
+            i = int(idx)
+            frame = RV.load_frame(ctx["frames_dir"], i)
+            entry = prompts.get(i)
+            pts = entry["points"] if entry else []
+            lbl = entry["labels"] if entry else []
+            mask = (SAM.prompt_frame(frame, pts, lbl, image_key=f"{ctx['run_dir']}::{i}")
+                    if pts else None)
+            ov = RV.overlay_rgb(frame, mask, RV.INCLUDE_TINT, pts, lbl)
+            return ov, f"Editing view {i} ({ctx['stems'][i]}) — {len(pts)} point(s)."
+
+        def _edit_click(evt: gr.SelectData, mode, idx, ctx, prompts):
+            if not ctx or idx is None:
+                return gr.update(), prompts, "Pick a view first."
+            i = int(idx)
+            x, y = int(evt.index[0]), int(evt.index[1])
+            label = 1 if str(mode).startswith("Include") else 0
+            prompts = dict(prompts)
+            e = prompts.get(i, {"points": [], "labels": []})
+            entry = {"points": list(e["points"]) + [[x, y]],
+                     "labels": list(e["labels"]) + [label]}
+            prompts[i] = entry
+            frame = RV.load_frame(ctx["frames_dir"], i)
+            mask = SAM.prompt_frame(frame, entry["points"], entry["labels"],
+                                    image_key=f"{ctx['run_dir']}::{i}")
+            ov = RV.overlay_rgb(frame, mask, RV.INCLUDE_TINT, entry["points"], entry["labels"])
+            ninc = sum(l == 1 for l in entry["labels"])
+            nexc = sum(l == 0 for l in entry["labels"])
+            return ov, prompts, f"View {i}: {ninc} include, {nexc} exclude."
+
+        def _clear_view(idx, ctx, prompts):
+            if not ctx or idx is None:
+                return gr.update(), prompts, ""
+            i = int(idx)
+            prompts = dict(prompts)
+            prompts.pop(i, None)
+            frame = RV.load_frame(ctx["frames_dir"], i)
+            return RV.overlay_rgb(frame, None, RV.INCLUDE_TINT), prompts, f"Cleared view {i}."
+
+        def _propagate(ctx, prompts):
+            if not ctx or not prompts:
+                return (gr.update(visible=False), gr.update(visible=False),
+                        "Add at least one include point on an object view first.", ctx)
+            # First-edited frame = primary anchor (unlimited); the rest are LOCAL
+            # corrections (they only override a window around their seed).
+            plist = []
+            for k, (fi, entry) in enumerate(prompts.items()):
+                p = {"frame_idx": int(fi), "points": entry["points"],
+                     "labels": entry["labels"]}
+                if k > 0:
+                    p["radius"] = SAM.DEFAULT_CORRECTION_RADIUS
+                plist.append(p)
+            work = Path(ctx["run_dir"]) / "sam_work"
+            out_dir = str(work / "masks_sam")
+            stats_out = str(work / "propagate_stats.json")
+            log_path = work / "propagate.log"
+            # Drop any stale stats file so a prior run's success can't masquerade as
+            # this run's (the stats file is written LAST, only on a clean propagate).
+            if os.path.isfile(stats_out):
+                os.remove(stats_out)
+            with open(str(log_path), "w") as logf:
+                proc = RV.propagate_subprocess(ctx["frames_dir"], plist, out_dir,
+                                               stats_out, log_file=logf)
+                proc.wait()
+            # Surface a failed propagation and BLOCK Accept: nonzero exit or a missing
+            # stats file means the masks are unusable — keep the accept button hidden
+            # and clear any prop_out_dir so a stale prior result can't be accepted.
+            if proc.returncode != 0 or not os.path.isfile(stats_out):
+                tail = ""
+                try:
+                    tail = log_path.read_text(errors="ignore")[-800:]
+                except Exception:
+                    pass
+                ctx = dict(ctx)
+                ctx.pop("prop_out_dir", None)
+                msg = (f"**Propagation failed (exit {proc.returncode}).** No masks were "
+                       f"produced — nothing to accept. Adjust the prompts and try again, "
+                       f"or see `sam_work/propagate.log`.")
+                if tail:
+                    msg += f"\n\n```\n{tail}\n```"
+                return (gr.update(visible=False), gr.update(visible=False), msg, ctx)
+            ctx = dict(ctx)
+            ctx["prop_out_dir"] = out_dir
+            spot = RV.spread_indices(ctx["n_frames"], 4)
+            items = RV.gallery_items(ctx["frames_dir"], ctx["stems"], spot, out_dir,
+                                     tint=RV.REVIEWED_TINT)
+            import json
+            stats = json.load(open(stats_out))
+            msg = (f"Propagated shoe-only masks to {stats.get('n_masks', '?')} views in "
+                   f"{stats.get('seconds', '?')}s (seeds {stats.get('seed_idxs', [])}). "
+                   "Check the spot-check strip, then Accept or edit another view.")
+            return (gr.update(value=items, visible=True), gr.update(visible=True), msg, ctx)
+
+        def _leave_review(mode, message):
+            done = _RUNNER is not None and _RUNNER.snapshot()["status"] == "done"
+            if done:
+                items = _RUNNER.snapshot()["deliverables"] if _RUNNER else []
+                rd = _RUNNER.cfg.run_dir if _RUNNER else ""
+                return (gr.update(visible=False), gr.update(visible=False),
+                        gr.update(visible=True), _stepper_html(4, mode, done={1, 2, 3}),
+                        _deliverables_html(items, rd), message)
+            # training still running -> back to processing; masks applied at delivery
             return (gr.update(visible=False), gr.update(visible=True),
-                    _stepper_html(4, mode, done={1, 2, 3}),
-                    _deliverables_html(items, rd))
-        to_deliver_btn.click(_to_deliver, inputs=[mode_state],
-                             outputs=[step3, step4, stepper, deliv_html])
+                    gr.update(visible=False), _stepper_html(2, mode, done={1}),
+                    gr.update(), message + " Training continues.")
+
+        _leave_outputs = [step3, step2, step4, stepper, deliv_html, rv_status]
+
+        def _accept(mode, ctx):
+            if ctx and ctx.get("prop_out_dir"):
+                d, n = RV.accept_reviewed(ctx["run_dir"], ctx["prop_out_dir"], ctx["stems"])
+                msg = f"Accepted {n} reviewed masks — delivery will carve from these."
+            else:
+                msg = "No propagated masks to accept."
+            return _leave_review(mode, msg)
+
+        def _looks_right(mode, ctx):
+            if ctx and ctx.get("run_dir"):
+                RV.clear_reviewed(ctx["run_dir"])
+            return _leave_review(mode, "Current matte accepted — delivery will use it.")
+
+        # Populate the review gallery when the sequential (post-processing) path reaches
+        # Step-③ (runs after _after_processing's handler; no-op for Environment).
+        continue_btn.click(_init_review, inputs=[mode_state],
+                           outputs=[rv_gallery, rv_ctx, rv_frame_dd, rv_status])
+
+        looks_right_btn.click(_looks_right, inputs=[mode_state, rv_ctx],
+                              outputs=_leave_outputs)
+        fix_it_btn.click(lambda: gr.update(visible=True), outputs=rv_edit).then(
+            _pick_edit_frame, inputs=[rv_frame_dd, rv_ctx, rv_prompts],
+            outputs=[rv_edit_img, rv_edit_note])
+        rv_frame_dd.change(_pick_edit_frame, inputs=[rv_frame_dd, rv_ctx, rv_prompts],
+                           outputs=[rv_edit_img, rv_edit_note])
+        rv_edit_img.select(_edit_click,
+                           inputs=[rv_point_mode, rv_frame_dd, rv_ctx, rv_prompts],
+                           outputs=[rv_edit_img, rv_prompts, rv_edit_note])
+        rv_clear_btn.click(_clear_view, inputs=[rv_frame_dd, rv_ctx, rv_prompts],
+                           outputs=[rv_edit_img, rv_prompts, rv_edit_note])
+        rv_propagate_btn.click(_propagate, inputs=[rv_ctx, rv_prompts],
+                               outputs=[rv_spotcheck, rv_accept_btn, rv_edit_note, rv_ctx])
+        rv_accept_btn.click(_accept, inputs=[mode_state, rv_ctx], outputs=_leave_outputs)
+
+        # Enter Review from Step-② parallelism button (object, once SfM export exists).
+        def _enter_review_parallel(mode):
+            return gr.update(visible=False), gr.update(visible=True), _stepper_html(3, mode, done={1})
+        review_now_btn.click(_enter_review_parallel, inputs=[mode_state],
+                             outputs=[step2, step3, stepper]).then(
+            _init_review, inputs=[mode_state],
+            outputs=[rv_gallery, rv_ctx, rv_frame_dd, rv_status])
 
         open_folder_btn.click(_open_deliverables, outputs=deliv_msg)
 

@@ -490,46 +490,79 @@ def ensure_masks(data_dir: str, factor: int, mask_dir: str | None,
                  gen_masks: bool, image_paths, image_names, device: str) -> str:
     """Ensure object masks live in <data_dir>/masks_{factor}/ (COLMAP stems), so
     load_colmap_data auto-attaches them. Copies from mask_dir if given, else runs
-    BiRefNet if --gen_masks. Returns the masks_{factor} dir."""
+    BiRefNet if --gen_masks. Returns the masks_{factor} dir.
+
+    An explicit --mask_dir is AUTHORITATIVE: completeness is judged by the masks
+    actually COPIED FROM mask_dir (not by counting whatever files already sit in
+    masks_{factor}), so a pre-existing STALE dst file can never silently fill a gap
+    the mask_dir does not cover. A partial mask_dir RAISES (or, with --gen_masks, the
+    still-missing stems are filled by BiRefNet). Without --mask_dir the behaviour is
+    unchanged: reuse a COMPLETE dst, else --gen_masks, else error.
+    """
     dst = os.path.join(data_dir, f"masks_{factor}")
     os.makedirs(dst, exist_ok=True)
     stems = [os.path.splitext(n)[0] for n in image_names]
-    have = sum(os.path.isfile(os.path.join(dst, s + ".png")) for s in stems)
-    if have >= len(stems):
-        print(f"[masks] {have}/{len(stems)} already present in {dst}")
-        return dst
-    if mask_dir and os.path.isdir(mask_dir):
-        n = 0
-        for s in stems:
-            src = os.path.join(mask_dir, s + ".png")
-            if os.path.isfile(src):
-                shutil.copyfile(src, os.path.join(dst, s + ".png"))
-                n += 1
-        print(f"[masks] copied {n}/{len(stems)} from {mask_dir} -> {dst}")
-        have = sum(os.path.isfile(os.path.join(dst, s + ".png")) for s in stems)
-        if have >= len(stems):
-            return dst
-        if not gen_masks:
-            raise RuntimeError(f"[masks] only {have}/{len(stems)} masks after copy "
-                               f"from {mask_dir}; pass --gen_masks to fill the rest")
-    if gen_masks:
+
+    def _birefnet_fill(paths, want_stems):
+        """Run BiRefNet on `paths`; write dst/<colmapstem>.png for each. Returns count."""
         from core.masking import load_birefnet, run_birefnet_batch, unload_birefnet
-        print(f"[masks] running BiRefNet on {len(image_paths)} images -> {dst}")
-        model, transform = load_birefnet("general", device=device)
-        # name outputs by COLMAP stem (image_paths order matches image_names)
         import tempfile
+        print(f"[masks] running BiRefNet on {len(paths)} images -> {dst}")
+        model, transform = load_birefnet("general", device=device)
         tmp = tempfile.mkdtemp(prefix="birefnet_")
-        run_birefnet_batch(model, transform, list(image_paths), tmp, device=device)
+        run_birefnet_batch(model, transform, list(paths), tmp, device=device)
         unload_birefnet()
         # rename tmp/<imgstem>.png -> dst/<colmapstem>.png
         n = 0
-        for p, s in zip(image_paths, stems):
+        for p, s in zip(paths, want_stems):
             src = os.path.join(tmp, os.path.splitext(os.path.basename(p))[0] + ".png")
             if os.path.isfile(src):
                 shutil.copyfile(src, os.path.join(dst, s + ".png"))
                 n += 1
         shutil.rmtree(tmp, ignore_errors=True)
-        print(f"[masks] generated {n}/{len(stems)} BiRefNet masks -> {dst}")
+        return n
+
+    # --- Explicit --mask_dir: AUTHORITATIVE, completeness = copied-from-mask_dir ----
+    if mask_dir and os.path.isdir(mask_dir):
+        copied, missing = 0, []
+        for s in stems:
+            src = os.path.join(mask_dir, s + ".png")
+            if os.path.isfile(src):
+                shutil.copyfile(src, os.path.join(dst, s + ".png"))
+                copied += 1
+            else:
+                missing.append(s)
+        print(f"[masks] copied {copied}/{len(stems)} from {mask_dir} -> {dst}")
+        if copied >= len(stems):
+            return dst
+        # mask_dir is PARTIAL. A stale dst file for a `missing` stem must NOT count as
+        # coverage (it would deliver mixed fresh+stale masks silently).
+        if gen_masks:
+            miss = set(missing)
+            todo = [(p, s) for p, s in zip(image_paths, stems) if s in miss]
+            filled = _birefnet_fill([p for p, _ in todo], [s for _, s in todo])
+            print(f"[masks] filled {filled}/{len(missing)} missing masks with "
+                  f"BiRefNet -> {dst}")
+            still = [s for s in missing
+                     if not os.path.isfile(os.path.join(dst, s + ".png"))]
+            if still:
+                raise RuntimeError(
+                    f"[masks] {len(still)}/{len(stems)} masks still missing after "
+                    f"mask_dir copy + BiRefNet (e.g. {', '.join(still[:5])})")
+            return dst
+        raise RuntimeError(
+            f"[masks] --mask_dir {mask_dir} is partial: only {copied}/{len(stems)} "
+            f"of the required masks are present ({len(missing)} missing, e.g. "
+            f"{', '.join(missing[:5])}); pass --gen_masks to fill the rest")
+
+    # --- No --mask_dir: unchanged behaviour (reuse a complete dst, else --gen_masks) -
+    have = sum(os.path.isfile(os.path.join(dst, s + ".png")) for s in stems)
+    if have >= len(stems):
+        print(f"[masks] {have}/{len(stems)} present in {dst}")
+        return dst
+    if gen_masks:
+        filled = _birefnet_fill(list(image_paths), stems)
+        print(f"[masks] generated {filled}/{len(stems)} BiRefNet masks -> {dst}")
         return dst
     raise RuntimeError("[masks] no masks available; give --mask_dir and/or --gen_masks")
 
