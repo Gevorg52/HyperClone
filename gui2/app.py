@@ -238,7 +238,7 @@ def _collect_settings(mode: str, detail: bool, *vals) -> dict:
 def _build_advanced() -> tuple[gr.Accordion, list]:
     comps = []
     with gr.Accordion("Advanced settings", open=False) as acc:
-        gr.Markdown("These are the recommended defaults. You can leave them as they are.")
+        gr.Markdown("Recommended defaults.")
         d = D.defaults_for("object", False)
         for spec in D.SETTINGS:
             k, kind = spec["key"], spec["kind"]
@@ -272,7 +272,7 @@ def create_app() -> gr.Blocks:
     # NB: in Gradio 6 `theme` and `css` are applied at launch()/mount_gradio_app,
     # not on the Blocks constructor (they are silently dropped there). `fill_width`
     # is a Blocks arg and gives the full-viewport container.
-    with gr.Blocks(title="Apex Reality", fill_width=True) as app:
+    with gr.Blocks(title="HYPERclone", fill_width=True) as app:
         mode_state = gr.State("object")
         detail_state = gr.State(False)
         qc_state = gr.State({})          # {input_dir, source_mp, is_video, n_frames, scan_name}
@@ -280,8 +280,7 @@ def create_app() -> gr.Blocks:
         rv_prompts = gr.State({})        # UI-3 per-frame prompts {frame_idx: {points, labels}}
 
         with gr.Row(elem_classes="apex-header"):
-            gr.HTML('<div class="apex-header"><h1>Apex Reality</h1>'
-                    '<p>Clean, usable Gaussian splats from ordinary captures.</p></div>')
+            gr.HTML('<div class="apex-header"><h1>HYPERclone</h1></div>')
         with gr.Row():
             stepper = gr.HTML(_stepper_html(1, "object"))
 
@@ -293,8 +292,6 @@ def create_app() -> gr.Blocks:
                           elem_classes="apex-utils") as _utils_acc:
             with gr.Tabs():
                 with gr.Tab("Capture QC"):
-                    gr.Markdown("Run the capture check on **any** folder or video "
-                                "without starting a scan.")
                     u_qc_path = gr.Textbox(label="Folder of images or a video file",
                                            placeholder=r"D:\path\to\images")
                     u_qc_mode = gr.Radio(["object", "environment"], value="object",
@@ -304,8 +301,6 @@ def create_app() -> gr.Blocks:
                     u_qc_img = gr.Image(label="Sharpness histogram", visible=False,
                                         height=200)
                 with gr.Tab("Coverage report"):
-                    gr.Markdown("Coverage map for a reconstructed scan (finds capture "
-                                "gaps).")
                     u_cov_path = gr.Textbox(
                         label="Run dir (_dataset/<scan>) or a COLMAP data dir")
                     u_cov_factor = gr.Number(value=2, label="data factor", precision=0)
@@ -327,7 +322,6 @@ def create_app() -> gr.Blocks:
                     u_qa_json = gr.Code(label="scorecard.json", language="json",
                                         visible=False)
                 with gr.Tab("Compare two models"):
-                    gr.Markdown("Render two models from the same cameras, side by side.")
                     u_cmp_a = gr.Textbox(label="Model A (.pt / .ply)")
                     u_cmp_b = gr.Textbox(label="Model B (.pt / .ply)")
                     u_cmp_data = gr.Textbox(label="COLMAP data dir (shared cameras)")
@@ -341,7 +335,6 @@ def create_app() -> gr.Blocks:
                     u_cmp_a_img = gr.Image(label="A", visible=False, height=220)
                     u_cmp_b_img = gr.Image(label="B", visible=False, height=220)
                 with gr.Tab("Deliverables folder"):
-                    gr.Markdown("Open a folder in the OS file browser.")
                     u_open_path = gr.Textbox(label="Folder (blank = _dataset root)",
                                              value="")
                     u_open_btn = gr.Button("Open folder")
@@ -353,13 +346,11 @@ def create_app() -> gr.Blocks:
             with gr.Row():
                 with gr.Column(elem_classes="apex-modecard", scale=1) as obj_col:
                     obj_btn = gr.Button(
-                        "\U0001F9F8  Object Scan\nA single product or subject on a "
-                        "surface. Delivered carved out of its background.",
+                        "\U0001F9F8  Object Scan",
                         elem_id="obj_card")
                 with gr.Column(elem_classes="apex-modecard", scale=1) as env_col:
                     env_btn = gr.Button(
-                        "\U0001F3E0  Environment Scan\nA room or space. Delivered as the "
-                        "full scene, no carving.",
+                        "\U0001F3E0  Environment Scan",
                         elem_id="env_card")
             mode_badge = gr.Markdown("**Mode:** Object Scan")
 
@@ -378,8 +369,7 @@ def create_app() -> gr.Blocks:
                     extract_btn = gr.Button("Extract frames from video", visible=False)
 
             with gr.Group(elem_classes="apex-panel"):
-                qc_md = gr.Markdown("Run the capture check for frame count, resolution, "
-                                    "and sharpness.")
+                qc_md = gr.Markdown("")
                 qc_hist = gr.Image(label="Sharpness histogram", visible=False,
                                    height=200)
 
