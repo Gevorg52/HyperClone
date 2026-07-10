@@ -31,6 +31,7 @@ from gui2 import qc as QC
 from gui2 import review as RV
 from gui2 import sam_service as SAM
 from gui2.runner import (PipelineRunner, RunConfig, STAGE_WEIGHTS, STAGE_LABELS)
+from gui2.theme import build_theme
 
 _HERE = Path(__file__).resolve().parent
 _REPO = _HERE.parent
@@ -63,7 +64,7 @@ def _jobs_status_line() -> str:
         rc = p.poll()
         parts.append(f"{name}: running" if rc is None
                      else (f"{name}: done" if rc == 0 else f"{name}: failed (exit {rc})"))
-    return "Background jobs — " + " · ".join(parts)
+    return "Background jobs: " + " · ".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -236,14 +237,14 @@ def _collect_settings(mode: str, detail: bool, *vals) -> dict:
 
 def _build_advanced() -> tuple[gr.Accordion, list]:
     comps = []
-    with gr.Accordion("Advanced settings (validated defaults pre-filled)",
-                      open=False) as acc:
-        gr.Markdown("Every value below is the mode's **validated default**. "
-                    "Change nothing for a great result.")
+    with gr.Accordion("Advanced settings", open=False) as acc:
+        gr.Markdown("These are the recommended defaults. You can leave them as they are.")
         d = D.defaults_for("object", False)
         for spec in D.SETTINGS:
             k, kind = spec["key"], spec["kind"]
-            info = f'{D.HELP.get(k, "")}  ·  Evidence: {D.EVIDENCE.get(k, "-")}'
+            # Evidence citations stay in defaults.EVIDENCE (code) and are kept out of
+            # the UI to keep help text terse (UI-5 copy sweep).
+            info = D.HELP.get(k, "")
             val = d[k]
             if kind == "factor":
                 c = gr.Dropdown(choices=spec["choices"], value=str(val),
@@ -268,7 +269,10 @@ def _build_advanced() -> tuple[gr.Accordion, list]:
 # ---------------------------------------------------------------------------
 
 def create_app() -> gr.Blocks:
-    with gr.Blocks(title="Apex Reality") as app:
+    # NB: in Gradio 6 `theme` and `css` are applied at launch()/mount_gradio_app,
+    # not on the Blocks constructor (they are silently dropped there). `fill_width`
+    # is a Blocks arg and gives the full-viewport container.
+    with gr.Blocks(title="Apex Reality", fill_width=True) as app:
         mode_state = gr.State("object")
         detail_state = gr.State(False)
         qc_state = gr.State({})          # {input_dir, source_mp, is_video, n_frames, scan_name}
@@ -300,10 +304,10 @@ def create_app() -> gr.Blocks:
                     u_qc_img = gr.Image(label="Sharpness histogram", visible=False,
                                         height=200)
                 with gr.Tab("Coverage report"):
-                    gr.Markdown("Angular-coverage map + a re-capture report for any "
-                                "reconstructed scan (find the shoot-these-angles gaps).")
+                    gr.Markdown("Coverage map for a reconstructed scan (finds capture "
+                                "gaps).")
                     u_cov_path = gr.Textbox(
-                        label="Run dir (…/_dataset/<scan>) or a COLMAP data dir")
+                        label="Run dir (_dataset/<scan>) or a COLMAP data dir")
                     u_cov_factor = gr.Number(value=2, label="data factor", precision=0)
                     u_cov_btn = gr.Button("Analyze coverage",
                                           elem_classes="apex-primary")
@@ -311,8 +315,7 @@ def create_app() -> gr.Blocks:
                     u_cov_img = gr.Image(label="azimuth × elevation coverage",
                                          visible=False, height=300)
                 with gr.Tab("QA scorecard (expert)"):
-                    gr.Markdown("Full visibility-split scorecard (masked PSNR/SSIM/"
-                                "LPIPS) on a chosen checkpoint or PLY.")
+                    gr.Markdown("Visibility-split scorecard on a checkpoint or PLY.")
                     u_qa_ckpt = gr.Textbox(label="Checkpoint .pt or delivered .ply")
                     u_qa_data = gr.Textbox(label="COLMAP data dir")
                     with gr.Row():
@@ -324,8 +327,7 @@ def create_app() -> gr.Blocks:
                     u_qa_json = gr.Code(label="scorecard.json", language="json",
                                         visible=False)
                 with gr.Tab("Compare two models"):
-                    gr.Markdown("Render both models from the same cameras → "
-                                "side-by-side turntable strips.")
+                    gr.Markdown("Render two models from the same cameras, side by side.")
                     u_cmp_a = gr.Textbox(label="Model A (.pt / .ply)")
                     u_cmp_b = gr.Textbox(label="Model B (.pt / .ply)")
                     u_cmp_data = gr.Textbox(label="COLMAP data dir (shared cameras)")
@@ -346,7 +348,7 @@ def create_app() -> gr.Blocks:
                     u_open_md = gr.Markdown("")
 
         # ================= STEP 1 — NEW SCAN =================
-        with gr.Column(visible=True) as step1:
+        with gr.Column(visible=True, elem_id="apex-step1") as step1:
             gr.Markdown("### 1 · Start a new scan")
             with gr.Row():
                 with gr.Column(elem_classes="apex-modecard", scale=1) as obj_col:
@@ -364,21 +366,20 @@ def create_app() -> gr.Blocks:
             with gr.Group(elem_classes="apex-panel"):
                 input_path = gr.Textbox(
                     label="Input folder (images) or video file",
-                    placeholder=r"D:\path\to\images  —  or  —  D:\path\to\clip.mp4")
+                    placeholder=r"D:\path\to\images  or  D:\path\to\clip.mp4")
                 with gr.Row():
                     browse_btn = gr.Button("Browse folder…", scale=1)
                     subject_box = gr.Textbox(label="Subject name (Object mode)",
                                              placeholder="e.g. blue_sneaker", scale=2)
                 detail_chk = gr.Checkbox(
-                    value=False, label="Detail mode (sharper microstructure, slower — "
-                    "~15 MP, pose refinement off)")
+                    value=False, label="Detail mode (sharper, slower)")
                 with gr.Row():
                     qc_btn = gr.Button("Run capture check", elem_classes="apex-primary")
                     extract_btn = gr.Button("Extract frames from video", visible=False)
 
             with gr.Group(elem_classes="apex-panel"):
-                qc_md = gr.Markdown("Run the capture check to see frames, resolution, "
-                                    "sharpness, and the recommended training resolution.")
+                qc_md = gr.Markdown("Run the capture check for frame count, resolution, "
+                                    "and sharpness.")
                 qc_hist = gr.Image(label="Sharpness histogram", visible=False,
                                    height=200)
 
@@ -390,19 +391,19 @@ def create_app() -> gr.Blocks:
             step1_msg = gr.Markdown("")
 
         # ================= STEP 2 — PROCESSING =================
-        with gr.Column(visible=False) as step2:
+        with gr.Column(visible=False, elem_id="apex-step2") as step2:
             gr.Markdown("### 2 · Processing")
-            proc_progress = gr.HTML(_progress_html(0, "Starting…", 0))
+            proc_progress = gr.HTML(_progress_html(0, "Starting…", 0),
+                                    elem_id="apex-progress-html")
             with gr.Row():
                 with gr.Column(scale=3):
                     proc_stages = gr.HTML(_stages_html({
                         "stage_order": [k for k, _ in STAGE_WEIGHTS],
                         "stages": {k: {"status": "pending", "frac": 0, "desc": ""}
                                    for k, _ in STAGE_WEIGHTS},
-                        "stage_labels": STAGE_LABELS}))
+                        "stage_labels": STAGE_LABELS}), elem_id="apex-stages-html")
                 with gr.Column(scale=2):
-                    gr.Markdown("**Live preview** — a 6-view turntable of the current "
-                                "checkpoint, refreshed as training saves.")
+                    gr.Markdown("**Live preview** (updates as training saves)")
                     preview_img = gr.Image(label="", height=300, visible=True)
                     with gr.Row():
                         preview_now_btn = gr.Button("Preview now", size="sm")
@@ -426,16 +427,12 @@ def create_app() -> gr.Blocks:
             timer = gr.Timer(1.5, active=True)
 
         # ================= STEP 3 — REVIEW (object only) =================
-        with gr.Column(visible=False) as step3:
-            gr.Markdown("### 3 · Mask review — confirm the object cut-out")
+        with gr.Column(visible=False, elem_id="apex-step3") as step3:
+            gr.Markdown("### 3 · Confirm the object cut-out")
             gr.Markdown(
-                "These ~12 views span the orbit with the **current object matte** tinted "
-                "on top. If it is just your subject, choose **Looks right**. If it grabbed "
-                "part of the stand / rig (the classic shoe-stand problem), choose **Fix "
-                "it**, click to include (green) or exclude (red), and **Propagate** — the "
-                "correction tracks across every view. Masks feed delivery, not training, "
-                "so this costs no extra wall-clock.")
-            rv_gallery = gr.Gallery(label="Representative views — current matte",
+                "If the red matte covers just your subject, choose **Looks right**. "
+                "If it grabbed the stand, choose **Fix it**.")
+            rv_gallery = gr.Gallery(label="Representative views",
                                     columns=4, height=380, show_label=True)
             rv_status = gr.Markdown("")
             with gr.Row():
@@ -444,10 +441,8 @@ def create_app() -> gr.Blocks:
                 fix_it_btn = gr.Button("Fix it ✎")
 
             with gr.Column(visible=False) as rv_edit:
-                gr.Markdown("**Edit** — pick a view, choose what your click adds, then "
-                            "click on the image. SAM 2.1 re-segments live. Edit as many "
-                            "views as you need (the first is the primary anchor), then "
-                            "propagate to the whole orbit.")
+                gr.Markdown("Pick a view, click to include (green) or exclude (red), "
+                            "then propagate to the whole orbit.")
                 with gr.Row():
                     rv_frame_dd = gr.Dropdown(label="View to edit", choices=[], value=None,
                                               scale=2)
@@ -466,13 +461,14 @@ def create_app() -> gr.Blocks:
                                           elem_classes="apex-primary", visible=False)
 
         # ================= STEP 4 — DELIVER =================
-        with gr.Column(visible=False) as step4:
+        with gr.Column(visible=False, elem_id="apex-step4") as step4:
             gr.Markdown("### 4 · Your splat is ready")
             gr.Markdown("#### Quality report")
-            deliv_quality = gr.HTML(DV.quality_card_html({"has_record": False}))
+            deliv_quality = gr.HTML(DV.quality_card_html({"has_record": False}),
+                                    elem_id="apex-quality-html")
 
             gr.Markdown("#### Deliverables")
-            deliv_html = gr.HTML(_deliverables_html([], ""))
+            deliv_html = gr.HTML(_deliverables_html([], ""), elem_id="apex-deliv-html")
             with gr.Row():
                 deliv_select = gr.Dropdown(
                     label="Preview / locate a deliverable", choices=[], value=None,
@@ -483,7 +479,7 @@ def create_app() -> gr.Blocks:
             deliv_viewer = gr.HTML(visible=False)
 
             with gr.Accordion("Improve further", open=False):
-                gr.Markdown("Optional next steps — each queues real work.")
+                gr.Markdown("Optional next steps.")
                 with gr.Row():
                     detail_rerun_btn = gr.Button(
                         "\U0001F50E  Re-run in Detail mode "
@@ -516,9 +512,8 @@ def create_app() -> gr.Blocks:
         def _pick_mode(mode):
             d = D.defaults_for(mode, False)
             badge = f"**Mode:** {'Object Scan' if mode == 'object' else 'Environment Scan'}"
-            note = ("Switched mode — the two delivery settings updated to this mode's "
-                    "recommended; your other Advanced edits are kept (use **Reset to "
-                    "recommended** to reload everything).")
+            note = ("Mode set. Delivery settings updated; your other Advanced edits are "
+                    "kept.")
             return (mode, badge, gr.update(visible=(mode == "object")),
                     _stepper_html(1, mode), bool(d["extract_object"]),
                     int(d["filter_harmonics"]), note)
@@ -531,9 +526,8 @@ def create_app() -> gr.Blocks:
 
         def _on_detail(detail, mode):
             d = D.defaults_for(mode, detail)
-            note = ("Detail mode ON — ~15 MP training and pose refinement OFF (sharper "
-                    "microstructure, slower)." if detail
-                    else "Detail mode off — ~6 MP recommended.")
+            note = ("Detail mode on (sharper, slower)." if detail
+                    else "Detail mode off.")
             return float(d["target_mp"]), bool(d["pose_opt"]), note
         detail_chk.change(lambda d: d, inputs=detail_chk, outputs=detail_state).then(
             _on_detail, inputs=[detail_state, mode_state],
@@ -582,9 +576,8 @@ def create_app() -> gr.Blocks:
             global _RUNNER
             if _RUNNER is not None and _RUNNER.is_alive():
                 return (gr.update(), gr.update(), gr.update(),
-                        "**A scan is already running — cancel it (Step 2) before "
-                        "starting another.** (One run at a time; two-tabs-two-scans is "
-                        "out of scope for UI-1.)", _stepper_html(1, mode))
+                        "**A scan is already running. Cancel it in Step 2 before "
+                        "starting another.**", _stepper_html(1, mode))
             if not qs or not qs.get("input_dir"):
                 return (gr.update(), gr.update(), gr.update(),
                         "**Run the capture check on a folder (or extract video "
@@ -791,7 +784,7 @@ def create_app() -> gr.Blocks:
             mask = (SAM.prompt_frame(frame, pts, lbl, image_key=f"{ctx['run_dir']}::{i}")
                     if pts else None)
             ov = RV.overlay_rgb(frame, mask, RV.INCLUDE_TINT, pts, lbl)
-            return ov, f"Editing view {i} ({ctx['stems'][i]}) — {len(pts)} point(s)."
+            return ov, f"Editing view {i} ({ctx['stems'][i]}): {len(pts)} point(s)."
 
         def _edit_click(evt: gr.SelectData, mode, idx, ctx, prompts):
             if not ctx or idx is None:
@@ -858,7 +851,7 @@ def create_app() -> gr.Blocks:
                 ctx = dict(ctx)
                 ctx.pop("prop_out_dir", None)
                 msg = (f"**Propagation failed (exit {proc.returncode}).** No masks were "
-                       f"produced — nothing to accept. Adjust the prompts and try again, "
+                       f"produced. Adjust the prompts and try again, "
                        f"or see `sam_work/propagate.log`.")
                 if tail:
                     msg += f"\n\n```\n{tail}\n```"
@@ -893,7 +886,7 @@ def create_app() -> gr.Blocks:
         def _accept(mode, ctx):
             if ctx and ctx.get("prop_out_dir"):
                 d, n = RV.accept_reviewed(ctx["run_dir"], ctx["prop_out_dir"], ctx["stems"])
-                msg = f"Accepted {n} reviewed masks — delivery will carve from these."
+                msg = f"Accepted {n} reviewed masks. Delivery will carve from these."
             else:
                 msg = "No propagated masks to accept."
             return _leave_review(mode, msg)
@@ -901,7 +894,7 @@ def create_app() -> gr.Blocks:
         def _looks_right(mode, ctx):
             if ctx and ctx.get("run_dir"):
                 RV.clear_reviewed(ctx["run_dir"])
-            return _leave_review(mode, "Current matte accepted — delivery will use it.")
+            return _leave_review(mode, "Current matte accepted. Delivery will use it.")
 
         # Populate the review gallery when the sequential (post-processing) path reaches
         # Step-③ (runs after _after_processing's handler; no-op for Environment).
@@ -941,10 +934,10 @@ def create_app() -> gr.Blocks:
                 return gr.update(visible=False), "Pick a deliverable above first."
             if not str(target).lower().endswith(".sog"):
                 return (gr.update(visible=False),
-                        "Only .sog files open in the 3D viewer — use **Show in folder** "
+                        "Only .sog files open in the 3D viewer. Use **Show in folder** "
                         "for the .ply master.")
             return (gr.update(value=_viewer_iframe_html(target), visible=True),
-                    "Interactive model loaded — drag to orbit, scroll to zoom.")
+                    "Model loaded. Drag to orbit, scroll to zoom.")
         view3d_btn.click(_view_deliverable, inputs=[deliv_select],
                          outputs=[deliv_viewer, deliv_msg])
 
@@ -975,7 +968,7 @@ def create_app() -> gr.Blocks:
             if _RUNNER.is_alive():
                 return (gr.update(), gr.update(), gr.update(),
                         _stepper_html(4, mode, done={1, 2, 3}),
-                        "A scan is still running — wait for it to finish first.")
+                        "A scan is still running. Wait for it to finish first.")
             base = _RUNNER.cfg
             variant = (base.scan_name if base.scan_name.endswith("_detail")
                        else base.scan_name + "_detail")
@@ -1020,11 +1013,11 @@ def create_app() -> gr.Blocks:
             if _RUNNER is None or not _RUNNER.ckpt_path:
                 return "No master checkpoint to clean."
             if _RUNNER.is_alive():
-                return "A scan is still running — wait for it to finish first."
+                return "A scan is still running. Wait for it to finish first."
             job = _RUNNER.cfg.scan_name + "_cleaned"
             if _job_alive(job):
-                return (f"A cleanup re-delivery for **{job}** is already running — "
-                        "press **Refresh** to check on it.")
+                return (f"A cleanup re-delivery for **{job}** is already running. "
+                        "Press **Refresh** to check on it.")
             work = Path(_RUNNER.cfg.run_dir) / "improve" / "cleanup"
             try:
                 stats = DV.cleanup_master(_RUNNER.ckpt_path, str(work))
@@ -1045,7 +1038,7 @@ def create_app() -> gr.Blocks:
             return (f"Cleaned master **{stats['n_before']:,} → {stats['n_after']:,}** "
                     f"Gaussians (−{stats['removed_low_opacity']:,} low-opacity, "
                     f"−{stats['removed_outliers']:,} outliers). Re-delivering as "
-                    f"**{job}** in the background — press **Refresh** when it finishes "
+                    f"**{job}** in the background. Press **Refresh** when it finishes "
                     "(log: improve/cleanup/redeliver.log).")
         floater_btn.click(_floater_cleanup, inputs=[mode_state], outputs=improve_msg)
 
@@ -1078,7 +1071,7 @@ def create_app() -> gr.Blocks:
         def _util_qa(ckpt, data_dir, factor, sh):
             if not ckpt or not data_dir:
                 return "**Provide a checkpoint/PLY and a data dir.**", gr.update(visible=False)
-            warn = ("⚠ A scan is training — this QA render will share the GPU.\n\n"
+            warn = ("Note: a scan is training, so this QA render shares the GPU.\n\n"
                     if (_RUNNER is not None and _RUNNER.is_alive()) else "")
             out_dir = Path(ckpt).parent / "_qa_expert"
             cmd = [sys.executable, os.path.join(str(_REPO), "qa_report.py"),
@@ -1105,7 +1098,7 @@ def create_app() -> gr.Blocks:
             hide = gr.update(visible=False)
             if not a or not b or not data_dir:
                 return "**Provide model A, model B, and a shared data dir.**", hide, hide
-            warn = ("⚠ A scan is training — these renders will share the GPU.  "
+            warn = ("Note: a scan is training, so these renders share the GPU.  "
                     if (_RUNNER is not None and _RUNNER.is_alive()) else "")
             outs = {}
             for tag, m in (("A", a), ("B", b)):
@@ -1223,9 +1216,9 @@ def _viewer_iframe_html(sog_path: str) -> str:
     return (
         f'<iframe src="{src}" title="Interactive splat preview" '
         f'style="width:100%;height:70vh;min-height:440px;border:0;border-radius:12px;'
-        f'background:#111;" allow="xr-spatial-tracking; fullscreen"></iframe>'
-        f'<div style="font-size:12px;opacity:0.65;margin-top:6px;">Drag to orbit · '
-        f'scroll to zoom · right-drag to pan.</div>')
+        f'background:#0b0c10;" allow="xr-spatial-tracking; fullscreen"></iframe>'
+        f'<div style="font-size:12px;color:var(--apex-muted);margin-top:6px;">'
+        f'Drag to orbit · scroll to zoom · right-drag to pan.</div>')
 
 
 def launch(server_port: int = 7861):
@@ -1247,6 +1240,8 @@ def launch(server_port: int = 7861):
 
     demo = create_app()
     demo.queue(default_concurrency_limit=4)
+    # theme + css are applied here (Gradio 6 moved them off the Blocks constructor);
+    # build_theme() pins one dark palette for both browser color schemes.
     app = gr.mount_gradio_app(fastapi_app, demo, path="/",
-                              theme=gr.themes.Soft(), css=_CSS)
+                              theme=build_theme(), css=_CSS)
     uvicorn.run(app, host="127.0.0.1", port=server_port)

@@ -603,6 +603,19 @@ framework and internal modules already logged above; nothing external was vendor
   - No SAM 2 source modified; used as an installed package. `gui2/review.py` +
     `gui2/app.py` Step-③ wiring are OURS.
 
+### UI-5 GUI 2.0 design overhaul (`gui2/theme.py`) — theme is OURS; playwright is a dev-only dep
+- **Theme system (`gui2/theme.py`, NEW, OURS):** a `build_theme()` that subclasses Gradio's
+  `Soft` theme and pins one dark palette for both browser color schemes. No external component;
+  it only calls `gradio.themes.Soft(...).set(**tokens)` (Gradio, Apache-2.0, already logged
+  under UI-1). `theme.css` rewrite + copy sweep are OURS. No new weights, no new runtime dep.
+- **Playwright — VALIDATION-ONLY dev dependency (not shipped, not imported by the app or tests):**
+  `pip install playwright` (v1.61.0) + `python -m playwright install chromium`, installed with the
+  torch constraints file (`tools/blackwell_session_2026-06/constraints.txt`; torch 2.11.0+cu128
+  untouched — playwright pulled only `greenlet`, `pyee`). Used solely by
+  `_infusion/ui5_visual_check.py` to drive the wizard headless and audit contrast / em-dashes /
+  full-width. **License: Apache-2.0** (Microsoft); the bundled Chromium is BSD-family. A funded
+  rebuild keeps this in dev/test tooling only.
+
 ### UI-4 Deliver screen + Utilities — NO new external component
 - **Adoption (UI-4):** `gui2/deliver.py` (Deliver-screen logic) + `gui2/app.py` Step-④
   and the Utilities menu are OURS. Every capability **reuses already-logged internals**:

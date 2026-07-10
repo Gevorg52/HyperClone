@@ -71,9 +71,9 @@ def star_label(stars: float | None) -> str:
 
 
 def star_string(stars: float | None) -> str:
-    """★ full, ½ half, ☆ empty — padded to 5. Robust glyphs (no exotic half-star)."""
+    """★ full, ½ half, ☆ empty, padded to 5. Robust glyphs (no exotic half-star)."""
     if stars is None:
-        return "—"
+        return "-"
     full = int(math.floor(stars + 1e-6))
     half = 1 if (stars - full) >= 0.5 else 0
     full = min(full, 5)
@@ -312,7 +312,7 @@ def quality_card(run_dir: str, mode: str | None = None) -> dict:
     if reg is not None and total is not None and total - reg > 0:
         miss = total - reg
         if miss > max(1, int(0.02 * total)):
-            flags.append(f"{miss} of {total} frames did not register — coverage may "
+            flags.append(f"{miss} of {total} frames did not register; coverage may "
                          "be uneven where they were dropped.")
     card["flags"] = flags
     return card
@@ -332,7 +332,7 @@ def _metric_block(title: str, big: str, sub: str, raw: str = "") -> str:
 def quality_card_html(card: dict) -> str:
     if not card.get("has_record"):
         return ('<div class="apex-panel">Quality report appears here once delivery '
-                'finishes (needs the delivery QA pass — leave it on).</div>')
+                'finishes (needs the delivery QA pass; leave it on).</div>')
     sh = card.get("sharpness") or {}
     ge = card.get("geometry") or {}
     fl = card.get("floaters") or {}
@@ -342,21 +342,21 @@ def quality_card_html(card: dict) -> str:
                  if sh.get("lpips") is not None else "not scored")
     blocks = [
         _metric_block(sh.get("title", "Sharpness"),
-                      f'<span class="qstars">{sh.get("stars_str","—")}</span>',
+                      f'<span class="qstars">{sh.get("stars_str","-")}</span>',
                       sh.get("label", "not scored"), sharp_raw),
         _metric_block("Geometric consistency",
                       (f'{ge["value_pct"]:.0f}%' if ge.get("kind") == "tsed"
                        else (f'{ge["value_pct"]:.1f}%' if ge.get("value_pct") is not None
-                             else "—")),
+                             else "-")),
                       ge.get("text", "not scored")),
-        _metric_block("Floaters", fl.get("label", "—"),
+        _metric_block("Floaters", fl.get("label", "-"),
                       fl.get("text", "not scored"),
                       (f'{fl["beyond_core"]} beyond core'
                        if fl.get("beyond_core") not in (None, 0) else "")),
         _metric_block("Views used",
                       (f'{vw["registered"]}/{vw["total"]}'
                        if vw.get("registered") is not None and vw.get("total") is not None
-                       else "—"),
+                       else "-"),
                       vw.get("text", "unknown")),
     ]
     flags = card.get("flags") or []
@@ -454,7 +454,7 @@ def deliverable_cards_html(cards: list[dict]) -> str:
             parts.append(f'{c["n_gaussians"]:,} Gaussians')
         if c.get("sh_degree") is not None:
             parts.append(f'SH {c["sh_degree"]}')
-        sub = " &middot; ".join(parts) if parts else "—"
+        sub = " &middot; ".join(parts) if parts else "-"
         out.append(
             f'<div class="card"><span class="ico">{glyph}</span>'
             f'<div><div class="name">{_pretty_variant(c["base"])} '

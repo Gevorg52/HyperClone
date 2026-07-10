@@ -188,7 +188,7 @@ class PipelineRunner:
     def cancel(self):
         self._cancelled.set()
         with self._lock:
-            self.message = "Cancelling — stopping the current stage cleanly..."
+            self.message = "Cancelling. Stopping the current stage cleanly..."
         if self._backend is not None:
             try:
                 self._backend.request_stop()
@@ -441,7 +441,7 @@ class PipelineRunner:
                 stats = build_cache(self.data_dir, factor=self.data_factor)
                 self._log_line(f"[priors] built ({stats.get('mode', '?')} mode)")
         else:
-            self._log_line("[priors] mono_depth off — skipping MoGe cache")
+            self._log_line("[priors] mono_depth off, skipping MoGe cache")
         self._done("priors_dense")
         self._check_cancel()
 
@@ -469,7 +469,7 @@ class PipelineRunner:
 
         if already_done:
             self._begin("training", "already complete (resume)")
-            self._log_line(f"[resume] training already at {self.max_steps} steps — "
+            self._log_line(f"[resume] training already at {self.max_steps} steps, "
                            f"reusing {Path(self.ckpt_path).name}")
             self._done("training", "resumed")
         else:
@@ -699,9 +699,9 @@ class PipelineRunner:
         else:
             self._preview_fail_streak += 1
             if self._preview_fail_streak >= 3:
-                self.preview_note = "Live preview unavailable — see preview/render.log"
+                self.preview_note = "Live preview unavailable. See preview/render.log"
                 self._log_line(f"[preview] {self._preview_fail_streak} consecutive "
-                               f"render failures — see {self.preview_dir}/render.log")
+                               f"render failures. See {self.preview_dir}/render.log")
 
     def _render_final_strip(self, wait_inflight: float = 15.0):
         """Wait (bounded) for any in-flight per-step preview to finish, then render the
@@ -786,7 +786,7 @@ class PipelineRunner:
         (default = newest on disk), even mid-phase. Returns (png_path_or_None, msg)."""
         target = ckpt or self._latest_ckpt(self.ckpt_dir)
         if not target or not os.path.isfile(target):
-            return None, "No checkpoint yet — a preview appears after the first save."
+            return None, "No checkpoint yet. A preview appears after the first save."
         if not self.data_dir:
             return None, "Training data not ready yet."
         step = self._ckpt_step(target)

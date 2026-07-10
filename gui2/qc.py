@@ -239,7 +239,7 @@ def _summary_md(is_video: bool, n: int, w: int, h: int, mp: float, factor: int,
                          "(motion/defocus blur).")
     coverage = ""
     if mode == "object":
-        coverage = ("\n- Coverage: single-ring orbits give a weaker underside — "
+        coverage = ("\n- Coverage: single-ring orbits give a weaker underside; "
                     "add a few low/high angles if you can.")
     src = "video" if is_video else "images"
     return (

@@ -90,6 +90,7 @@ Detail-mode re-run · re-capture report (coverage gaps → "shoot these angles")
 | **UI-2** ✅ | Training preview system: checkpoint→turntable strip renderer (subprocess, cheap), auto-refresh, Preview-now, ckpt-history dropdown; same-origin static route + self-hosted SuperSplat `.sog` iframe embed. Gated 2026-07-08 (`_infusion/ui2_RECORD.md`). | 2 d |
 | **UI-3** ✅ | Mask Review: representative-view picker, matte overlay gallery, SAM 2.1 point-prompt service, video-propagation, delivery re-carve hook. Gated 2026-07-09 (`_infusion/ui3_RECORD.md`). | 3–4 d |
 | **UI-4** ✅ | Deliver screen: quality card mapping, deliverable cards + viewer, "improve further" actions; Utilities menu. Gated 2026-07-09 (`_infusion/ui4_RECORD.md`). | 2 d |
+| **UI-5** ✅ | GUI 2.0 design overhaul: one coherent dark theme (`gui2/theme.py`) pinned for both browser color schemes (fixes mixed black/white + black-on-black), full-width layout, copy sweep (no em-dashes, terse help). Playwright contrast/em-dash/width gate. Gated 2026-07-10 (`_infusion/ui5_RECORD.md`). | 1 d |
 
 Total ≈ 2 weeks of agent time; UI-1 alone is already usable end-to-end. Old GUI stays until
 parity, then `run.py` flips to `gui2`.
@@ -288,6 +289,42 @@ SfM into the variant dir rather than sharing the base export); a real HTML embed
 QA `report.html` (shown as a path, not iframed); browser screenshots (no headless browser
 installed — same as UI-1..3; the rendered quality-card/deliverable HTML + coverage/QC PNGs
 are persisted as the visual evidence).
+
+### 5.5 UI-5 as built (2026-07-10) — design overhaul (one dark theme, full width, copy sweep)
+
+**Root cause of the reported "mixed black/white + black-text-on-black":** TWO independent
+theme systems that could disagree. Gradio's `Soft` theme styled its own components via
+`.dark`-scoped tokens that follow the browser's `prefers-color-scheme`; `theme.css` styled
+our custom HTML cards via `--apex-*` tokens that flipped under a SEPARATE
+`@media (prefers-color-scheme: light)` rule. When the browser mode and Gradio's mode
+detection diverged, one surface rendered light and the neighbouring one stayed dark
+(dark `--apex-*` panel + light Gradio text = black-on-black, and vice-versa).
+
+**Fix (`gui2/theme.py`, NEW):** one `build_theme()` that pins a single dark palette for BOTH
+modes. Gradio emits base tokens under `:root {}` and dark tokens under `:root.dark {}`; we set
+each token AND its `_dark` twin to the same dark value, so the browser's color preference
+cannot change any surface. `theme.css` was rewritten to LAYOUT-ONLY (cards, spacing,
+full-width container); the `--apex-*` vars are defined ONCE (no media flip) and mirror the
+palette. Every inline-styled HTML surface already routed through `--apex-*`; the viewer
+caption's `opacity` was replaced with a solid muted token. A deeper accent (`#6656e6`) backs
+white-on-accent surfaces (primary buttons, active step badge) so their labels clear AA
+(white on `#7c6cff` is only 3.6:1).
+
+**Full width:** `gr.Blocks(fill_width=True)` + `.gradio-container{max-width:100%}` fills the
+viewport (>=95%); a `padding-left/right: calc(max(20px,(100% - 1400px)/2))` keeps content
+near 1400px centered on wide screens with no horizontal overflow (border-box).
+
+**Copy sweep:** removed every em-dash from user-visible strings (they render 0 in
+`document.body.innerText`; remaining em-dashes are code comments/docstrings + the vendored
+viewer bundle); shortened verbose help/instructions to one plain sentence; dropped the
+`Evidence:` citations from the Advanced drawer UI (kept in `defaults.EVIDENCE` for code).
+
+**Gate (`_infusion/ui5_visual_check.py`, playwright):** 24 screenshots = {Step1, Utilities,
+Advanced (live real Gradio components) + Step2/3/4 custom surfaces rendered with the exact
+theme tokens} × {light, dark} × {1920×1080, 2560×1440}. Automated DOM audit asserts WCAG-AA
+contrast on every visible text node, zero U+2014 in body text, and container width >=95%.
+Result: **0 contrast fails, 0 em-dash, 0 width fails across all 24** in BOTH schemes; 151
+tests still pass. Screenshots in `docs/gui2_screens/`, trace `_infusion/ui5_visual_check.json`.
 
 ## 6. Open questions for the user (validate before build)
 
