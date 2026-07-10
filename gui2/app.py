@@ -18,11 +18,15 @@ pattern as the legacy gui/stages/training.py).
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 import gradio as gr
 
 from gui2 import defaults as D
+from gui2 import deliver as DV
 from gui2 import qc as QC
 from gui2 import review as RV
 from gui2 import sam_service as SAM
@@ -35,6 +39,31 @@ _DATASET = _REPO / "_dataset"
 
 # One active run at a time.
 _RUNNER: PipelineRunner | None = None
+
+# Detached background jobs (floater-cleanup re-deliveries) keyed by deliverable name, so
+# a duplicate same-name spawn is refused while alive and the Deliver panel can surface a
+# running/done/failed status line via poll().
+_JOBS: dict[str, "subprocess.Popen"] = {}
+
+
+def _job_alive(name: str) -> bool:
+    p = _JOBS.get(name)
+    return p is not None and p.poll() is None
+
+
+def _any_job_alive() -> bool:
+    return any(p.poll() is None for p in _JOBS.values())
+
+
+def _jobs_status_line() -> str:
+    if not _JOBS:
+        return ""
+    parts = []
+    for name, p in _JOBS.items():
+        rc = p.poll()
+        parts.append(f"{name}: running" if rc is None
+                     else (f"{name}: done" if rc == 0 else f"{name}: failed (exit {rc})"))
+    return "Background jobs — " + " · ".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -91,20 +120,10 @@ def _stages_html(snap: dict) -> str:
 
 
 def _deliverables_html(items: list[dict], run_dir: str) -> str:
-    if not items:
-        return ('<div class="apex-panel">No deliverables yet. They appear here when '
-                'processing finishes.</div>')
-    ico = {".sog": "\U0001F4E6", ".ply": "\U0001F5FF"}
-    default_ico = "\U0001F4C4"
-    cards = []
-    for it in items:
-        ext = Path(it["name"]).suffix.lower()
-        glyph = ico.get(ext, default_ico)
-        cards.append(
-            f'<div class="card"><span class="ico">{glyph}</span>'
-            f'<div><div class="name">{it["name"]}</div>'
-            f'<div class="sub">{it["size_mb"]} MB &middot; {it["path"]}</div></div></div>')
-    return f'<div class="apex-deliv">{"".join(cards)}</div>'
+    """Deliverable cards (name / sizes / Gaussian count / SH level), grouped by
+    deliverable base so a .sog and its .ply share one card and object-mode
+    detail/reviewed/cleaned variants each get their own (UI-4, gui2.deliver)."""
+    return DV.deliverable_cards_html(DV.deliverable_cards(items, run_dir))
 
 
 def next_step_after_processing(mode: str) -> int:
@@ -259,7 +278,72 @@ def create_app() -> gr.Blocks:
         with gr.Row(elem_classes="apex-header"):
             gr.HTML('<div class="apex-header"><h1>Apex Reality</h1>'
                     '<p>Clean, usable Gaussian splats from ordinary captures.</p></div>')
-        stepper = gr.HTML(_stepper_html(1, "object"))
+        with gr.Row():
+            stepper = gr.HTML(_stepper_html(1, "object"))
+
+        # ================= UTILITIES (top-right, design §4) =================
+        # Standalone expert tools, reachable from any step. Each wraps an existing
+        # CLI / module — no new pipeline logic (Capture QC = gui2.qc, Coverage =
+        # core.enhancement.coverage, QA = qa_report.py, Compare = gui2.preview strips).
+        with gr.Accordion("\U0001F527  Utilities", open=False,
+                          elem_classes="apex-utils") as _utils_acc:
+            with gr.Tabs():
+                with gr.Tab("Capture QC"):
+                    gr.Markdown("Run the capture check on **any** folder or video "
+                                "without starting a scan.")
+                    u_qc_path = gr.Textbox(label="Folder of images or a video file",
+                                           placeholder=r"D:\path\to\images")
+                    u_qc_mode = gr.Radio(["object", "environment"], value="object",
+                                         label="Mode (affects coverage note + auto-res)")
+                    u_qc_btn = gr.Button("Run capture check", elem_classes="apex-primary")
+                    u_qc_md = gr.Markdown("")
+                    u_qc_img = gr.Image(label="Sharpness histogram", visible=False,
+                                        height=200)
+                with gr.Tab("Coverage report"):
+                    gr.Markdown("Angular-coverage map + a re-capture report for any "
+                                "reconstructed scan (find the shoot-these-angles gaps).")
+                    u_cov_path = gr.Textbox(
+                        label="Run dir (…/_dataset/<scan>) or a COLMAP data dir")
+                    u_cov_factor = gr.Number(value=2, label="data factor", precision=0)
+                    u_cov_btn = gr.Button("Analyze coverage",
+                                          elem_classes="apex-primary")
+                    u_cov_md = gr.Markdown("")
+                    u_cov_img = gr.Image(label="azimuth × elevation coverage",
+                                         visible=False, height=300)
+                with gr.Tab("QA scorecard (expert)"):
+                    gr.Markdown("Full visibility-split scorecard (masked PSNR/SSIM/"
+                                "LPIPS) on a chosen checkpoint or PLY.")
+                    u_qa_ckpt = gr.Textbox(label="Checkpoint .pt or delivered .ply")
+                    u_qa_data = gr.Textbox(label="COLMAP data dir")
+                    with gr.Row():
+                        u_qa_factor = gr.Number(value=2, label="factor", precision=0)
+                        u_qa_sh = gr.Number(value=3, label="SH degree", precision=0)
+                    u_qa_btn = gr.Button("Run QA scorecard",
+                                         elem_classes="apex-primary")
+                    u_qa_md = gr.Markdown("")
+                    u_qa_json = gr.Code(label="scorecard.json", language="json",
+                                        visible=False)
+                with gr.Tab("Compare two models"):
+                    gr.Markdown("Render both models from the same cameras → "
+                                "side-by-side turntable strips.")
+                    u_cmp_a = gr.Textbox(label="Model A (.pt / .ply)")
+                    u_cmp_b = gr.Textbox(label="Model B (.pt / .ply)")
+                    u_cmp_data = gr.Textbox(label="COLMAP data dir (shared cameras)")
+                    with gr.Row():
+                        u_cmp_factor = gr.Number(value=2, label="factor", precision=0)
+                        u_cmp_mode = gr.Radio(["object", "environment"], value="object",
+                                              label="render mode")
+                    u_cmp_btn = gr.Button("Render comparison",
+                                          elem_classes="apex-primary")
+                    u_cmp_md = gr.Markdown("")
+                    u_cmp_a_img = gr.Image(label="A", visible=False, height=220)
+                    u_cmp_b_img = gr.Image(label="B", visible=False, height=220)
+                with gr.Tab("Deliverables folder"):
+                    gr.Markdown("Open a folder in the OS file browser.")
+                    u_open_path = gr.Textbox(label="Folder (blank = _dataset root)",
+                                             value="")
+                    u_open_btn = gr.Button("Open folder")
+                    u_open_md = gr.Markdown("")
 
         # ================= STEP 1 — NEW SCAN =================
         with gr.Column(visible=True) as step1:
@@ -383,12 +467,39 @@ def create_app() -> gr.Blocks:
 
         # ================= STEP 4 — DELIVER =================
         with gr.Column(visible=False) as step4:
-            gr.Markdown("### 4 · Deliverables")
-            gr.Markdown("*Quality card + improve-further actions arrive in UI-4.*")
+            gr.Markdown("### 4 · Your splat is ready")
+            gr.Markdown("#### Quality report")
+            deliv_quality = gr.HTML(DV.quality_card_html({"has_record": False}))
+
+            gr.Markdown("#### Deliverables")
             deliv_html = gr.HTML(_deliverables_html([], ""))
             with gr.Row():
-                open_folder_btn = gr.Button("Open deliverables folder",
-                                            elem_classes="apex-primary")
+                deliv_select = gr.Dropdown(
+                    label="Preview / locate a deliverable", choices=[], value=None,
+                    scale=3, interactive=True)
+                view3d_btn = gr.Button("View in 3D", scale=1,
+                                       elem_classes="apex-primary")
+                showfolder_btn = gr.Button("Show in folder", scale=1)
+            deliv_viewer = gr.HTML(visible=False)
+
+            with gr.Accordion("Improve further", open=False):
+                gr.Markdown("Optional next steps — each queues real work.")
+                with gr.Row():
+                    detail_rerun_btn = gr.Button(
+                        "\U0001F50E  Re-run in Detail mode "
+                        "(sharper microstructure, slower)")
+                    recapture_btn = gr.Button(
+                        "\U0001F4F7  Re-capture report (find coverage gaps)")
+                    floater_btn = gr.Button(
+                        "\U0001F9F9  Floater cleanup + re-deliver")
+                improve_msg = gr.Markdown("")
+                cov_text = gr.Markdown("")
+                cov_img = gr.Image(label="Coverage map (green=covered · red=gap · "
+                                   "white=your cameras)", visible=False, height=300)
+
+            with gr.Row():
+                refresh_btn = gr.Button("Refresh")
+                open_folder_btn = gr.Button("Open deliverables folder")
                 new_scan_btn = gr.Button("New scan")
             deliv_msg = gr.Markdown("")
 
@@ -489,9 +600,12 @@ def create_app() -> gr.Blocks:
                 detail=detail)
             _RUNNER = PipelineRunner(cfg)
             _RUNNER.start()
+            note = f"Started **{scan}** ({mode})."
+            if _any_job_alive():
+                note += ("  ⚠ A background re-delivery is still running and will share "
+                         "the GPU.")
             return (gr.update(visible=False), gr.update(visible=True),
-                    gr.update(), f"Started **{scan}** ({mode}).",
-                    _stepper_html(2, mode, done={1}))
+                    gr.update(), note, _stepper_html(2, mode, done={1}))
 
         start_btn.click(
             _start,
@@ -604,9 +718,35 @@ def create_app() -> gr.Blocks:
             return (gr.update(visible=False), gr.update(visible=False),
                     gr.update(visible=True), _stepper_html(4, mode, done={1, 2, 3}),
                     _deliverables_html(items, rd))
+
+        # ---- Deliver screen population (UI-4): quality card + cards + selector ----
+        # Reads the on-disk delivery record via gui2.deliver; chained after every
+        # Step-4 transition (continue for env, accept/looks-right for object, and the
+        # explicit Refresh) so the four friendly numbers + deliverable dropdown fill in.
+        def _render_deliver(mode):
+            if _RUNNER is None:
+                return (DV.quality_card_html({"has_record": False}),
+                        _deliverables_html([], ""), gr.update(choices=[], value=None))
+            rd = _RUNNER.cfg.run_dir
+            items = _RUNNER.snapshot()["deliverables"]
+            card = DV.quality_card(rd, mode=_RUNNER.cfg.mode)
+            cards = DV.deliverable_cards(items, rd)
+            choices = []
+            for c in cards:
+                target = c.get("sog") or c.get("ply")
+                if target:
+                    choices.append((DV._pretty_variant(c["base"]), target))
+            dd = gr.update(choices=choices,
+                           value=(choices[0][1] if choices else None))
+            return (DV.quality_card_html(card),
+                    DV.deliverable_cards_html(cards), dd)
+
+        _deliver_outputs = [deliv_quality, deliv_html, deliv_select]
+
         continue_btn.click(
             _after_processing, inputs=[mode_state],
-            outputs=[step2, step3, step4, stepper, deliv_html])
+            outputs=[step2, step3, step4, stepper, deliv_html]).then(
+            _render_deliver, inputs=[mode_state], outputs=_deliver_outputs)
         # (object) populate the review gallery once Step-③ is shown — registered in the
         # UI-3 wiring block below, after _init_review is defined.
 
@@ -769,7 +909,8 @@ def create_app() -> gr.Blocks:
                            outputs=[rv_gallery, rv_ctx, rv_frame_dd, rv_status])
 
         looks_right_btn.click(_looks_right, inputs=[mode_state, rv_ctx],
-                              outputs=_leave_outputs)
+                              outputs=_leave_outputs).then(
+            _render_deliver, inputs=[mode_state], outputs=_deliver_outputs)
         fix_it_btn.click(lambda: gr.update(visible=True), outputs=rv_edit).then(
             _pick_edit_frame, inputs=[rv_frame_dd, rv_ctx, rv_prompts],
             outputs=[rv_edit_img, rv_edit_note])
@@ -782,7 +923,9 @@ def create_app() -> gr.Blocks:
                            outputs=[rv_edit_img, rv_prompts, rv_edit_note])
         rv_propagate_btn.click(_propagate, inputs=[rv_ctx, rv_prompts],
                                outputs=[rv_spotcheck, rv_accept_btn, rv_edit_note, rv_ctx])
-        rv_accept_btn.click(_accept, inputs=[mode_state, rv_ctx], outputs=_leave_outputs)
+        rv_accept_btn.click(_accept, inputs=[mode_state, rv_ctx],
+                            outputs=_leave_outputs).then(
+            _render_deliver, inputs=[mode_state], outputs=_deliver_outputs)
 
         # Enter Review from Step-② parallelism button (object, once SfM export exists).
         def _enter_review_parallel(mode):
@@ -791,6 +934,209 @@ def create_app() -> gr.Blocks:
                              outputs=[step2, step3, stepper]).then(
             _init_review, inputs=[mode_state],
             outputs=[rv_gallery, rv_ctx, rv_frame_dd, rv_status])
+
+        # ---- UI-4 Deliver-screen actions ----
+        def _view_deliverable(target):
+            if not target:
+                return gr.update(visible=False), "Pick a deliverable above first."
+            if not str(target).lower().endswith(".sog"):
+                return (gr.update(visible=False),
+                        "Only .sog files open in the 3D viewer — use **Show in folder** "
+                        "for the .ply master.")
+            return (gr.update(value=_viewer_iframe_html(target), visible=True),
+                    "Interactive model loaded — drag to orbit, scroll to zoom.")
+        view3d_btn.click(_view_deliverable, inputs=[deliv_select],
+                         outputs=[deliv_viewer, deliv_msg])
+
+        def _show_in_folder(target):
+            if not target:
+                return "Pick a deliverable above first."
+            folder = str(Path(target).parent)
+            try:
+                os.startfile(folder)  # noqa: E1101 (Windows)
+                return f"Opened {folder}"
+            except Exception as e:
+                return f"Folder: {folder} ({e})"
+        showfolder_btn.click(_show_in_folder, inputs=[deliv_select], outputs=deliv_msg)
+
+        refresh_btn.click(_render_deliver, inputs=[mode_state],
+                          outputs=_deliver_outputs).then(
+            lambda: _jobs_status_line() or "Refreshed.", outputs=improve_msg)
+
+        # Improve further #1 — Detail-mode re-run into a *variant* run dir (never
+        # clobbers the base run): fresh scan_name "<scan>_detail", clean Detail
+        # defaults (target_mp 15, pose_opt OFF), same input frames, back to Processing.
+        def _detail_rerun(mode):
+            global _RUNNER
+            if _RUNNER is None:
+                return (gr.update(), gr.update(), gr.update(),
+                        _stepper_html(4, mode, done={1, 2, 3}),
+                        "No finished run to re-run.")
+            if _RUNNER.is_alive():
+                return (gr.update(), gr.update(), gr.update(),
+                        _stepper_html(4, mode, done={1, 2, 3}),
+                        "A scan is still running — wait for it to finish first.")
+            base = _RUNNER.cfg
+            variant = (base.scan_name if base.scan_name.endswith("_detail")
+                       else base.scan_name + "_detail")
+            variant_dir = _DATASET / variant
+            variant_dir.mkdir(parents=True, exist_ok=True)
+            settings = D.defaults_for(base.mode, True)      # clean Detail defaults
+            cfg = RunConfig(
+                scan_name=variant, mode=base.mode, input_dir=base.input_dir,
+                run_dir=str(variant_dir), settings=settings,
+                source_mp=base.source_mp, subject=base.subject, detail=True)
+            _RUNNER = PipelineRunner(cfg)
+            _RUNNER.start()
+            return (gr.update(visible=False), gr.update(visible=True),
+                    gr.update(visible=False), _stepper_html(2, base.mode, done={1}),
+                    f"Re-running **{variant}** in Detail mode (sharper microstructure, "
+                    "slower). Watch Processing.")
+        detail_rerun_btn.click(
+            _detail_rerun, inputs=[mode_state],
+            outputs=[step4, step2, step3, stepper, improve_msg])
+
+        # Improve further #2 — re-capture / coverage report (CPU-only; core.enhancement.coverage)
+        def _recapture():
+            if _RUNNER is None or not _RUNNER.data_dir:
+                return gr.update(visible=False), "", "No reconstructed cameras yet."
+            out_png = str(Path(_RUNNER.cfg.run_dir) / "improve" / "coverage_map.png")
+            try:
+                text, png, cov = DV.coverage_report_for(
+                    _RUNNER.data_dir, int(_RUNNER.data_factor), out_png)
+            except Exception as e:
+                return gr.update(visible=False), "", f"Coverage report failed: {e}"
+            return (gr.update(value=png, visible=True),
+                    "```\n" + text + "\n```",
+                    f"Coverage: {cov * 100:.0f}% of the upper hemisphere analyzed.")
+        recapture_btn.click(_recapture, outputs=[cov_img, cov_text, improve_msg])
+
+        # Improve further #3 — floater cleanup on the master + re-deliver (variant name).
+        # The re-delivery flags come from the SAME shared builder the runner uses
+        # (gui2.deliver.build_delivery_flags), so it honors any UI-3 reviewed masks and
+        # the base run's refit/no_qa choices instead of silently re-extracting from the
+        # unreviewed BiRefNet matte with refit forced back on.
+        def _floater_cleanup(mode):
+            if _RUNNER is None or not _RUNNER.ckpt_path:
+                return "No master checkpoint to clean."
+            if _RUNNER.is_alive():
+                return "A scan is still running — wait for it to finish first."
+            job = _RUNNER.cfg.scan_name + "_cleaned"
+            if _job_alive(job):
+                return (f"A cleanup re-delivery for **{job}** is already running — "
+                        "press **Refresh** to check on it.")
+            work = Path(_RUNNER.cfg.run_dir) / "improve" / "cleanup"
+            try:
+                stats = DV.cleanup_master(_RUNNER.ckpt_path, str(work))
+            except Exception as e:
+                return f"Prune failed: {e}"
+            out_dir = str(Path(_RUNNER.cfg.run_dir) / "deliverables")
+            cmd = [sys.executable, "-m", "core.delivery",
+                   "--ckpt", stats["cleaned_ckpt"], "--data_dir", _RUNNER.data_dir,
+                   "--name", job, "--factor", str(_RUNNER.data_factor),
+                   "--out", out_dir, "--gpu", "0"]
+            cmd += DV.build_delivery_flags(
+                _RUNNER.cfg.settings, _RUNNER.cfg.run_dir,
+                delivery_refit=_RUNNER.cfg.delivery_refit,
+                delivery_no_qa=_RUNNER.cfg.delivery_no_qa)
+            env = dict(os.environ)
+            env["PYTHONPATH"] = str(_REPO) + os.pathsep + env.get("PYTHONPATH", "")
+            _spawn_detached(job, cmd, str(_REPO), env, str(work / "redeliver.log"))
+            return (f"Cleaned master **{stats['n_before']:,} → {stats['n_after']:,}** "
+                    f"Gaussians (−{stats['removed_low_opacity']:,} low-opacity, "
+                    f"−{stats['removed_outliers']:,} outliers). Re-delivering as "
+                    f"**{job}** in the background — press **Refresh** when it finishes "
+                    "(log: improve/cleanup/redeliver.log).")
+        floater_btn.click(_floater_cleanup, inputs=[mode_state], outputs=improve_msg)
+
+        # ---- Utilities menu handlers (design §4) ----
+        def _util_qc(path, mode):
+            rep = QC.run_qc(path, mode)
+            hist = (gr.update(value=rep.hist_png, visible=True) if rep.hist_png
+                    else gr.update(visible=False))
+            return (rep.summary_md if rep.ok else f"**{rep.message}**"), hist
+        u_qc_btn.click(_util_qc, inputs=[u_qc_path, u_qc_mode],
+                       outputs=[u_qc_md, u_qc_img])
+
+        def _util_coverage(path, factor):
+            dd = DV.resolve_data_dir(path or "")
+            if not dd:
+                return (gr.update(visible=False),
+                        "**Not a run dir or COLMAP data dir (need sparse/ or "
+                        "training/gsplat/data/sparse/).**")
+            out_png = str(Path(dd).parent / "_coverage_map.png")
+            try:
+                text, png, cov = DV.coverage_report_for(dd, int(factor), out_png)
+            except Exception as e:
+                return gr.update(visible=False), f"**Coverage failed: {e}**"
+            return (gr.update(value=png, visible=True),
+                    f"Coverage {cov * 100:.0f}% of the upper hemisphere.\n\n"
+                    f"```\n{text}\n```")
+        u_cov_btn.click(_util_coverage, inputs=[u_cov_path, u_cov_factor],
+                        outputs=[u_cov_img, u_cov_md])
+
+        def _util_qa(ckpt, data_dir, factor, sh):
+            if not ckpt or not data_dir:
+                return "**Provide a checkpoint/PLY and a data dir.**", gr.update(visible=False)
+            warn = ("⚠ A scan is training — this QA render will share the GPU.\n\n"
+                    if (_RUNNER is not None and _RUNNER.is_alive()) else "")
+            out_dir = Path(ckpt).parent / "_qa_expert"
+            cmd = [sys.executable, os.path.join(str(_REPO), "qa_report.py"),
+                   ckpt, data_dir, "--factor", str(int(factor)),
+                   "--sh_degree", str(int(sh)), "--out", str(out_dir), "--seed", "0"]
+            env = dict(os.environ)
+            env["PYTHONPATH"] = str(_REPO) + os.pathsep + env.get("PYTHONPATH", "")
+            r = subprocess.run(cmd, cwd=str(_REPO), env=env, text=True,
+                               capture_output=True)
+            scj = out_dir / "scorecard.json"
+            if r.returncode != 0 or not scj.is_file():
+                tail = (r.stdout or "")[-1200:] + "\n" + (r.stderr or "")[-1200:]
+                return (warn + f"**QA failed (exit {r.returncode}).**\n\n```\n{tail}\n```",
+                        gr.update(visible=False))
+            html_p = out_dir / "report.html"
+            msg = warn + f"scorecard.json → `{scj}`"
+            if html_p.is_file():
+                msg += f"\n\nHTML report → `{html_p}` (open in a browser)"
+            return msg, gr.update(value=scj.read_text(encoding="utf-8"), visible=True)
+        u_qa_btn.click(_util_qa, inputs=[u_qa_ckpt, u_qa_data, u_qa_factor, u_qa_sh],
+                       outputs=[u_qa_md, u_qa_json])
+
+        def _util_compare(a, b, data_dir, factor, mode):
+            hide = gr.update(visible=False)
+            if not a or not b or not data_dir:
+                return "**Provide model A, model B, and a shared data dir.**", hide, hide
+            warn = ("⚠ A scan is training — these renders will share the GPU.  "
+                    if (_RUNNER is not None and _RUNNER.is_alive()) else "")
+            outs = {}
+            for tag, m in (("A", a), ("B", b)):
+                op = str(Path(data_dir).parent / f"_compare_{tag}.png")
+                cmd = [sys.executable, "-m", "gui2.preview", "strip",
+                       "--ckpt", m, "--data_dir", data_dir, "--out", op,
+                       "--factor", str(int(factor)), "--mode", mode, "--gpu", "0"]
+                env = dict(os.environ)
+                env["PYTHONPATH"] = str(_REPO) + os.pathsep + env.get("PYTHONPATH", "")
+                r = subprocess.run(cmd, cwd=str(_REPO), env=env, text=True,
+                                   capture_output=True)
+                outs[tag] = op if (r.returncode == 0 and os.path.isfile(op)) else None
+                outs[tag + "_err"] = (r.stderr or r.stdout or "")[-500:]
+            if not outs["A"] or not outs["B"]:
+                return (warn + f"**Render failed.** A: {'ok' if outs['A'] else outs['A_err']} "
+                        f"· B: {'ok' if outs['B'] else outs['B_err']}", hide, hide)
+            return (warn + "Rendered A (top) vs B (bottom) from the shared cameras.",
+                    gr.update(value=outs["A"], visible=True),
+                    gr.update(value=outs["B"], visible=True))
+        u_cmp_btn.click(_util_compare,
+                        inputs=[u_cmp_a, u_cmp_b, u_cmp_data, u_cmp_factor, u_cmp_mode],
+                        outputs=[u_cmp_md, u_cmp_a_img, u_cmp_b_img])
+
+        def _util_open(path):
+            folder = path.strip() if path and path.strip() else str(_DATASET)
+            try:
+                os.startfile(folder)  # noqa: E1101 (Windows)
+                return f"Opened {folder}"
+            except Exception as e:
+                return f"Folder: {folder} ({e})"
+        u_open_btn.click(_util_open, inputs=[u_open_path], outputs=u_open_md)
 
         open_folder_btn.click(_open_deliverables, outputs=deliv_msg)
 
@@ -844,6 +1190,21 @@ def _open_deliverables() -> str:
         return f"Opened {folder}"
     except Exception as e:
         return f"Folder: {folder} ({e})"
+
+
+def _spawn_detached(name: str, cmd: list[str], cwd: str, env: dict, log_path: str):
+    """Launch a subprocess we do NOT wait on (a background re-delivery), streaming its
+    output to a log file and registering it in _JOBS under `name`. Used by the floater-
+    cleanup 'improve further' action so the UI stays responsive; the user presses Refresh
+    to pick up the new deliverable (and its running/done/failed status)."""
+    Path(log_path).parent.mkdir(parents=True, exist_ok=True)
+    lf = open(log_path, "a", encoding="utf-8")
+    lf.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} {' '.join(cmd)} ===\n")
+    lf.flush()
+    proc = subprocess.Popen(cmd, cwd=cwd, stdout=lf, stderr=subprocess.STDOUT,
+                            text=True, env=env)
+    _JOBS[name] = proc
+    return proc
 
 
 def _viewer_iframe_html(sog_path: str) -> str:

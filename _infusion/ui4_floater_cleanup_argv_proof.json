@@ -1,0 +1,158 @@
+{
+  "base_refit_None": {
+    "cmd": [
+      "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "-m",
+      "core.delivery",
+      "--ckpt",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\improve\\cleanup\\master_cleaned.pt",
+      "--data_dir",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\training\\gsplat\\data",
+      "--name",
+      "SONY_TEST_cleaned",
+      "--factor",
+      "2",
+      "--out",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\deliverables",
+      "--gpu",
+      "0",
+      "--extract_object",
+      "--mask_dir",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\masks_reviewed",
+      "--decimate",
+      "60%",
+      "--filter_harmonics",
+      "3"
+    ],
+    "flags": [
+      "--gpu",
+      "0",
+      "--extract_object",
+      "--mask_dir",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\masks_reviewed",
+      "--decimate",
+      "60%",
+      "--filter_harmonics",
+      "3"
+    ],
+    "mask_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\masks_reviewed",
+    "checks": {
+      "reviewed_masks_honored": true,
+      "mask_dir_is_masks_reviewed": true,
+      "extract_object_present": true,
+      "refit_matches_base": true,
+      "no_qa_matches_base": true
+    },
+    "all_pass": true
+  },
+  "base_refit_False": {
+    "cmd": [
+      "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "-m",
+      "core.delivery",
+      "--ckpt",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\improve\\cleanup\\master_cleaned.pt",
+      "--data_dir",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\training\\gsplat\\data",
+      "--name",
+      "SONY_TEST_cleaned",
+      "--factor",
+      "2",
+      "--out",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\deliverables",
+      "--gpu",
+      "0",
+      "--extract_object",
+      "--mask_dir",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\masks_reviewed",
+      "--decimate",
+      "60%",
+      "--filter_harmonics",
+      "3",
+      "--no-refit",
+      "--no_qa"
+    ],
+    "flags": [
+      "--gpu",
+      "0",
+      "--extract_object",
+      "--mask_dir",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\masks_reviewed",
+      "--decimate",
+      "60%",
+      "--filter_harmonics",
+      "3",
+      "--no-refit",
+      "--no_qa"
+    ],
+    "mask_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\masks_reviewed",
+    "checks": {
+      "reviewed_masks_honored": true,
+      "mask_dir_is_masks_reviewed": true,
+      "extract_object_present": true,
+      "refit_matches_base": true,
+      "no_qa_matches_base": true
+    },
+    "all_pass": true
+  },
+  "base_refit_True": {
+    "cmd": [
+      "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "-m",
+      "core.delivery",
+      "--ckpt",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\improve\\cleanup\\master_cleaned.pt",
+      "--data_dir",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\training\\gsplat\\data",
+      "--name",
+      "SONY_TEST_cleaned",
+      "--factor",
+      "2",
+      "--out",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\deliverables",
+      "--gpu",
+      "0",
+      "--extract_object",
+      "--mask_dir",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\masks_reviewed",
+      "--decimate",
+      "60%",
+      "--filter_harmonics",
+      "3",
+      "--refit"
+    ],
+    "flags": [
+      "--gpu",
+      "0",
+      "--extract_object",
+      "--mask_dir",
+      "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\masks_reviewed",
+      "--decimate",
+      "60%",
+      "--filter_harmonics",
+      "3",
+      "--refit"
+    ],
+    "mask_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\SONY_TEST\\masks_reviewed",
+    "checks": {
+      "reviewed_masks_honored": true,
+      "mask_dir_is_masks_reviewed": true,
+      "extract_object_present": true,
+      "refit_matches_base": true,
+      "no_qa_matches_base": true
+    },
+    "all_pass": true
+  },
+  "control_no_reviewed": {
+    "flags": [
+      "--extract_object",
+      "--gen_masks",
+      "--decimate",
+      "60%",
+      "--filter_harmonics",
+      "3"
+    ],
+    "gen_masks_fallback": true
+  },
+  "PASS": true
+}

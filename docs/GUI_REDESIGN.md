@@ -3,7 +3,7 @@
 **Goal:** replace the 10-tab expert GUI with a modern, simple, wizard-style app where the
 validated-optimal settings are the defaults, an untrained user gets a great splat with zero
 knob-turning, and an expert can still reach every lever. Two product modes: **Object Scan** and
-**Environment Scan**. Status: VALIDATED by user 2026-07-07 — Gradio-6 rebuild / SAM point-prompts / auto-strip preview all approved as recommended. **UI-1 BUILT + smoke-gated 2026-07-07** (`gui2/`, `run2.py`; evidence `_infusion/ui1_RECORD.md`). **UI-2 BUILT + gated 2026-07-08** (live preview strip + interactive SuperSplat viewer; evidence `_infusion/ui2_RECORD.md`). **UI-3 BUILT + gated 2026-07-09** (SAM 2.1 mask review: point-prompts + video propagation → shoe-only masks; evidence `_infusion/ui3_RECORD.md`). UI-4 pending.
+**Environment Scan**. Status: VALIDATED by user 2026-07-07 — Gradio-6 rebuild / SAM point-prompts / auto-strip preview all approved as recommended. **UI-1 BUILT + smoke-gated 2026-07-07** (`gui2/`, `run2.py`; evidence `_infusion/ui1_RECORD.md`). **UI-2 BUILT + gated 2026-07-08** (live preview strip + interactive SuperSplat viewer; evidence `_infusion/ui2_RECORD.md`). **UI-3 BUILT + gated 2026-07-09** (SAM 2.1 mask review: point-prompts + video propagation → shoe-only masks; evidence `_infusion/ui3_RECORD.md`). **UI-4 BUILT + gated 2026-07-09** (Deliver screen: quality card [4 friendly numbers], deliverable cards + View-in-3D, "improve further" actions, Utilities menu; evidence `_infusion/ui4_RECORD.md`). **GUI 2.0 wizard is now feature-complete (UI-1..4).**
 
 ---
 
@@ -89,7 +89,7 @@ Detail-mode re-run · re-capture report (coverage gaps → "shoot these angles")
 | **UI-1** ✅ | `gui2/` skeleton: wizard shell, mode cards, QC card, Advanced drawer w/ validated defaults, pipeline runner (reuses stage handlers headless) + unified progress plumbing | 2–3 d |
 | **UI-2** ✅ | Training preview system: checkpoint→turntable strip renderer (subprocess, cheap), auto-refresh, Preview-now, ckpt-history dropdown; same-origin static route + self-hosted SuperSplat `.sog` iframe embed. Gated 2026-07-08 (`_infusion/ui2_RECORD.md`). | 2 d |
 | **UI-3** ✅ | Mask Review: representative-view picker, matte overlay gallery, SAM 2.1 point-prompt service, video-propagation, delivery re-carve hook. Gated 2026-07-09 (`_infusion/ui3_RECORD.md`). | 3–4 d |
-| **UI-4** | Deliver screen: quality card mapping, deliverable cards + viewer, "improve further" actions; Utilities menu | 2 d |
+| **UI-4** ✅ | Deliver screen: quality card mapping, deliverable cards + viewer, "improve further" actions; Utilities menu. Gated 2026-07-09 (`_infusion/ui4_RECORD.md`). | 2 d |
 
 Total ≈ 2 weeks of agent time; UI-1 alone is already usable end-to-end. Old GUI stays until
 parity, then `run.py` flips to `gui2`.
@@ -210,6 +210,84 @@ SONY_TEST shoe-stand scan; evidence `_infusion/ui3_RECORD.md` (+ `ui3_propagate_
   arc of a 360° turntable is the hard region and typically needs 1–3 corrective clicks; the
   parallel-review→delivery hand-off is best-effort (delivery reads `masks_reviewed` at delivery
   time — if the user is still reviewing when training ends, delivery falls back to BiRefNet).
+
+### 5.4 UI-4 as built (2026-07-09) — Deliver screen + Utilities menu
+
+New: `gui2/deliver.py` (all Deliver-screen logic, Gradio-free/unit-testable); Step-④ in
+`gui2/app.py` is now the real screen (was a stub) and a top **Utilities** accordion is
+reachable from any step. No new external component (THIRD_PARTY.md). Gate PASSED **16/16**
+on a fresh object-mode mini run (UI1_SMOKE 39-frame Laptop subset, factor 4, 500 steps,
+object extraction ON, refit off for speed; 241 s end-to-end); evidence
+`_infusion/ui4_RECORD.md` (+ `ui4_gate_trace.json`, `ui4_gate_driver.py`,
+`ui4_quality_card.html`, `ui4_deliverable_cards.html`, `ui4_coverage_map.png`,
+`ui4_util_qc_hist.png`).
+
+- **Quality card (4 friendly numbers + honest flags)** — `deliver.quality_card()` reads
+  the delivery record `qa` block + a light recon count:
+  1. **Object sharpness** = object-region LPIPS → **5-star scale** (single source
+     `deliver.lpips_to_stars`): `≤0.18` = 5★ (Excellent) … `≥0.35` = 1★ (Poor), **linear
+     between, clamped**; the raw LPIPS is always shown for experts. (Env mode = "Scene
+     sharpness" from `qa.delivered.masked_lpips`.) Gate: obj-LPIPS **0.221 → 4.0★ "Very
+     good"**; Sony shoe reference **0.235 → 3.7★**.
+  2. **Geometric consistency** = TSED consistent-pair ratio **if** a QA scorecard has the
+     (phase-2) TSED scorer, **else the spatial-compactness %** (`qa.spatial_floaters
+     .within_0.5_scale_pct`) from the record. Gate: compactness **100.0%** (TSED not run
+     in the default delivery, so the documented fallback fires).
+  3. **Floaters** = object bg-bleed alpha (`mean_bg_bleed_alpha`) → Clean/Minor/Noticeable
+     (env mode = SOR-removed %). Gate: **10.0% bleed → "Noticeable bleed"** (Laptop room
+     is not a clean turntable object — honest), which correctly trips the flags line.
+  4. **Views used** = **registered/total** — COLMAP `num_reg_images` vs the **`export/images/`**
+     input count (present in both the folder-drop and video-extract flows; NEVER defaulted
+     to registered — the review closeout HIGH-1 fix). Gate (strong assert `total==39`):
+     **38/39**.
+  Flags derive ONLY from fields that exist in the record (bleed / beyond-core floaters /
+  unregistered frames); the design's "underside weakly observed" needs per-view PSNR
+  spread which is **not banked in the record**, so it is **omitted rather than faked**.
+- **Deliverable cards** — `deliver.deliverable_cards()` groups the runner's flat file list
+  by deliverable base (a `.sog` + its `.ply` share one card) and attaches Gaussian count +
+  SH level + mode from the matching record; object-mode detail/reviewed/cleaned variants
+  each get their own card. **[View in 3D]** reuses UI-2's same-origin viewer route with
+  **zero copy** — deliverables already live under `_dataset/<scan>/deliverables/`, i.e.
+  under the `/scenes` mount, so `_viewer_iframe_html` serves them directly (gate: object
+  SOG **HTTP 200** on `/scenes/UI4_SMOKE/deliverables/UI4_SMOKE_object.sog`, iframe URL
+  well-formed). **[Show in folder]** opens the OS browser. (Gradio-pragmatic: cards are
+  HTML; the two per-deliverable buttons act on a dropdown selection — dynamic per-card
+  buttons are awkward in Gradio.)
+- **"Improve further" actions (all queue real work)** — (1) **Detail-mode re-run** starts
+  a fresh `PipelineRunner` with clean Detail defaults (target_mp 15, pose_opt OFF) into a
+  **variant run dir `<scan>_detail`** (never clobbers the base run) and returns to
+  Processing; (2) **Re-capture report** runs `core.enhancement.coverage` in-process (CPU:
+  poses+points, no GPU) → report text + rendered azimuth×elevation map (gate: **82.1%**
+  coverage, map produced); (3) **Floater cleanup** prunes the master via
+  `core.training.prune` (fast GPU burst) then spawns a detached `core.delivery` re-run as
+  `<scan>_cleaned` (Refresh picks it up).
+- **Utilities menu (design §4, top-right accordion, any step)** — Capture QC standalone
+  (`gui2.qc.run_qc` on any folder/video — gate-exercised: 39 frames, histogram);
+  Coverage/re-capture report (any run or COLMAP data dir); QA scorecard expert view
+  (`qa_report.py` subprocess → prettified `scorecard.json` + `report.html` link); Compare
+  two models (render both via `gui2.preview` strips → side-by-side); Open deliverables
+  folder.
+- **Polish pass (§1 visual identity)** — one accent (`#7c6cff`) reserved for the single
+  primary CTA per screen (Deliver hero = **View in 3D**; secondary open-folder demoted to
+  neutral); quality-card CSS grid (responsive 4→2→1 up), empty-states for the quality card
+  + deliverables + every utility tab; the stepper keeps its skipped/active/done states.
+
+**Review closeout (2026-07-09):** 2 HIGH (Views-total folder-drop bug → `export/images`
+count, never `=registered`; floater-cleanup now shares the runner's reviewed-mask +
+refit/no_qa flag builder `deliver.build_delivery_flags` so it can't re-extract from an
+unreviewed matte) + 2 MED (detached-job registry/status + collision guard; expert-utility
+GPU-contention warnings) + minors, all fixed; gate re-run **16/16** (now **38/39**), 151
+tests pass, argv dry-run proof persisted (`_infusion/ui4_floater_cleanup_argv_proof.json`).
+Known gap logged: **env/full-scene Geometric consistency is always "not scored"** (no
+`spatial_floaters` in full-mode records; TSED not run by default).
+
+**Deferred to funded phase (honest):** dual object+full SOG delivery in one run (the
+runner still delivers ONE set per run — UI-4 renders whatever files exist and does not add
+the second delivery); SfM reuse across the detail/cleanup variants (they currently re-run
+SfM into the variant dir rather than sharing the base export); a real HTML embed for the
+QA `report.html` (shown as a path, not iframed); browser screenshots (no headless browser
+installed — same as UI-1..3; the rendered quality-card/deliverable HTML + coverage/QC PNGs
+are persisted as the visual evidence).
 
 ## 6. Open questions for the user (validate before build)
 

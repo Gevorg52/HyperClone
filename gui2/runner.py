@@ -51,6 +51,7 @@ from gui.stages.reconstruction import run_reconstruction
 from gui.stages.export import run_export, run_refinement
 from core.training import TrainingConfig, TrainingInterrupted, get_backend
 from gui2 import defaults as D
+from gui2 import deliver as DV
 
 _REPO = str(Path(__file__).resolve().parent.parent)
 
@@ -541,37 +542,13 @@ class PipelineRunner:
         # UI-3: if the Mask Review step accepted masks, deliver from those (via
         # --mask_dir) instead of regenerating BiRefNet mattes (--gen_masks). Reviewed
         # masks are the object cut-out the user confirmed (e.g. shoe without its stand).
-        # The accept is written atomically with a completion marker; require that marker
-        # AND a matching on-disk mask count, else fall back to --gen_masks so we never
-        # deliver from a half-written / legacy (unmarked) masks_reviewed dir.
-        from gui2.review import MASKS_COMPLETE_MARKER
-        reviewed = Path(cfg.run_dir) / "masks_reviewed"
-        reviewed_dir = None
-        if reviewed.is_dir():
-            marker = reviewed / MASKS_COMPLETE_MARKER
-            pngs = list(reviewed.glob("*.png"))
-            if marker.is_file():
-                try:
-                    want = int(marker.read_text().strip())
-                except (ValueError, OSError):
-                    want = -1
-                if pngs and want == len(pngs):
-                    reviewed_dir = str(reviewed)
-                    self._log_line(f"[delivery] using {len(pngs)} reviewed masks "
-                                   f"(accept marker ok): {reviewed_dir}")
-                else:
-                    self._log_line(f"[delivery] masks_reviewed marker/count mismatch "
-                                   f"(marker={want}, on-disk={len(pngs)}); "
-                                   f"falling back to --gen_masks (BiRefNet)")
-            else:
-                self._log_line("[delivery] masks_reviewed present but no completion "
-                               "marker (partial or legacy accept); falling back to "
-                               "--gen_masks (BiRefNet)")
-        cmd += D.assemble_delivery_flags(cfg.settings, reviewed_mask_dir=reviewed_dir)
-        if cfg.delivery_refit is not None:
-            cmd.append("--refit" if cfg.delivery_refit else "--no-refit")
-        if cfg.delivery_no_qa:
-            cmd.append("--no_qa")
+        # The reviewed-mask resolution (+ marker/count guard) and the refit/no_qa flag
+        # assembly live in ONE shared helper (gui2.deliver.build_delivery_flags) that the
+        # Deliver-screen floater-cleanup re-delivery also calls, so the two paths can
+        # never diverge (e.g. cleanup silently re-extracting from the unreviewed matte).
+        cmd += DV.build_delivery_flags(
+            cfg.settings, cfg.run_dir, delivery_refit=cfg.delivery_refit,
+            delivery_no_qa=cfg.delivery_no_qa, log=self._log_line)
         self._log_line("[delivery] " + " ".join(cmd[1:]))
         markers = {"[master]": 0.15, "[extract]": 0.25, "[prune]": 0.4,
                    "[reduce]": 0.55, "[refit]": 0.7, "[deliver]": 0.85, "[qa]": 0.95}

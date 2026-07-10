@@ -1,0 +1,167 @@
+{
+  "config": {
+    "mode": "object",
+    "input": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI1_SMOKE\\input_images",
+    "run_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI4_SMOKE",
+    "max_steps": 500,
+    "data_factor": 4,
+    "cap_max": 100000,
+    "extract_object": true,
+    "delivery_refit": false,
+    "delivery_no_qa": false,
+    "seed": 0,
+    "argv_delivery_flags": [
+      "--extract_object",
+      "--gen_masks",
+      "--decimate",
+      "60%",
+      "--filter_harmonics",
+      "3"
+    ]
+  },
+  "checks": {
+    "run_done": {
+      "pass": true,
+      "info": "status=done"
+    },
+    "step3_in_object_flow": {
+      "pass": true,
+      "info": "next_step_after_processing('object')==3"
+    },
+    "step3_became_reachable": {
+      "pass": true,
+      "info": "export-ready during run at frac=0.6"
+    },
+    "quality_card_has_record": {
+      "pass": true,
+      "info": ""
+    },
+    "quality_card_sharpness_real": {
+      "pass": true,
+      "info": "obj-LPIPS=0.23093707412481307 stars=3.8014806088279274 label=Very good"
+    },
+    "quality_card_geometry_real": {
+      "pass": true,
+      "info": "compactness=100.0 (100.0% of Gaussians in the object core (compactness))"
+    },
+    "quality_card_views_real": {
+      "pass": true,
+      "info": "registered=38 total=39 (expect total==39 true inputs, reg<=total)"
+    },
+    "quality_card_floaters_real": {
+      "pass": true,
+      "info": "Noticeable bleed :: 10.2% background bleed"
+    },
+    "deliverable_object_card": {
+      "pass": true,
+      "info": "cards=['UI4_SMOKE_object']"
+    },
+    "deliverable_card_meta": {
+      "pass": true,
+      "info": "n=21980 SH=3 sog_mb=1.01"
+    },
+    "viewer_bundle_http_200": {
+      "pass": true,
+      "info": "/viewer/index.html -> 200 (49250B)"
+    },
+    "object_sog_http_200": {
+      "pass": true,
+      "info": "/scenes/UI4_SMOKE/deliverables/UI4_SMOKE_object.sog -> 200 (1014881B)"
+    },
+    "iframe_url_wellformed": {
+      "pass": true,
+      "info": "scene_url=/scenes/UI4_SMOKE/deliverables/UI4_SMOKE_object.sog"
+    },
+    "recapture_coverage_map": {
+      "pass": true,
+      "info": "coverage=82.5% -> D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI4_SMOKE\\improve\\coverage_map.png"
+    },
+    "util_capture_qc": {
+      "pass": true,
+      "info": "ok=True n=39 3840x2160 factor=1 hist=True"
+    },
+    "object_extraction_ran": {
+      "pass": true,
+      "info": "vote kept 37561 of master 54374"
+    }
+  },
+  "descriptions": {
+    "step4_quality_card": {
+      "has_record": true,
+      "mode": "object",
+      "name": "UI4_SMOKE",
+      "sharpness": {
+        "lpips": 0.23093707412481307,
+        "stars": 3.8014806088279274,
+        "stars_str": "\u2605\u2605\u2605\u00bd\u2606",
+        "label": "Very good",
+        "kind": "region-LPIPS",
+        "title": "Object sharpness"
+      },
+      "geometry": {
+        "kind": "compactness",
+        "value_pct": 100.0,
+        "text": "100.0% of Gaussians in the object core (compactness)"
+      },
+      "floaters": {
+        "kind": "bleed",
+        "label": "Noticeable bleed",
+        "bleed_pct": 10.197733668610454,
+        "beyond_core": 0,
+        "text": "10.2% background bleed"
+      },
+      "views": {
+        "registered": 38,
+        "total": 39,
+        "text": "38 of 39 frames registered"
+      },
+      "flags": [
+        "Some background bleed remains at the object edges (10.2% out-of-mask alpha)."
+      ]
+    },
+    "step4_deliverable_cards": [
+      {
+        "base": "UI4_SMOKE_object",
+        "sog": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI4_SMOKE\\deliverables\\UI4_SMOKE_object.sog",
+        "ply": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI4_SMOKE\\deliverables\\UI4_SMOKE_object.ply",
+        "sog_mb": 1.01,
+        "ply_mb": 5.19,
+        "n_gaussians": 21980,
+        "sh_degree": 3,
+        "mode": "object",
+        "scene_url": "/scenes/UI4_SMOKE/deliverables/UI4_SMOKE_object.sog"
+      }
+    ],
+    "step4_view_in_3d": {
+      "sog": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI4_SMOKE\\deliverables\\UI4_SMOKE_object.sog",
+      "scene_url": "/scenes/UI4_SMOKE/deliverables/UI4_SMOKE_object.sog",
+      "iframe_src_prefix": "<iframe src=\"/viewer/index.html?content=/scenes/UI4_SMOKE/deliverables/UI4_SMOKE_object.sog\" title=\"Interactive splat preview\" style=\"width:100%;height:70vh;min-height:440px;border"
+    },
+    "improve_recapture": {
+      "coverage_pct": 82.5,
+      "report": "Angular coverage: 82% of the upper hemisphere (198/240 target views).\nCaptured elevations: 10deg..69deg (median 29deg); azimuth span 349deg over 38 cameras.\n  GAP @ low / eye-level elevation: 30 missing views, azimuths ~0-335deg\n  GAP @ high / top-down elevation: 11 missing views, azimuths ~12-359deg\nRE-CAPTURE: shoot the gap elevation bands above (orbit the object at those heights). Or GENERATE them (Module 2) \u2014 plausible, not faithful.",
+      "map_png": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI4_SMOKE\\improve\\coverage_map.png"
+    },
+    "util_capture_qc": {
+      "n_frames": 39,
+      "res": "3840x2160",
+      "megapixels": 8.2944,
+      "data_factor": 1,
+      "training_mp": 8.2944
+    },
+    "delivery_record": {
+      "master_n": 54374,
+      "vote_kept": 37561,
+      "vote_kept_pct": 69.08,
+      "delivered_n": 21980,
+      "sh": 3,
+      "sog_mb": 1.01,
+      "record": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI4_SMOKE/deliverables/UI4_SMOKE_object_delivery.json"
+    }
+  },
+  "status": "done",
+  "elapsed_s": 229.0,
+  "PASS": true,
+  "n_checks": 16,
+  "n_pass": 16
+}

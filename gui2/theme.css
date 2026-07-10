@@ -104,7 +104,40 @@ button.primary, .apex-primary button {
 }
 .apex-deliv .card .ico { font-size: 1.6rem; }
 .apex-deliv .card .name { font-weight: 650; color: var(--apex-text); }
+.apex-deliv .card .name .muted { font-weight: 400; color: var(--apex-muted); font-size: 0.82rem; }
 .apex-deliv .card .sub  { color: var(--apex-muted); font-size: 0.85rem; }
+
+/* ---- quality card (UI-4, design §3④) -------------------------------- */
+.apex-quality {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px;
+}
+.apex-quality .qmetric {
+  background: var(--apex-panel); border: 1px solid var(--apex-border);
+  border-radius: 14px; padding: 16px 16px 14px;
+}
+.qmetric .qlabel { color: var(--apex-muted); font-size: 0.78rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.03em; }
+.qmetric .qbig { font-size: 1.35rem; font-weight: 700; color: var(--apex-text); margin: 6px 0 2px; }
+.qmetric .qsub { color: var(--apex-text); font-size: 0.9rem; }
+.qmetric .qraw { color: var(--apex-muted); font-size: 0.76rem; margin-top: 6px;
+  font-variant-numeric: tabular-nums; }
+.qmetric .qstars { color: var(--apex-accent-2); letter-spacing: 1px; }
+
+.apex-flags {
+  background: var(--apex-panel); border: 1px solid var(--apex-border);
+  border-left: 3px solid var(--apex-warn); border-radius: 12px;
+  padding: 12px 16px; color: var(--apex-text); font-size: 0.88rem;
+}
+.apex-flags ul { margin: 6px 0 0; padding-left: 18px; }
+.apex-flags li { margin: 3px 0; color: var(--apex-muted); }
+.apex-flags-ok { border-left-color: var(--apex-good); color: var(--apex-muted); }
+
+/* narrow screens: quality metrics stack 2-up then 1-up */
+@media (max-width: 760px) { .apex-quality { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 420px) { .apex-quality { grid-template-columns: 1fr; } }
+
+/* ---- utilities menu (top, design §4) -------------------------------- */
+.apex-utils { margin: 0 0 22px; }
 
 .apex-log textarea { font-family: ui-monospace, "Cascadia Code", Consolas, monospace !important;
   font-size: 0.8rem !important; }

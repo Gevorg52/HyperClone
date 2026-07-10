@@ -602,3 +602,14 @@ framework and internal modules already logged above; nothing external was vendor
     conditioning frame, so naive multi-conditioning regresses; this merge is OURS).
   - No SAM 2 source modified; used as an installed package. `gui2/review.py` +
     `gui2/app.py` Step-③ wiring are OURS.
+
+### UI-4 Deliver screen + Utilities — NO new external component
+- **Adoption (UI-4):** `gui2/deliver.py` (Deliver-screen logic) + `gui2/app.py` Step-④
+  and the Utilities menu are OURS. Every capability **reuses already-logged internals**:
+  the delivery record + object-region QA schema from `core/delivery.py` (WP-D1); the
+  angular-coverage / re-capture report from `core/enhancement/coverage.py`; faithful
+  floater pruning from `core/training/prune.py`; the standard visibility-split scorecard
+  from `qa_report.py` (`core/qa/*`); turntable-strip rendering from `gui2/preview.py`
+  (UI-2); the interactive viewer from the vendored PlayCanvas `supersplat-viewer` (UI-2,
+  MIT) served over the same `/scenes` static mount; and BiRefNet object mattes via
+  `core/masking.py` (already logged). No new weights, no new dependency, torch untouched.
