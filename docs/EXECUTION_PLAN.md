@@ -656,6 +656,38 @@ attention" against the sm_120 landmine before any use.
 > Spec-Gaussian ASG (WP-G1 phase-2) + higher train res. Evidence: `_infusion/wpp1_RECORD.md` +
 > `qa/wpp1_*` + `qa/wpp1_geoquery/scorecard.json`; THIRD_PARTY.md updated.
 
+═══════════════════════════════════════════════════════════════════════
+### WP-O — 360°/Insta360 capture lane (added 2026-08-04) — plan: `docs/PLAN_360.md`
+═══════════════════════════════════════════════════════════════════════
+> New input modality: Insta360 X4/X5 360° video (test asset:
+> `D:\HYPERCLONE\FOOTAGE\FlowerShop\FLOWERSHOP.mov` — in-camera dual-fisheye 2×1920²,
+> 92 s; low-res proxy-class, original .insv/8K requested). Full analysis, verified
+> capability audit, architecture decision, capture protocol and gates live in
+> **`docs/PLAN_360.md`**. Key verified facts [V, 2026-08-04]: pycolmap 4.1.0 ships
+> COLMAP's new EQUIRECTANGULAR model + rig-based `panorama_sfm` pipeline (12
+> rig-constrained 90° crops/pano, fixed rig/intrinsics in BA); ERP-direct SfM probe on
+> FlowerShop PASSED (40/40 @ 1.22 px, corridor-shaped trajectory, on our own automated
+> ffmpeg v360 dfisheye→ERP stitch); gsplat 1.5.3 sm_120 build already exposes
+> `camera_model="fisheye"`. NO new CUDA builds needed anywhere in the lane.
+- **WP-O1 — 360 ingest module** (~2–3 d) — **✅ GATE PASSED 2026-08-04**: `core/ingest_360.py`,
+  `--capture-type insta360` default-OFF; auto-detect dual-fisheye vs stitched ERP;
+  window-relative sharp-frame sampling (absolute cull stays dead); v360 stitch; SAM 2.1
+  operator mask + nadir/seam bands. Gate: **151** ERP frames @3840×1920 from `_077.insv`
+  (sharpness p10 454 / median 1691), operator masked on **20/20** random frames, seam+nadir
+  bands present; 8K `_027.insv` → **7680×3840, 94 frames, same code** (105 s);
+  `FLOWERSHOP.mov` auto-detects (184 frames); 22 new tests (suite 151→**173**).
+  Evidence `_infusion/wpo1_RECORD.md` + `_infusion/wpo1/`. Findings for WP-O2/O3: PLAN_360
+  §7's asset labels are wrong (the flower shop is only in the low-res `FLOWERSHOP.mov`), and
+  bystanders are unmasked (operator only).
+- **WP-O2 — 360 SfM lane** (~2–3 d): COLMAP panorama rig pipeline (crop-rig arm) A/B
+  spherical-direct arm; watch colmap#3599 hang (fallback: own Equilib crops +
+  `apply_rig_config`). Gate: ≥95% registered, ≤1.5 px, trajectory sane, A/B persisted.
+- **WP-O3 — 360 training lane** (~2–3 d): rig crops → existing perspective trainer
+  (masks plumbed); held-out = whole pano frames. Gate: trains to completion, baseline
+  held-out masked-LPIPS recorded, no operator ghosts / seam phantoms.
+- **WP-O4 (optional)** — fisheye-native A/B via gsplat `camera_model="fisheye"` +
+  OPENCV_FISHEYE 2-cam rig; adopt only on clear win vs WP-O3.
+
 ## Annex A — H100 causal-ArtiFixer probe (optional, ~$1, not excluded)
 Rent an H100 spot (sm_90: stock FA2/FA3 works). Steps: clone nv-tlabs/artifixer + weights
 (67.6 GB — provision download time or use HF cache on the box), copy one prepared scene
@@ -667,8 +699,28 @@ cuDNN-SDPA causal build (feasibility already proven: causal+sliding-window corre
 remaining piece = attention sink — two-pass LSE merge / cuDNN 9.23 block-mask / window-only test;
 see `tools/blackwell_session_2026-06/cudnn_sdpa_test.py`).
 
+## Annex B′ — MiniMax H3 assessment (researched 2026-08-04, day after release — do not build yet)
+33B dense DiT (FL2VA + Ref2VA ckpts, Qwen3-VL-32B encoder; ~124 GB bf16; int8/pruned combos
+42.5–67 GB fit our 96 GB card without offload). Open release is FULL ATTENTION ONLY (sparse-MSA
+withheld) — diffusers path (unmerged PR #14355) plausibly runs plain-SDPA on sm_120 [PC, no
+confirmed sm_120 run exists anywhere yet]. Lane verdict: **completion — NO** (zero masked/region
+completion capability; no VACE-equivalent; keeps GaMO/SDXL-Inpaint → FLUX.1-Fill/Wan-I2V order
+unchanged); **polish — NO** (same risk class that failed WP-P1; Elo #1 "video editing" is
+preference, not faithfulness; gate stays closed); **NVS/gap-fill — NO** (text-tag camera only, no
+pose conditioning); **causal unlock — NO** (DiT, not AR). Only plausible fit: **restoration of
+DEGRADED sources** (e.g. the 360 proxy footage) via its edit-preserve behavior — BUT the
+faithfulness layer (H3-Context-IR) is hosted-API-only, not in the open weights. Cheapest gate:
+Stage-0 hosted-API probe (~$2, FlowerShop clip, "enhance clarity, keep content identical") →
+only if faithful, Stage-1 local pruned-int8 SDPA run in a FRESH venv (never the pinned ones; no
+flash-attn of any kind; vllm-omni `[fa4]` extra FORBIDDEN on this machine). License note
+(log-only per POC stance): "Community License" with US in Excluded Territories + outputs may not
+train other models — record in THIRD_PARTY.md if ever vendored. Watch: sparse-MSA release,
+Context-IR open-sourcing, first sm_120 runs, any 3DGS ecosystem uptake (none exists yet).
+
 ## Annex B — Watch list (do not build; check monthly)
 GENA3D training code (inference promoted to WP-C2) · CompleteSplat code (Niantic) ·
 ArtifactWorld training set + full release · CHROMA code (ICLR'26 review) · GaussianGPT object
 checkpoints · PR-IQA code · GeoQuery (claims +1.09 dB over Difix3D+ [PC]) · gsplat upstream
-(3DGUT integration state at our next rebuild) · EDGS CVPR-2026 code update · Casual3DHDR repo.
+(3DGUT integration state at our next rebuild) · EDGS CVPR-2026 code update · Casual3DHDR repo ·
+Native-ERP 3DGS rasterizers (Seam360GS code, Spherical-GOF release, PFGS360 maturity — see
+PLAN_360.md §3; all parked, no sm_120 evidence) · colmap#3599 panorama_sfm hang fix.

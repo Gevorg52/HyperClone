@@ -1,0 +1,346 @@
+{
+ "077": {
+  "source": "D:\\HYPERCLONE\\FOOTAGE\\FlowerShop\\VID_20260721_133413_00_077.insv",
+  "argv": [
+   "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\ingest_360.py",
+   "--capture-type",
+   "insta360",
+   "--input",
+   "D:/HYPERCLONE/FOOTAGE/FlowerShop/VID_20260721_133413_00_077.insv",
+   "--out_dir",
+   "_dataset/360/flowershop_077",
+   "--overwrite",
+   "--contact_sheet",
+   "20",
+   "--seed",
+   "0",
+   "--progress",
+   "5000"
+  ],
+  "layout": "dual_fisheye",
+  "erp_size": [
+   3840,
+   1920
+  ],
+  "n_selected": 151,
+  "effective_pano_fps": 1.998,
+  "sharpness": {
+   "min": 243.97,
+   "p10": 454.49,
+   "median": 1690.7,
+   "p90": 2339.35,
+   "max": 3160.37,
+   "selected_median": 1886.42,
+   "selected_p10": 547.8,
+   "selected_median_gain_pct": 11.58
+  },
+  "masks": {
+   "operator_mode": "sam",
+   "nadir_deg": 12.0,
+   "seam_deg": 4.0,
+   "geometric_excluded_frac": 0.10847,
+   "mean_excluded_frac": 0.15461,
+   "operator_area_guard_frames": 0,
+   "operator_lost_guard_frames": 0
+  },
+  "timing_s": {
+   "scan": 13.69,
+   "stitch": 14.65,
+   "mask": 16.71,
+   "total": 46.84
+  },
+  "integrity": {
+   "n_images": 151,
+   "n_masks": 151,
+   "stems_pair_1to1": true,
+   "mask_dtypes": [
+    "uint8"
+   ],
+   "mask_values": [
+    0,
+    255
+   ],
+   "mask_shape_mismatches": 0,
+   "image_size": [
+    3840,
+    1920
+   ],
+   "images_mb": 383.8
+  },
+  "contact_sheet_coverage": {
+   "n": 20,
+   "excluded_frac": {
+    "min": 0.1327,
+    "median": 0.1578,
+    "max": 0.2039
+   },
+   "operator_frac": {
+    "min": 0.0266,
+    "median": 0.0619,
+    "max": 0.0964
+   },
+   "operator_sources": {
+    "sam": 20
+   }
+  }
+ },
+ "027_8k": {
+  "source": "D:\\HYPERCLONE\\FOOTAGE\\FlowerShop\\VID_20260721_123244_00_027.insv",
+  "argv": [
+   "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\ingest_360.py",
+   "--capture-type",
+   "insta360",
+   "--input",
+   "D:/HYPERCLONE/FOOTAGE/FlowerShop/VID_20260721_123244_00_027.insv",
+   "--out_dir",
+   "_dataset/360/theater_027_8k",
+   "--overwrite",
+   "--contact_sheet",
+   "6",
+   "--contact_cols",
+   "2",
+   "--seed",
+   "0",
+   "--progress",
+   "5000"
+  ],
+  "layout": "dual_fisheye",
+  "erp_size": [
+   7680,
+   3840
+  ],
+  "n_selected": 94,
+  "effective_pano_fps": 1.998,
+  "sharpness": {
+   "min": 184.89,
+   "p10": 310.01,
+   "median": 446.68,
+   "p90": 728.97,
+   "max": 983.98,
+   "selected_median": 535.67,
+   "selected_p10": 394.83,
+   "selected_median_gain_pct": 19.92
+  },
+  "masks": {
+   "operator_mode": "sam",
+   "nadir_deg": 12.0,
+   "seam_deg": 4.0,
+   "geometric_excluded_frac": 0.10799,
+   "mean_excluded_frac": 0.15612,
+   "operator_area_guard_frames": 0,
+   "operator_lost_guard_frames": 0
+  },
+  "timing_s": {
+   "scan": 24.71,
+   "stitch": 57.96,
+   "mask": 20.57,
+   "total": 105.01
+  },
+  "integrity": {
+   "n_images": 94,
+   "n_masks": 94,
+   "stems_pair_1to1": true,
+   "mask_dtypes": [
+    "uint8"
+   ],
+   "mask_values": [
+    0,
+    255
+   ],
+   "mask_shape_mismatches": 0,
+   "image_size": [
+    7680,
+    3840
+   ],
+   "images_mb": 633.9
+  },
+  "contact_sheet_coverage": {
+   "n": 6,
+   "excluded_frac": {
+    "min": 0.1379,
+    "median": 0.1435,
+    "max": 0.1949
+   },
+   "operator_frac": {
+    "min": 0.0299,
+    "median": 0.0365,
+    "max": 0.0896
+   },
+   "operator_sources": {
+    "sam": 6
+   }
+  }
+ },
+ "mov": {
+  "source": "D:\\HYPERCLONE\\FOOTAGE\\FlowerShop\\FLOWERSHOP.mov",
+  "argv": [
+   "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\ingest_360.py",
+   "--capture-type",
+   "insta360",
+   "--input",
+   "D:/HYPERCLONE/FOOTAGE/FlowerShop/FLOWERSHOP.mov",
+   "--out_dir",
+   "_dataset/360/flowershop_mov",
+   "--overwrite",
+   "--contact_sheet",
+   "6",
+   "--contact_cols",
+   "2",
+   "--seed",
+   "0",
+   "--progress",
+   "5000"
+  ],
+  "layout": "dual_fisheye",
+  "erp_size": [
+   3840,
+   1920
+  ],
+  "n_selected": 184,
+  "effective_pano_fps": 1.998,
+  "sharpness": {
+   "min": 24.21,
+   "p10": 81.67,
+   "median": 377.12,
+   "p90": 854.15,
+   "max": 1090.93,
+   "selected_median": 430.66,
+   "selected_p10": 101.78,
+   "selected_median_gain_pct": 14.2
+  },
+  "masks": {
+   "operator_mode": "sam",
+   "nadir_deg": 12.0,
+   "seam_deg": 4.0,
+   "geometric_excluded_frac": 0.10847,
+   "mean_excluded_frac": 0.1607,
+   "operator_area_guard_frames": 0,
+   "operator_lost_guard_frames": 0
+  },
+  "timing_s": {
+   "scan": 13.84,
+   "stitch": 15.11,
+   "mask": 18.96,
+   "total": 48.45
+  },
+  "integrity": {
+   "n_images": 184,
+   "n_masks": 184,
+   "stems_pair_1to1": true,
+   "mask_dtypes": [
+    "uint8"
+   ],
+   "mask_values": [
+    0,
+    255
+   ],
+   "mask_shape_mismatches": 0,
+   "image_size": [
+    3840,
+    1920
+   ],
+   "images_mb": 263.3
+  },
+  "contact_sheet_coverage": {
+   "n": 6,
+   "excluded_frac": {
+    "min": 0.1312,
+    "median": 0.1564,
+    "max": 0.2078
+   },
+   "operator_frac": {
+    "min": 0.0227,
+    "median": 0.0606,
+    "max": 0.1079
+   },
+   "operator_sources": {
+    "sam": 6
+   }
+  }
+ },
+ "erp_path": {
+  "source": "C:\\Users\\gevor\\AppData\\Local\\Temp\\claude\\D--REPOS-HYPERclone\\5ccc0eb9-58b8-4ab6-8ef5-e06fcc1bda23\\scratchpad\\o1\\erp_clip.mp4",
+  "argv": [
+   "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\ingest_360.py",
+   "--capture-type",
+   "insta360",
+   "--input",
+   "C:/Users/gevor/AppData/Local/Temp/claude/D--REPOS-HYPERclone/5ccc0eb9-58b8-4ab6-8ef5-e06fcc1bda23/scratchpad/o1/erp_clip.mp4",
+   "--out_dir",
+   "_dataset/360/erp_path_check",
+   "--overwrite",
+   "--contact_sheet",
+   "4",
+   "--contact_cols",
+   "2",
+   "--progress",
+   "5000"
+  ],
+  "layout": "erp",
+  "erp_size": [
+   1920,
+   960
+  ],
+  "n_selected": 12,
+  "effective_pano_fps": 1.998,
+  "sharpness": {
+   "min": 155.42,
+   "p10": 202.95,
+   "median": 1018.6,
+   "p90": 2115.5,
+   "max": 2450.56,
+   "selected_median": 1192.99,
+   "selected_p10": 287.97,
+   "selected_median_gain_pct": 17.12
+  },
+  "masks": {
+   "operator_mode": "none",
+   "nadir_deg": 12.0,
+   "seam_deg": 0.0,
+   "geometric_excluded_frac": 0.06667,
+   "mean_excluded_frac": 0.06667,
+   "operator_area_guard_frames": 0,
+   "operator_lost_guard_frames": 0
+  },
+  "timing_s": {
+   "scan": 0.44,
+   "stitch": 0.25,
+   "mask": 0.06,
+   "total": 0.93
+  },
+  "integrity": {
+   "n_images": 12,
+   "n_masks": 12,
+   "stems_pair_1to1": true,
+   "mask_dtypes": [
+    "uint8"
+   ],
+   "mask_values": [
+    0,
+    255
+   ],
+   "mask_shape_mismatches": 0,
+   "image_size": [
+    1920,
+    960
+   ],
+   "images_mb": 9.1
+  },
+  "contact_sheet_coverage": {
+   "n": 4,
+   "excluded_frac": {
+    "min": 0.0667,
+    "median": 0.0667,
+    "max": 0.0667
+   },
+   "operator_frac": {
+    "min": 0.0,
+    "median": 0.0,
+    "max": 0.0
+   },
+   "operator_sources": {
+    "none": 4
+   }
+  }
+ }
+}

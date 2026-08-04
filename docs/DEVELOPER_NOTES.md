@@ -157,6 +157,14 @@ Fix: relative/data-driven threshold, or Tenengrad windowed sharpest-per-partitio
 selection. For now, for video, **don't auto-cull** (let COLMAP's geometric
 verification drop unregisterable frames).
 
+**Reference implementation of the correct behaviour (WP-O1, 2026-08-04):**
+`core/ingest_360.py` samples video by *window-relative maximum* only — window =
+`round(fps / --target_fps)`, sharpest frame per window, **no threshold at any point**
+(the report even records `"absolute_threshold": null`). A regression test pins it:
+`tests/test_ingest_360.py::TestSampling::test_selection_is_window_relative_not_absolute`
+asserts that a globally dark/low-texture stretch still contributes frames. Stage-1's
+own cull is still unfixed — see §7.
+
 ---
 
 ## 6. What was tried and did NOT work (do not repeat)

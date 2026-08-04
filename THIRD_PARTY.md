@@ -626,3 +626,41 @@ framework and internal modules already logged above; nothing external was vendor
   (UI-2); the interactive viewer from the vendored PlayCanvas `supersplat-viewer` (UI-2,
   MIT) served over the same `/scenes` static mount; and BiRefNet object mattes via
   `core/masking.py` (already logged). No new weights, no new dependency, torch untouched.
+
+---
+
+## WP-O1 — 360°/Insta360 ingest (`core/ingest_360.py`, added 2026-08-04)
+
+### (a) ffmpeg `v360` dual-fisheye → equirectangular stitch
+- **Idea/source:** ffmpeg's own `v360` filter (`dfisheye` input format → `e` output,
+  `ih_fov`/`iv_fov`/`yaw`/`w`/`h`), official filter documentation. The exact command
+  (`[0:0][0:1]hstack=inputs=2 → v360=dfisheye:e:ih_fov=200:iv_fov=200`) was validated on
+  this footage in PLAN_360 §2.
+- **Adoption:** invoked as a **system binary**, no code copied, no library linked. Our
+  contribution is the surrounding pipeline: layout probe, `select`-before-`v360` frame
+  gating, the raw-video pipe, and the ERP mask geometry.
+- **License:** ffmpeg is LGPL-2.1+/GPL-2+ depending on build (here: the gyan.dev
+  full build, 8.0). Binary invocation only — a funded rebuild can keep the same call or
+  swap in Equilib/py360convert (already logged as candidates in PLAN_360 §8).
+
+### (b) SAM 2.1 video predictor — operator tracking
+- **Idea/source:** Meta **SAM 2.1** (`facebookresearch/sam2`), clone at
+  `D:\REPOS\HYPERclone\sam2`, checkpoint `checkpoints/sam2.1_hiera_large.pt` (898 MB) +
+  config `configs/sam2.1/sam2.1_hiera_l.yaml`. **Already in the stack** (`core/masking.py`
+  image predictor; `gui2/sam_service.py` video predictor, both logged under UI-3).
+- **Adoption:** `core/ingest_360.py::sam2_operator_masks` calls
+  `build_sam2_video_predictor` → `init_state` → `add_new_points_or_box` →
+  `propagate_in_video` on the SELECTED ERP frames written as a JPEG folder, reusing
+  `core.masking._sam2_resolve_path` for checkpoint resolution. **No SAM 2 source modified**
+  (used as an installed package; its optional `_C` extension is absent, so upstream skips
+  `fill_holes_in_mask_scores` — harmless here). OURS: the ERP prompt geometry (rear lens at
+  ERP centre), the rear-hemisphere/pitch clamp, the area/lost guards and the fallback box.
+- **License:** Apache-2.0 (code), SAM 2.1 checkpoints Apache-2.0.
+
+### (c) Window-relative sharpest-frame selection
+- **Source:** OURS — `core.frame_select.select_indices` (pre-existing in this repo) reused
+  unchanged for the window argmax; the var-of-Laplacian proxy is textbook. No third party.
+
+### No new dependencies
+Nothing was pip-installed for WP-O1: `cv2` 5.0.0, `numpy`, ffmpeg/ffprobe on PATH, and the
+already-present sam2 clone. torch 2.11.0+cu128 untouched; no CUDA build.
