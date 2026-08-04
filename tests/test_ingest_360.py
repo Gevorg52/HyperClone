@@ -26,7 +26,10 @@ from core.ingest_360 import (  # noqa: E402
     geometric_mask,
     main,
     operator_region,
+    prior_output,
     probe_source,
+    scan_stream,
+    stitch_yaw,
     window_size,
     _parse_points,
 )
@@ -60,6 +63,40 @@ class TestDefaultOff:
                    "--out_dir", str(tmp_path / "out")])
         assert rc == 1 and "ERROR" in capsys.readouterr().out
         assert not (tmp_path / "out").exists()      # no debris on a bad input
+
+
+# ============================================================================
+# Re-run guard — a second run must never leave orphans from the first
+# ============================================================================
+
+class TestRerunGuard:
+    def test_prior_output_lists_previous_artefacts(self, tmp_path):
+        assert prior_output(tmp_path) == []
+        (tmp_path / "images").mkdir()
+        (tmp_path / "ingest_report.json").write_text("{}")
+        assert prior_output(tmp_path) == ["images", "ingest_report.json"]
+
+    def test_rerun_without_overwrite_is_refused_before_any_work(self, capsys, tmp_path):
+        out = tmp_path / "out"
+        (out / "images").mkdir(parents=True)
+        stale = out / "images" / "pano_00000.jpg"
+        stale.write_bytes(b"stale")
+        # the input does not even exist: the guard must fire BEFORE the probe
+        rc = main(["--capture-type", "insta360", "--input", str(tmp_path / "nope.insv"),
+                   "--out_dir", str(out)])
+        txt = capsys.readouterr().out
+        assert rc == 2                                    # usage error, not a run failure
+        assert "prior output" in txt and "--overwrite" in txt
+        assert stale.read_bytes() == b"stale"             # nothing written, nothing deleted
+        assert not (out / "ingest_report.json").exists()
+
+    def test_an_incomplete_marker_also_blocks_a_rerun(self, tmp_path):
+        out = tmp_path / "out"
+        out.mkdir()
+        (out / "INCOMPLETE").write_text("failed")
+        assert prior_output(out) == ["INCOMPLETE"]
+        assert main(["--capture-type", "insta360", "--input", str(tmp_path / "nope.insv"),
+                     "--out_dir", str(out)]) == 2
 
 
 # ============================================================================
@@ -155,6 +192,30 @@ class TestFilterGraph:
         assert "scale=1920:960" in g
 
 
+class TestStreamOrder:
+    """Lens/stream order is an ASSUMPTION (--operator_stream), never auto-detected."""
+
+    def test_defaults_are_the_verified_2026_07_21_order(self):
+        a = build_parser().parse_args([])
+        assert a.operator_stream == 1 and a.sharpness_stream == -1     # -1 = auto
+        assert scan_stream(_info(), a.sharpness_stream, a.operator_stream) == 0
+        assert stitch_yaw(_info(), a.yaw, a.operator_stream) == 0.0
+
+    def test_operator_stream_0_flips_the_scan_and_rotates_the_stitch(self):
+        assert scan_stream(_info(), -1, 0) == 1            # score the OTHER lens
+        assert stitch_yaw(_info(), 0.0, 0) == 180.0        # operator back to ERP centre
+        assert stitch_yaw(_info(), 10.0, 0) == 190.0       # composes with --yaw
+        assert stitch_yaw(_info(), 10.0, 1) == 10.0
+
+    def test_explicit_sharpness_stream_overrides_the_auto_choice(self):
+        assert scan_stream(_info(), 1, 1) == 1
+
+    def test_erp_input_has_no_stream_choice_to_make(self):
+        info = _info("erp", 3840, 1920)
+        assert scan_stream(info, -1, 0) == 0
+        assert stitch_yaw(info, 0.0, 0) == 0.0             # no 180 flip for a foreign ERP
+
+
 class TestErpSize:
     def test_dual_fisheye_defaults_to_two_by_input_height(self):
         assert _info(w=1920, h=1920).erp_size == (3840, 1920)
@@ -216,3 +277,55 @@ class TestRoundTrip:
         m = cv2.imread(str(masks[0]), cv2.IMREAD_GRAYSCALE)
         assert set(np.unique(m)).issubset({EXCLUDED, VALID})
         assert m[0, 0] == VALID and m[-1, 0] == EXCLUDED           # nadir band present
+
+    def test_report_records_the_stream_order_assumption(self, tmp_path):
+        v = tmp_path / "erp.mp4"
+        self._make(v, "320x160", dur=1)
+        out = tmp_path / "out"
+        assert main(["--capture-type", "insta360", "--input", str(v), "--out_dir", str(out),
+                     "--target_fps", "5", "--contact_sheet", "0", "--progress", "0"]) == 0
+        rep = json.loads((out / "ingest_report.json").read_text())
+        assert rep["stream_order"]["auto_detected"] is False
+        assert "spot-check" in rep["stream_order"]["assumption"]
+        assert rep["stitch"]["stitch_yaw"] == 0.0
+        assert "none" in rep["stitch"]["yaw_normalization"]         # no per-frame yaw
+
+    def test_a_second_run_cannot_leave_orphans_from_the_first(self, capsys, tmp_path):
+        v = tmp_path / "erp.mp4"
+        self._make(v, "320x160", dur=1)
+        out = tmp_path / "out"
+        base = ["--capture-type", "insta360", "--input", str(v), "--out_dir", str(out),
+                "--contact_sheet", "0", "--progress", "0"]
+        assert main(base + ["--target_fps", "5"]) == 0
+        assert len(list((out / "images").glob("*.jpg"))) == 5
+
+        # a shorter re-run into the same dir would orphan 3 of those 5 frames -> refused
+        assert main(base + ["--target_fps", "2"]) == 2
+        assert "prior output" in capsys.readouterr().out
+        assert len(list((out / "images").glob("*.jpg"))) == 5
+        assert len(json.loads((out / "ingest_report.json").read_text())["frames"]) == 5
+
+        # with --overwrite the dir is rebuilt: images/masks/report all agree
+        assert main(base + ["--target_fps", "2", "--overwrite"]) == 0
+        imgs = sorted((out / "images").glob("*.jpg"))
+        masks = sorted((out / "masks").glob("*.png"))
+        rep = json.loads((out / "ingest_report.json").read_text())
+        assert len(imgs) == len(masks) == len(rep["frames"]) == 2
+
+    def test_a_midpipeline_ffmpeg_failure_is_clean_and_flags_the_partial_dir(
+            self, capsys, tmp_path):
+        v = tmp_path / "erp.mp4"
+        self._make(v, "320x160", dur=1)
+        out = tmp_path / "out"
+        argv = ["--capture-type", "insta360", "--input", str(v), "--out_dir", str(out),
+                "--force_layout", "dual_fisheye", "--operator_mask", "none",
+                "--target_fps", "5", "--contact_sheet", "0", "--progress", "0"]
+        # forcing dual_fisheye on a ONE-stream file makes the stitch graph reference [0:1]:
+        # ffmpeg dies after the sharpness scan, i.e. mid-pipeline
+        rc = main(argv)
+        txt = capsys.readouterr().out
+        assert rc == 1                                     # clean exit, not a traceback
+        assert "ERROR" in txt and "ffmpeg" in txt
+        assert not (out / "ingest_report.json").exists()   # report only on success
+        assert (out / "INCOMPLETE").is_file()              # partial dir is flagged
+        assert main(argv) == 2                             # and cannot be re-used silently

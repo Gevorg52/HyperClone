@@ -41,6 +41,33 @@ Geometry conventions used throughout (ERP, W x H):
     yaw(x)   = (x/W - 0.5) * 360      (-180 at left edge, 0 at centre, +180 at right edge)
     pitch(y) = (0.5 - y/H) * 180      (+90 zenith at the top row, -90 nadir at the bottom)
 
+!! STREAM ORDER IS AN ASSUMPTION - SPOT-CHECK IT PER CAMERA / FIRMWARE !!
+    Which of the two fisheye streams carries the OPERATOR is NOT auto-detected. The default
+    `--operator_stream 1` (=> stream 0 is the scene lens and gets the sharpness scan) was
+    verified BY EYE on the Insta360 clips of 2026-07-21 only (_infusion/wpo1_RECORD.md §1).
+    Get it wrong and the scan scores the wrong lens AND SAM masks real scene content while
+    the operator stays unmasked at the +-180 deg edges - the area/lost guards will NOT
+    reliably catch that. For any new camera or firmware, extract one frame per stream and
+    LOOK before trusting the default:
+        ffmpeg -i CLIP.insv -map 0:0 -frames:v 1 s0.jpg
+        ffmpeg -i CLIP.insv -map 0:1 -frames:v 1 s1.jpg
+    then pass `--operator_stream 0` if the operator is in s0. That flag rotates the stitch by
+    180 deg so the operator always lands at ERP centre, where the prompt points, the operator
+    clamp and the seam bands expect it. The value used is recorded in ingest_report.json.
+
+YAW: nothing is yaw-NORMALIZED per frame (PLAN_360 §5 asks for "yaw-normalize"; this is the
+    honest scope). Both fisheyes are rigidly mounted, so the ERP yaw origin is fixed relative
+    to the camera BODY and cannot drift frame to frame - the stitch applies ONE constant
+    v360 rotation to every frame. The only yaw choice is that constant rig->ERP offset,
+    exposed as `--yaw` (default 0 = operator lens at ERP centre) and shifted 180 deg by
+    `--operator_stream 0`. Orientation relative to the WORLD (the operator turns while
+    walking; no IMU horizon-levelling is applied here) is camera POSE and belongs to the SfM
+    stage (WP-O2), not to ingest.
+
+EXIT CODES: 0 = ok · 1 = the ingest failed (bad input, ffmpeg or SAM error: a partial out_dir
+    is flagged with an INCOMPLETE file and NO ingest_report.json is written) · 2 = usage
+    (flag off, missing args, or out_dir already holds prior output without --overwrite).
+
 CLI:
     python -m core.ingest_360 --capture-type insta360 \
         --input D:/HYPERCLONE/FOOTAGE/FlowerShop/VID_20260721_133413_00_077.insv \
@@ -207,6 +234,30 @@ def window_size(fps: float, target_fps: float) -> int:
 # 3. stitch / extract — one pass, select BEFORE v360
 # ---------------------------------------------------------------------------
 
+def scan_stream(info: SourceInfo, sharpness_stream: int, operator_stream: int) -> int:
+    """Which video stream the sharpness scan reads — the SCENE lens, never the operator's.
+
+    `sharpness_stream < 0` (the default) means "auto": the stream that is NOT
+    --operator_stream. See the module docstring: this order is an ASSUMPTION per camera.
+    """
+    if info.layout != "dual_fisheye":
+        return 0
+    return sharpness_stream if sharpness_stream >= 0 else 1 - operator_stream
+
+
+def stitch_yaw(info: SourceInfo, yaw: float, operator_stream: int) -> float:
+    """The constant ERP yaw handed to v360 (there is no per-frame yaw — see the docstring).
+
+    With `[0:0][0:1]hstack -> v360=dfisheye:e` the SECOND stream lands at ERP centre
+    (verified 2026-08-04, PLAN_360 §2), so when the operator lens is stream 0 the panorama
+    is rotated 180 deg to keep the operator at centre, where the prompt points, the operator
+    clamp and the seam bands all expect it.
+    """
+    if info.layout == "dual_fisheye" and operator_stream == 0:
+        return yaw + 180.0
+    return yaw
+
+
 def build_filter_graph(info: SourceInfo, indices: list, out_w: int, out_h: int,
                        ih_fov: float, iv_fov: float, yaw: float) -> str:
     sel = "+".join(f"eq(n,{i})" for i in indices)
@@ -326,8 +377,11 @@ def sam2_operator_masks(sam_dir: Path, n_frames: int, pos: np.ndarray, neg: np.n
 
     The selected frames are treated as the video (they are 0.5 s apart but the operator is
     nearly static in image space — they hold the camera — so propagation is well posed).
-    Returns {frame_idx: bool mask at the SAM working resolution} or None if SAM 2.1 is
-    unavailable / fails (caller falls back to the geometric box).
+    Returns {frame_idx: bool mask at the SAM working resolution}, or None when SAM 2.1 is
+    simply UNAVAILABLE (not importable / checkpoint missing) — the caller then falls back to
+    the geometric box. A SAM 2.1 that IS present but FAILS (predictor build, propagation) is
+    a hard RuntimeError: silently degrading a working install to a box mask would hide the
+    problem behind a plausible-looking mask.
     """
     try:
         import torch
@@ -358,18 +412,22 @@ def sam2_operator_masks(sam_dir: Path, n_frames: int, pos: np.ndarray, neg: np.n
 
     print(f"  [operator] SAM 2.1 video propagation over {n_frames} frames "
           f"({sw}x{sh}, {len(pos)} pos / {len(neg)} neg prompts)", flush=True)
-    predictor = build_sam2_video_predictor(cfg, ckpt, device=device)
     out = {}
-    with torch.inference_mode(), torch.autocast(device, dtype=torch.bfloat16):
-        state = predictor.init_state(video_path=str(sam_dir), offload_video_to_cpu=True,
-                                     offload_state_to_cpu=True)
-        predictor.add_new_points_or_box(inference_state=state, frame_idx=0, obj_id=1,
-                                        points=points, labels=labels)
-        for idx, _ids, logits in predictor.propagate_in_video(state):
-            out[idx] = (logits[0, 0] > 0.0).cpu().numpy()
-    del predictor, state
     try:
-        import torch
+        predictor = build_sam2_video_predictor(cfg, ckpt, device=device)
+        with torch.inference_mode(), torch.autocast(device, dtype=torch.bfloat16):
+            state = predictor.init_state(video_path=str(sam_dir), offload_video_to_cpu=True,
+                                         offload_state_to_cpu=True)
+            predictor.add_new_points_or_box(inference_state=state, frame_idx=0, obj_id=1,
+                                            points=points, labels=labels)
+            for idx, _ids, logits in predictor.propagate_in_video(state):
+                out[idx] = (logits[0, 0] > 0.0).cpu().numpy()
+        del predictor, state
+    except Exception as e:                                   # NO silent box fallback here
+        raise RuntimeError(
+            f"SAM 2.1 operator tracking failed ({type(e).__name__}: {e}). Fix it, or opt "
+            f"into the geometric fallback explicitly with --operator_mask box") from e
+    try:
         torch.cuda.empty_cache()
     except Exception:
         pass
@@ -435,15 +493,54 @@ def sharpness_plot(sharp: np.ndarray, selected: list, out_path: Path,
 # orchestration
 # ---------------------------------------------------------------------------
 
+def prior_output(out_dir) -> list:
+    """Names of a PREVIOUS run's artefacts inside out_dir ([] = safe to write into)."""
+    out_dir = Path(out_dir)
+    return [n for n in ("images", "masks", "ingest_report.json", "INCOMPLETE")
+            if (out_dir / n).exists()]
+
+
+def mark_incomplete(out_dir, err) -> None:
+    """Flag a half-written out_dir so nothing downstream mistakes it for a finished ingest.
+
+    Cheaper and safer than deleting the directory: the partial frames stay available for
+    debugging, and the marker (plus the missing ingest_report.json) makes the state obvious
+    to a human and to the re-run guard, which refuses to write next to it without
+    --overwrite.
+    """
+    out_dir = Path(out_dir)
+    # The re-run guard guarantees out_dir held none of these when the run started, so
+    # anything present now was written by THIS run. Nothing written -> nothing to flag.
+    if not out_dir.is_dir() or not prior_output(out_dir):
+        return
+    try:
+        (out_dir / "INCOMPLETE").write_text(
+            f"{time.strftime('%Y-%m-%dT%H:%M:%S')}  WP-O1 ingest FAILED\n"
+            f"{type(err).__name__}: {err}\n"
+            f"This directory is PARTIAL - do not consume it. Re-run with --overwrite.\n",
+            encoding="utf8")
+        print(f"       partial output flagged: {out_dir / 'INCOMPLETE'}", flush=True)
+    except OSError:
+        pass
+
+
 def ingest(args) -> dict:
     t_all = time.time()
+    out_dir = Path(args.out_dir)
+    # --- re-run guard (before ANY work, so a refused run writes nothing) ---
+    stale = prior_output(out_dir)
+    if stale and not args.overwrite:
+        raise FileExistsError(
+            f"out_dir contains prior output ({', '.join(stale)}); pass --overwrite. "
+            f"Writing into it would leave orphaned frames from the previous run beside the "
+            f"new ingest_report.json: {out_dir}")
+
     # --- probe (before touching out_dir, so a bad input leaves no debris) ---
     info = probe_source(args.input, args.force_layout)
     print(f"[probe] {Path(info.path).name}: layout={info.layout} "
           f"{info.width}x{info.height} @ {info.fps:.3f} fps, {info.nb_frames} frames, "
           f"{info.duration:.1f} s, {len(info.streams)} video stream(s)", flush=True)
 
-    out_dir = Path(args.out_dir)
     images_dir = out_dir / "images"
     masks_dir = out_dir / "masks"
     qa_dir = out_dir / "qa"
@@ -458,10 +555,15 @@ def ingest(args) -> dict:
     op_mode = args.operator_mask
     if op_mode == "auto":
         op_mode = "sam" if info.layout == "dual_fisheye" else "none"
+    # lens/stream order: an ASSUMPTION (--operator_stream), never auto-detected — docstring
+    sstream = scan_stream(info, args.sharpness_stream, args.operator_stream)
+    syaw = stitch_yaw(info, args.yaw, args.operator_stream)
+    if info.layout == "dual_fisheye":
+        print(f"[lens] --operator_stream {args.operator_stream} (ASSUMED, spot-check per "
+              f"camera): scene lens = stream {sstream}, stitch yaw {syaw:g} deg", flush=True)
 
     # --- sample ------------------------------------------------------------
     t0 = time.time()
-    sstream = args.sharpness_stream if info.layout == "dual_fisheye" else 0
     sharp = scan_sharpness(info, stream=sstream, central_frac=args.central_frac,
                            max_side=args.sharpness_max_side, progress=args.progress)
     t_scan = time.time() - t0
@@ -485,7 +587,7 @@ def ingest(args) -> dict:
     t0 = time.time()
     sam_dir = out_dir / "_sam_frames" if op_mode == "sam" else None
     paths = extract_panos(info, idx, images_dir, out_w, out_h, args.ih_fov, args.iv_fov,
-                          args.yaw, args.jpeg_quality, sam_dir, args.operator_sam_width,
+                          syaw, args.jpeg_quality, sam_dir, args.operator_sam_width,
                           args.progress)
     t_stitch = time.time() - t0
     print(f"[stitch] {len(paths)} ERP frames at {out_w}x{out_h} in {t_stitch:.1f} s", flush=True)
@@ -599,6 +701,7 @@ def ingest(args) -> dict:
             "n_windows": int(np.ceil(len(sharp) / win)),
             "n_selected": len(paths),
             "sharpness_stream": sstream,
+            "sharpness_stream_auto": args.sharpness_stream < 0,
             "central_frac": args.central_frac,
             "sharpness_max_side": args.sharpness_max_side,
             "absolute_threshold": None,       # deliberately never used — DEVELOPER_NOTES §5
@@ -618,9 +721,22 @@ def ingest(args) -> dict:
         },
         "stitch": {
             "filter_graph": build_filter_graph(info, [0], out_w, out_h, args.ih_fov,
-                                               args.iv_fov, args.yaw),
+                                               args.iv_fov, syaw),
             "ih_fov": args.ih_fov, "iv_fov": args.iv_fov, "yaw": args.yaw,
+            "stitch_yaw": syaw,
+            "yaw_normalization": "none - rigid dual-lens rig, one CONSTANT v360 yaw for "
+                                 "every frame; world orientation is pose (WP-O2)",
             "out_width": out_w, "out_height": out_h, "jpeg_quality": args.jpeg_quality,
+        },
+        "stream_order": {
+            "operator_stream": args.operator_stream if info.layout == "dual_fisheye" else None,
+            "scene_stream": sstream if info.layout == "dual_fisheye" else None,
+            "auto_detected": False,
+            "assumption": "stream --operator_stream carries the operator-facing lens and is "
+                          "rotated to ERP centre (yaw 0) by the stitch; the other stream is "
+                          "the scene lens and is what the sharpness scan scores. Verified by "
+                          "eye on Insta360 clips of 2026-07-21 ONLY - spot-check one frame "
+                          "per stream for any new camera/firmware (see module docstring).",
         },
         "masks": {
             "convention": "uint8 PNG, 255=VALID, 0=EXCLUDED, <image_stem>.png in masks/",
@@ -676,7 +792,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="OFF by default. 'insta360' opts into the 360 ingest lane.")
     p.add_argument("--input", help="one .insv / .mov / .mp4 360 file")
     p.add_argument("--out_dir", help="output dataset dir (images/, masks/, ingest_report.json)")
-    p.add_argument("--overwrite", action="store_true", help="delete out_dir first")
+    p.add_argument("--overwrite", action="store_true",
+                   help="delete out_dir first; REQUIRED to re-use a dir that already holds "
+                        "images/, masks/, ingest_report.json or an INCOMPLETE marker "
+                        "(otherwise the run is refused with exit 2 and writes nothing)")
     p.add_argument("--force_layout", choices=["dual_fisheye", "erp"],
                    help="override the ffprobe layout auto-detection")
 
@@ -687,14 +806,23 @@ def build_parser() -> argparse.ArgumentParser:
                    help="central crop fraction used for the sharpness metric")
     g.add_argument("--sharpness_max_side", type=int, default=960,
                    help="downscale cap for the sharpness crop (keeps 8K scans cheap)")
-    g.add_argument("--sharpness_stream", type=int, default=0,
-                   help="which video stream to score; 0 = scene-facing lens (verified)")
+    g.add_argument("--sharpness_stream", type=int, default=-1,
+                   help="which video stream to score; -1 = auto = the stream that is NOT "
+                        "--operator_stream (i.e. the scene-facing lens)")
     g.add_argument("--max_frames", type=int, default=0, help="cap selected frames (0 = no cap)")
 
     g = p.add_argument_group("stitch (ffmpeg v360 dfisheye->equirect)")
     g.add_argument("--ih_fov", type=float, default=200.0, help="input horizontal lens FOV (deg)")
     g.add_argument("--iv_fov", type=float, default=200.0, help="input vertical lens FOV (deg)")
-    g.add_argument("--yaw", type=float, default=0.0, help="ERP yaw rotation (deg)")
+    g.add_argument("--operator_stream", type=int, default=1, choices=[0, 1],
+                   help="which fisheye stream carries the OPERATOR. ASSUMPTION, never "
+                        "auto-detected: verified by eye on the 2026-07-21 Insta360 clips "
+                        "only - extract one frame per stream and LOOK for a new camera or "
+                        "firmware (module docstring). The operator lens is rotated to ERP "
+                        "centre, so 0 adds 180 deg to the stitch yaw")
+    g.add_argument("--yaw", type=float, default=0.0,
+                   help="constant ERP yaw rotation (deg) applied to every frame; there is "
+                        "no per-frame yaw normalization (rigid rig - see module docstring)")
     g.add_argument("--out_width", type=int, default=0, help="0 = 2x input height")
     g.add_argument("--out_height", type=int, default=0, help="0 = input height")
     g.add_argument("--jpeg_quality", type=int, default=95, help="output JPEG quality")
@@ -761,9 +889,17 @@ def main(argv=None) -> int:
         return 2
     try:
         ingest(args)
-    except (FileNotFoundError, ValueError) as e:
+    except FileExistsError as e:                 # re-run guard: nothing was written
         print(f"ERROR: {e}")
-        return 1
+        return 2
+    except BaseException as e:
+        # Anything that gets here happened DURING the run, so out_dir may be half written:
+        # flag it (ingest_report.json is only written on success) before reporting.
+        mark_incomplete(Path(args.out_dir), e)
+        if isinstance(e, (FileNotFoundError, ValueError, RuntimeError)):
+            print(f"ERROR: {e}")               # expected failure modes -> no traceback
+            return 1
+        raise                                    # genuine bug / Ctrl-C: keep the traceback
     return 0
 
 

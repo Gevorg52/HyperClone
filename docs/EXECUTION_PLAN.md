@@ -679,6 +679,12 @@ attention" against the sm_120 landmine before any use.
   Evidence `_infusion/wpo1_RECORD.md` + `_infusion/wpo1/`. Findings for WP-O2/O3: PLAN_360
   §7's asset labels are wrong (the flower shop is only in the low-res `FLOWERSHOP.mov`), and
   bystanders are unmasked (operator only).
+  **Review fixes 2026-08-04** (gate not re-run, defaults unchanged; RECORD §6): re-run guard
+  (non-empty `out_dir` without `--overwrite` → exit 2, writes nothing), clean exit-1 +
+  `INCOMPLETE` marker + no report on mid-pipeline ffmpeg/SAM failure, and
+  `--operator_stream {0,1}` — **the lens/stream order is an ASSUMPTION verified on the
+  2026-07-21 clips only; WP-O2 must spot-check one frame per stream for any new
+  camera/firmware**. Tests 22→32 (suite **183**).
 - **WP-O2 — 360 SfM lane** (~2–3 d): COLMAP panorama rig pipeline (crop-rig arm) A/B
   spherical-direct arm; watch colmap#3599 hang (fallback: own Equilib crops +
   `apply_rig_config`). Gate: ≥95% registered, ≤1.5 px, trajectory sane, A/B persisted.

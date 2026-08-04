@@ -86,8 +86,10 @@ p90 854 (selected median 431, +14.2%). Operator SAM-masked on all 6 contact-shee
 0 guards. 48.5 s. Evidence: `contact_mov.jpg`, `report_mov.json`.
 
 > Cross-check: PLAN_360 §1 measured this same file at 0.5 s cadence as min 36 / p10 77 /
-> median 357 / p90 831. Our 2 pano-fps scan gives min 24 / p10 82 / median 377 / p90 854 —
-> the metric reproduces independently.
+> median 357 / p90 831. Our numbers above (min 24 / p10 82 / median 377 / p90 854) are the
+> var-of-Laplacian over **every frame of the full native-fps decode**, not over a 2 pano-fps
+> subsample — the 2 pano-fps figure is the *selection* rate, not the scan rate — so the two
+> populations differ slightly by construction; the metric still reproduces independently.
 
 ### 2d. Pre-stitched-ERP branch (not in the brief's gate list, checked anyway)
 
@@ -160,7 +162,24 @@ ingest). **173 passed** for `pytest tests/` (151 pre-existing + 22 new); nothing
    sweep "once". Not done — 200/200 produced coherent panoramas at both 1920² and 3840²,
    and the seam bands are masked out anyway. The flags exist (`--ih_fov/--iv_fov`); the
    sweep belongs with WP-O2, where reprojection error can actually score it.
-8. **Sharpness values are not comparable across clips/resolutions** (the metric is computed
+8. **PLAN_360 §5 says "yaw-normalize"; nothing is yaw-NORMALIZED and nothing needs to be.**
+   Both fisheyes are rigidly mounted, so the ERP yaw origin is fixed relative to the camera
+   BODY — the stitch path applies ONE constant `v360 …:yaw=` to every frame (checked in
+   `build_filter_graph`; there is no per-frame term anywhere), so there is no per-frame yaw
+   drift to remove. The only yaw choice is that constant rig→ERP offset, exposed as `--yaw`
+   (default 0 = operator lens at ERP centre) and shifted 180° by `--operator_stream 0`.
+   Orientation relative to the WORLD (the operator turns while walking; no IMU
+   horizon-levelling is applied here — Insta360's own stabilisation is not replicated) is
+   camera POSE and belongs to WP-O2, not to ingest. Documented in the module docstring.
+9. **Stream order is an ASSUMPTION, not a detection — spot-check it per camera/firmware.**
+   "stream 0 = scene, stream 1 = operator" was verified BY EYE on the 2026-07-21 clips only.
+   For any new camera or firmware, extract one frame per stream and LOOK
+   (`ffmpeg -i CLIP.insv -map 0:0 -frames:v 1 s0.jpg`, same for `0:1`) before trusting the
+   default; pass `--operator_stream 0` if the operator is in stream 0. Getting it wrong
+   silently scores the wrong lens for sharpness AND masks real scene content while the
+   operator goes unmasked at the ±180° edges — the area/lost guards would NOT reliably catch
+   that. Deliberately NOT auto-detected (added 2026-08-04, see §6).
+10. **Sharpness values are not comparable across clips/resolutions** (the metric is computed
    on a central crop whose size depends on the source). Only within-clip window-relative
    comparison is used, which is all the selection needs — but do not read `_077` median 1691
    vs `_027` median 447 as "the 8K clip is blurrier"; the 8K crop is downscaled 2× first.
@@ -178,3 +197,52 @@ python -m core.ingest_360 --capture-type insta360 --input <file> --out_dir <dir>
 python _infusion/wpo1_evidence.py          # re-derives _infusion/wpo1/* from the run dirs
 python -m pytest tests/test_ingest_360.py -q
 ```
+
+---
+
+## 6. Review fixes (2026-08-04) — follow-up to the PASS-WITH-NOTES review
+
+Hardening pass on the gate-passed module before WP-O2 starts running it repeatedly. **The
+gate was NOT re-run and no gate-relevant behaviour changed**: with default flags the resolved
+scan stream is still 0, the stitch yaw is still 0.0, and a smoke re-run of `_077.insv`
+reproduces the recorded histogram exactly (min 244 · p10 454 · median 1691 · p90 2339 ·
+max 3160, 151 selected @ 1.998 pano-fps, operator = SAM, 0 guards).
+
+| # | finding | fix |
+|---|---|---|
+| 1 | **Stale outputs on re-run without `--overwrite`** — a shorter second run left the first run's orphaned image/mask pairs beside the new report | `prior_output()` + a re-run guard at the TOP of `ingest()` (before probe/scan, so a refused run does no work and writes nothing): if `out_dir` holds `images/`, `masks/`, `ingest_report.json` or `INCOMPLETE` and `--overwrite` is absent → `FileExistsError` → `ERROR: out_dir contains prior output (…); pass --overwrite`, **exit 2** |
+| 2 | **Mid-pipeline failures surfaced raw tracebacks and left a partial `images/` with no masks/report** | (a) `main()` now also catches `RuntimeError` (ffmpeg `_run_pipe`, the frame-count sanity check, SAM) → same one-line `ERROR:` + exit 1; unexpected exception types still raise so real bugs keep their traceback. (b) any failure during a run drops an `INCOMPLETE` marker naming the exception in `out_dir` (chosen over deleting it: the partial frames stay debuggable, and the marker feeds the re-run guard). (c) `ingest_report.json` is still written only on success — verified by test. (d) SAM 2.1 predictor construction + propagation are now inside a `try` that re-raises as a clean `RuntimeError`; **no silent box fallback** for a SAM that is present but failing (the pre-existing "SAM not importable / checkpoint missing → box" path is unchanged and still prints why) |
+| 3 | **Hardcoded stream order** (stream 0 = scene, stream 1 = operator at ERP centre) | new `--operator_stream {0,1}` (default 1 = the verified order). Wired through both places it matters: `scan_stream()` (sharpness scores the OTHER lens; `--sharpness_stream` default changed `0 → -1` = auto, an explicit value still wins) and `stitch_yaw()` (`--operator_stream 0` adds 180° so the operator always lands at ERP centre, where the prompt points, the operator clamp and the seam bands expect it). Recorded in `ingest_report.json` under `stream_order` (`operator_stream`, `scene_stream`, `auto_detected: false`, full assumption text) and `stitch.stitch_yaw`. NO auto-detection — see §3 item 9 for the spot-check procedure |
+| 4 | **`yaw-normalize` in the PLAN_360 §5 spec vs a manual `--yaw` in the code** | checked the stitch path; there is no per-frame yaw term to normalize on a rigid dual-lens rig. Stated honestly in the module docstring + §3 item 8 above |
+| 5 | RECORD §2c called the `FLOWERSHOP.mov` histogram a "2 pano-fps scan" | reworded: the histogram is over the full native-fps decode; 2 pano-fps is the selection rate |
+
+### Evidence for the `--operator_stream` wiring (real footage, this machine)
+
+```
+# A: python -m core.ingest_360 --capture-type insta360 --input .../VID_20260721_133413_00_077.insv \
+#      --out_dir <tmp>/o1smoke   --overwrite --max_frames 3 --contact_sheet 3 --contact_cols 3 --progress 5000
+# B: python -m core.ingest_360 --capture-type insta360 --input .../VID_20260721_133413_00_077.insv \
+#      --out_dir <tmp>/o1smoke_s0b --overwrite --operator_stream 0 --sharpness_stream 0 \
+#      --operator_mask none --max_frames 1 --contact_sheet 0 --progress 5000
+```
+- A (defaults): `[lens] --operator_stream 1 … scene lens = stream 0, stitch yaw 0 deg`;
+  same sharpness histogram as the gate run ⇒ **default behaviour byte-identical**.
+- B (`--operator_stream 0`, same source frame 11 forced via the explicit `--sharpness_stream 0`):
+  **MAE vs the 180°-rolled A frame = 0.049** (vs 50.60 unrolled) ⇒ the flip is exactly the
+  180° ERP rotation it claims to be, and ffmpeg accepts `yaw=180` in the graph.
+- B without the explicit override picked source frame **8** instead of 11 — i.e. the auto
+  scan-stream really does follow `--operator_stream`.
+- Re-run guard on a real dir: second invocation returned **exit 2** in <1 s with nothing
+  written (no probe, no scan).
+- Smoke outputs were written to the session scratchpad (not `_dataset/`) and are not
+  committed; both argv lines above reproduce them.
+
+### Tests
+
+`tests/test_ingest_360.py` **22 → 32** (+10): `TestRerunGuard` (3 — `prior_output`
+enumeration, guard fires before the probe and touches nothing, `INCOMPLETE` also blocks),
+`TestStreamOrder` (4 — defaults, the 0-stream flip of scan+yaw, explicit override wins, ERP
+input makes no stream choice), and 3 ffmpeg round-trips (report records the stream-order
+assumption; run-5-frames → run-2-frames is refused and `--overwrite` rebuilds cleanly; a
+forced-`dual_fisheye`-on-one-stream file fails mid-stitch → exit 1, no report, `INCOMPLETE`
+written, re-run refused). Full suite **173 → 183 passing**.

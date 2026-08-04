@@ -180,6 +180,17 @@ struggles on worse captures).
 > (2) other people in the scene are NOT masked (only the operator) — WP-O3 must be checked
 > for their ghosts.** `ih_fov` calibration deferred to WP-O2 (200/200 stitches coherently
 > at both resolutions and the seams are masked).**
+> **Review fixes 2026-08-04** (follow-up commit; gate NOT re-run — with default flags the
+> resolved scan stream and stitch yaw are unchanged): re-run guard (a second run into a
+> non-empty `out_dir` without `--overwrite` is refused with exit 2 instead of orphaning the
+> first run's frames); mid-pipeline ffmpeg/SAM failures exit 1 with a one-line error, write
+> no report and flag the partial dir with an `INCOMPLETE` file; new `--operator_stream {0,1}`
+> (default 1) makes the lens/stream order explicit and records it in `ingest_report.json` —
+> **it is an assumption verified by eye on the 2026-07-21 clips only, so spot-check one frame
+> per stream for any new camera/firmware**. "yaw-normalize" below is NOT implemented and is
+> not needed: the dual-lens rig is rigid, so the stitch applies ONE CONSTANT `v360` yaw to
+> every frame (`--yaw`; +180° with `--operator_stream 0`) — world orientation is camera pose
+> and belongs to WP-O2. Tests 22→32, suite 173→183. Details: `_infusion/wpo1_RECORD.md` §6.
 `core/ingest_360.py` + CLI flag (`--capture-type insta360`, default-OFF, GUI untouched).
 Auto-detect source kind (2-stream dual-fisheye vs 1-stream ERP). Frame sampling:
 window-relative max-sharpness (default ~2 pano-fps for walking captures; NEVER the broken
@@ -239,17 +250,20 @@ better. If not run by 2026-09, park.
 ## §7 Open questions for the user
 1. ~~Original `.insv`?~~ PARTIALLY RESOLVED 2026-08-04 — user supplied originals.
    **Footage inventory** (all same venue/shoot, 2026-07-21):
-   - `VID_..._133413_00_077.insv` — 2×1920² @30, 75 s, ~46 Mbps — **flower-shop scene,
-     PILOT PRIMARY** (user-designated; original of the scene our probes validated)
-   - `VID_..._125954_00_049.insv` — 2×1920² @30, 93 s — flower-shop scene, low-res mode
+   - `VID_..._133413_00_077.insv` — 2×1920² @30, 75 s, ~46 Mbps — **PILOT PRIMARY**
+     (user-designated). CONTENT CORRECTED by WP-O1 (2026-08-04): corridor +
+     charcoal-drawing rooms, NOT the flower shop.
+   - `VID_..._125954_00_049.insv` — 2×1920² @30, 93 s — post-it room (WP-O1 correction)
    - `FLOWERSHOP.mov` (≙ proxy of missing `_082`; matching `LRV_..._082.lrv` present) +
      `FLOWERSHOP2.mov` (45 s) — in-camera low-res files
    - `VID_..._123244_00_027.insv` — **2×3840² 8K**, 47 s, ~128 Mbps — operating-theater
      room (IV-bag art) — 8K SCALING TEST ASSET
    - `VID_..._123352_00_028.insv` — **2×3840² 8K**, 75 s, ~134 Mbps — CRT security room
      (dark, LED-lit, monitors showing operator — hard-mode scene: screens + low light)
-   The flower-shop scene itself exists ONLY in low-res mode (camera was switched to 8K
-   for other rooms). A high-res re-shoot of the flower shop per §6 remains desirable.
+   The flower-shop scene itself exists ONLY in the low-res `FLOWERSHOP.mov` /
+   `FLOWERSHOP2.mov` (+ the `_082` `.lrv` proxy) — WP-O1 correction; the camera was switched
+   to 8K for the other rooms. A high-res re-shoot of the flower shop per §6 remains
+   desirable.
 2. ~~OK to install Insta360 Studio?~~ RESOLVED 2026-08-04: user approved; 5.9.10 installed.
 3. Is 360 the primary capture modality going forward (affects how much GUI wiring WP-O1
    eventually gets), or one input among many?
