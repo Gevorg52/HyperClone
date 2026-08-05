@@ -711,3 +711,34 @@ Nothing was pip-installed for WP-O2: pycolmap 4.1.0, cv2, numpy and matplotlib w
 present. torch 2.11.0+cu128 untouched; no CUDA build. NOTE: our pycolmap wheel is built
 **without CUDA**, so SIFT extraction and matching run on the CPU in both arms (recorded as
 `colmap.has_cuda: false` in every `sfm_report.json`).
+
+## WP-O3 — 360° training lane (`core/train_360_prep.py` + trainer flags, added 2026-08-05)
+
+**Nothing was vendored and nothing was installed.** WP-O3 is 100 % our own code on top of
+components already logged above. Recorded here only so the future funded rebuild sees the
+full dependency surface of the 360 lane end to end.
+
+### Components reused (all previously logged)
+- **gsplat** v1.5.3 AOT sm_120 (Apache-2.0) — the rasterizer/MCMC that trains the splat, via
+  our own `core/training/gsplat_trainer.py`. `rasterize_mode="antialiased"` = Mip-Splatting.
+  Its MCMC noise schedule (`op_sigmoid(1-opacity)`, k=100, x0=0.995) is the mechanism behind
+  the WP-O3 ARM 1 divergence — read from gsplat's source, not modified.
+- **pycolmap** 4.1.0 (BSD-3-Clause) — reads the WP-O2 crop-rig model, rewrites the image
+  names (`Image.name` is writable) and writes the packaged `sparse/0`.
+- **LPIPS (VGG) via torchmetrics** — the masked-LPIPS gate metric, through the existing
+  `core/qa/masked_metrics.py` (WP-Q1 component 1, already logged).
+- **OpenCV** (Apache-2.0) — image IO and the figure strips. **ffmpeg/libx264** (LGPL/GPL,
+  `C:\ffmpeg\bin\ffmpeg.exe`, system binary) — encodes `walkthrough.mp4` from rendered
+  frames; no filter graph, plain image2 → H.264.
+- The dataset it consumes is WP-O2 ARM A's, so COLMAP's panorama geometry (BSD-3-Clause,
+  logged under WP-O2) is upstream of every number here.
+
+### New code, all ours
+`core/train_360_prep.py` (crop-rig model → trainer-shaped COLMAP dataset, flat names,
+mask-name convention, pano-grouped held-out split), `gsplat_trainer.py --holdout_list`
+(explicit test-set membership for view GROUPS that must not be split) and
+`--loss_mask` (average L1 + the SSIM map over the valid mask instead of compositing over
+black), `_infusion/wpo3_eval.py`, `_infusion/wpo3_diag_collapse.py`.
+
+### No new dependencies
+No pip install of any kind. torch 2.11.0+cu128 untouched, gsplat not rebuilt.

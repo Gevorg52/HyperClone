@@ -1,0 +1,32 @@
+{
+ "ARM1_30k": {
+  "step": 30000,
+  "N": 3000000,
+  "opacity_mean": 0.00025,
+  "dead<0.01": 0.9987,
+  "|mean|_median": 5909.27,
+  "|mean|_p99": 176020.94,
+  "|mean|_absmax": 2115274.5,
+  "scale_med": 0.13548
+ },
+ "ARM2_30k": {
+  "step": 30000,
+  "N": 3000000,
+  "opacity_mean": 0.49672,
+  "dead<0.01": 0.1217,
+  "|mean|_median": 1.698,
+  "|mean|_p99": 4.18,
+  "|mean|_absmax": 24355.6,
+  "scale_med": 0.00214
+ },
+ "ARM2_200k": {
+  "step": 200000,
+  "N": 3000000,
+  "opacity_mean": 0.555,
+  "dead<0.01": 0.213,
+  "|mean|_median": 1.699,
+  "|mean|_p99": 4.2,
+  "|mean|_absmax": 24321.2,
+  "scale_med": 0.00257
+ }
+}

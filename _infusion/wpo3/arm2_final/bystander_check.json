@@ -1,0 +1,164 @@
+{
+ "ckpt": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo3_run_arm2\\ckpts\\ckpt_199999_rank0.pt",
+ "ckpt_step": 200000,
+ "num_heldout": 228,
+ "min_blob_px": 1500,
+ "num_crops_over_threshold": 228,
+ "rendered": [
+  "bystander_pano_00064_cam02.jpg",
+  "bystander_pano_00008_cam02.jpg",
+  "bystander_pano_00128_cam02.jpg"
+ ],
+ "ranked": [
+  {
+   "name": "pano_00064_cam02.jpg",
+   "index": 770,
+   "skin_frac_in_valid": 0.99886,
+   "largest_skin_blob_px": 373129
+  },
+  {
+   "name": "pano_00008_cam02.jpg",
+   "index": 98,
+   "skin_frac_in_valid": 0.99645,
+   "largest_skin_blob_px": 372228
+  },
+  {
+   "name": "pano_00128_cam02.jpg",
+   "index": 1538,
+   "skin_frac_in_valid": 0.9898,
+   "largest_skin_blob_px": 369735
+  },
+  {
+   "name": "pano_00136_cam02.jpg",
+   "index": 1634,
+   "skin_frac_in_valid": 0.97574,
+   "largest_skin_blob_px": 364243
+  },
+  {
+   "name": "pano_00024_cam02.jpg",
+   "index": 290,
+   "skin_frac_in_valid": 0.97064,
+   "largest_skin_blob_px": 362542
+  },
+  {
+   "name": "pano_00096_cam02.jpg",
+   "index": 1154,
+   "skin_frac_in_valid": 0.95244,
+   "largest_skin_blob_px": 355753
+  },
+  {
+   "name": "pano_00040_cam02.jpg",
+   "index": 482,
+   "skin_frac_in_valid": 0.94747,
+   "largest_skin_blob_px": 353802
+  },
+  {
+   "name": "pano_00016_cam09.jpg",
+   "index": 201,
+   "skin_frac_in_valid": 0.96938,
+   "largest_skin_blob_px": 353375
+  },
+  {
+   "name": "pano_00064_cam10.jpg",
+   "index": 778,
+   "skin_frac_in_valid": 0.95978,
+   "largest_skin_blob_px": 349906
+  },
+  {
+   "name": "pano_00064_cam08.jpg",
+   "index": 776,
+   "skin_frac_in_valid": 0.94928,
+   "largest_skin_blob_px": 346051
+  },
+  {
+   "name": "pano_00056_cam10.jpg",
+   "index": 682,
+   "skin_frac_in_valid": 0.94424,
+   "largest_skin_blob_px": 344179
+  },
+  {
+   "name": "pano_00080_cam09.jpg",
+   "index": 969,
+   "skin_frac_in_valid": 0.92917,
+   "largest_skin_blob_px": 338368
+  },
+  {
+   "name": "pano_00040_cam10.jpg",
+   "index": 490,
+   "skin_frac_in_valid": 0.91861,
+   "largest_skin_blob_px": 334648
+  },
+  {
+   "name": "pano_00016_cam02.jpg",
+   "index": 194,
+   "skin_frac_in_valid": 0.89786,
+   "largest_skin_blob_px": 332617
+  },
+  {
+   "name": "pano_00000_cam11.jpg",
+   "index": 11,
+   "skin_frac_in_valid": 0.8986,
+   "largest_skin_blob_px": 326912
+  },
+  {
+   "name": "pano_00136_cam08.jpg",
+   "index": 1640,
+   "skin_frac_in_valid": 0.90115,
+   "largest_skin_blob_px": 325539
+  },
+  {
+   "name": "pano_00056_cam11.jpg",
+   "index": 683,
+   "skin_frac_in_valid": 0.89648,
+   "largest_skin_blob_px": 325289
+  },
+  {
+   "name": "pano_00064_cam09.jpg",
+   "index": 777,
+   "skin_frac_in_valid": 0.89131,
+   "largest_skin_blob_px": 324565
+  },
+  {
+   "name": "pano_00080_cam02.jpg",
+   "index": 962,
+   "skin_frac_in_valid": 0.87503,
+   "largest_skin_blob_px": 324529
+  },
+  {
+   "name": "pano_00008_cam11.jpg",
+   "index": 107,
+   "skin_frac_in_valid": 0.88904,
+   "largest_skin_blob_px": 323890
+  },
+  {
+   "name": "pano_00056_cam09.jpg",
+   "index": 681,
+   "skin_frac_in_valid": 0.88944,
+   "largest_skin_blob_px": 323239
+  },
+  {
+   "name": "pano_00056_cam02.jpg",
+   "index": 674,
+   "skin_frac_in_valid": 0.86639,
+   "largest_skin_blob_px": 322699
+  },
+  {
+   "name": "pano_00136_cam10.jpg",
+   "index": 1642,
+   "skin_frac_in_valid": 0.88041,
+   "largest_skin_blob_px": 320738
+  },
+  {
+   "name": "pano_00144_cam11.jpg",
+   "index": 1739,
+   "skin_frac_in_valid": 0.889,
+   "largest_skin_blob_px": 319594
+  },
+  {
+   "name": "pano_00088_cam10.jpg",
+   "index": 1066,
+   "skin_frac_in_valid": 0.87687,
+   "largest_skin_blob_px": 317279
+  }
+ ]
+}

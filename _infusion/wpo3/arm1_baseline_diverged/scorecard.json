@@ -1,0 +1,166 @@
+{
+ "wp": "WP-O3",
+ "created": "2026-08-04T23:59:19",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\_infusion\\wpo3_eval.py",
+  "--ckpt",
+  "_dataset/360/train/wpo3_run_baseline/ckpts/ckpt_29999_rank0.pt",
+  "--data_dir",
+  "_dataset/360/train/wpo3_flowershop_077",
+  "--out",
+  "_infusion/wpo3/arm1_baseline_diverged",
+  "--do",
+  "metrics,figures",
+  "--n_closeups",
+  "2",
+  "--progress",
+  "200",
+  "--train_log",
+  "_dataset/360/train/wpo3_train.log"
+ ],
+ "ckpt": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo3_run_baseline\\ckpts\\ckpt_29999_rank0.pt",
+ "ckpt_step": 30000,
+ "num_gaussians": 3000000,
+ "data_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo3_flowershop_077",
+ "holdout_list": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo3_flowershop_077\\holdout_test.txt",
+ "factor": 1,
+ "rasterize_mode": "antialiased",
+ "masked_lpips_tile": 128,
+ "masked_lpips_cover": 0.8,
+ "heldout": {
+  "num_views": 228,
+  "num_panos": 19,
+  "full_psnr": {
+   "mean": 13.587999602529658,
+   "median": 13.573359080453633,
+   "std": 1.3040820964638697,
+   "min": 9.78087464819815,
+   "max": 16.609023532746527,
+   "n": 228
+  },
+  "full_ssim": {
+   "mean": 0.4439322940613094,
+   "median": 0.4177020639181137,
+   "std": 0.09396177538478083,
+   "min": 0.3147450089454651,
+   "max": 0.7652060389518738,
+   "n": 228
+  },
+  "full_lpips": {
+   "mean": 0.6916405678841105,
+   "median": 0.6917015016078949,
+   "std": 0.029418724423173507,
+   "min": 0.608997106552124,
+   "max": 0.7955405712127686,
+   "n": 228
+  },
+  "valid_frac": {
+   "mean": 0.3318787994222683,
+   "median": 0.3716249018907547,
+   "std": 0.07150793299026184,
+   "min": 0.14161241054534912,
+   "max": 0.4053320288658142,
+   "n": 228
+  },
+  "masked_psnr": {
+   "mean": 13.856145744876276,
+   "median": 13.971511969306123,
+   "std": 1.6286286169150561,
+   "min": 8.971994847759206,
+   "max": 17.610204026035845,
+   "n": 228
+  },
+  "masked_ssim": {
+   "mean": 0.4095132100608265,
+   "median": 0.3816545158624649,
+   "std": 0.11791527199268291,
+   "min": 0.22399964928627014,
+   "max": 0.7965914607048035,
+   "n": 228
+  },
+  "masked_lpips_bbox": {
+   "mean": 0.6984276612076843,
+   "median": 0.6980416774749756,
+   "std": 0.03166483955328322,
+   "min": 0.6246508955955505,
+   "max": 0.7975682020187378,
+   "n": 228
+  },
+  "masked_lpips_tiled": {
+   "mean": 0.6949298493589849,
+   "median": 0.6994476732280519,
+   "std": 0.03823095930692349,
+   "min": 0.5423561249460492,
+   "max": 0.7922865880860223,
+   "n": 228
+  }
+ },
+ "trainer_results_json": {
+  "psnr": 13.587999602529658,
+  "ssim": 0.4439322717095676,
+  "num_gaussians": 3000000,
+  "steps": 30000,
+  "strategy": "mcmc",
+  "antialiased": true,
+  "pose_opt": false,
+  "data_factor": 1,
+  "coarse_factor": null
+ },
+ "figures": {
+  "grid_heldout_pano_00000.jpg": "held-out pano pano_00000, equator crops 4-7 (GT|render|mask)",
+  "grid_heldout_pano_00048.jpg": "held-out pano pano_00048, equator crops 4-7 (GT|render|mask)",
+  "grid_heldout_pano_00096.jpg": "held-out pano pano_00096, equator crops 4-7 (GT|render|mask)",
+  "grid_heldout_pano_00144.jpg": "held-out pano pano_00144, equator crops 4-7 (GT|render|mask)",
+  "closeup_seam_pano_00000.jpg": "seam check, pano pano_00000: crops (5, 7) centre on the ffmpeg v360 stitch seams (yaw +-90 deg)",
+  "closeup_seam_pano_00048.jpg": "seam check, pano pano_00048: crops (5, 7) centre on the ffmpeg v360 stitch seams (yaw +-90 deg)",
+  "closeup_operator_pano_00000_cam00.jpg": "ghost check: pano_00000_cam00.jpg, only 14% of the crop is valid \u2014 the red region is operator/nadir/seam, unsupervised in EVERY view",
+  "closeup_operator_pano_00088_cam04.jpg": "ghost check: pano_00088_cam04.jpg, only 15% of the crop is valid \u2014 the red region is operator/nadir/seam, unsupervised in EVERY view",
+  "closeup_thin_pano_00024_cam03.jpg": "thin-structure check: pano_00024_cam03.jpg (Laplacian-var rank 1..N of held-out)",
+  "closeup_thin_pano_00072_cam02.jpg": "thin-structure check: pano_00072_cam02.jpg (Laplacian-var rank 1..N of held-out)"
+ },
+ "video": {},
+ "train_log": {
+  "log": "_dataset/360/train/wpo3_train.log",
+  "head": [
+   "[Train] Seeded RNG with 0",
+   "[Data] holdout_list: 228 held out by name (holdout_test.txt)",
+   "[Data] 1812 images (1584 train, 228 test)",
+   "[Data] 622325 SfM points, scene_scale=1.989",
+   "[Init] 622325 Gaussians from SfM points (opacity=0.5)",
+   "[Train] MCMC densification: cap_max=3000000, refine_stop=25000",
+   "[Train] Starting 30000 steps, 1584 train images",
+   "[Train] strategy=mcmc, antialiased=True, ssim_lambda=0.2, sh_degree=3",
+   "step=100 | loss=0.096529 | psnr=17.55 | #GS=622325 | mem=19599MB | 64.9 it/s | eta=461s",
+   "step=200 | loss=0.087633 | psnr=18.40 | #GS=622325 | mem=19599MB | 75.5 it/s | eta=395s",
+   "step=300 | loss=0.085343 | psnr=18.93 | #GS=622325 | mem=19599MB | 79.9 it/s | eta=372s",
+   "step=400 | loss=0.080450 | psnr=19.02 | #GS=622325 | mem=19599MB | 82.5 it/s | eta=359s",
+   "step=500 | loss=0.084112 | psnr=19.18 | #GS=622325 | mem=19599MB | 83.9 it/s | eta=352s",
+   "step=600 | loss=0.073608 | psnr=20.03 | #GS=653441 | mem=19599MB | 83.5 it/s | eta=352s",
+   "step=700 | loss=0.077411 | psnr=19.91 | #GS=686113 | mem=19599MB | 84.0 it/s | eta=349s",
+   "step=800 | loss=0.078409 | psnr=19.82 | #GS=720418 | mem=19599MB | 84.1 it/s | eta=347s",
+   "step=900 | loss=0.076826 | psnr=19.90 | #GS=756438 | mem=19599MB | 83.8 it/s | eta=347s",
+   "step=1000 | loss=0.071597 | psnr=20.38 | #GS=794259 | mem=19599MB | 83.4 it/s | eta=348s",
+   "step=1100 | loss=0.079612 | psnr=19.81 | #GS=833971 | mem=19599MB | 82.9 it/s | eta=349s",
+   "step=1200 | loss=0.078457 | psnr=20.04 | #GS=875669 | mem=19599MB | 82.3 it/s | eta=350s"
+  ],
+  "tail": [
+   "step=29400 | loss=0.084568 | psnr=18.95 | #GS=3000000 | mem=19599MB | 33.8 it/s | eta=18s",
+   "step=29500 | loss=0.078850 | psnr=19.55 | #GS=3000000 | mem=19599MB | 33.8 it/s | eta=15s",
+   "step=29600 | loss=0.091176 | psnr=18.32 | #GS=3000000 | mem=19599MB | 33.8 it/s | eta=12s",
+   "step=29700 | loss=0.079447 | psnr=19.35 | #GS=3000000 | mem=19599MB | 33.9 it/s | eta=9s",
+   "step=29800 | loss=0.080767 | psnr=19.33 | #GS=3000000 | mem=19599MB | 33.9 it/s | eta=6s",
+   "step=29900 | loss=0.079744 | psnr=19.44 | #GS=3000000 | mem=19599MB | 33.9 it/s | eta=3s",
+   "step=30000 | loss=0.082568 | psnr=19.20 | #GS=3000000 | mem=19599MB | 33.9 it/s | eta=0s",
+   "[Checkpoint] Saved ckpt_29999_rank0.pt",
+   "[PLY] Saved point_cloud_29999.ply",
+   "",
+   "[Eval] Running on 228 test images...",
+   "[Eval] PSNR=13.59 SSIM=0.4439",
+   "[Stats] Written to _dataset\\360\\train\\wpo3_run_baseline\\stats\\results.json",
+   "",
+   "[Done] Training complete in 890.8s"
+  ],
+  "num_lines": 318
+ }
+}

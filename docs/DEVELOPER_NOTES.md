@@ -98,7 +98,9 @@ is a self-contained subprocess (`core/training/gsplat_trainer.py`).
 | `--antialiased` | on | Mip-Splatting (`rasterize_mode`). Keep on. |
 | `--pose_opt` | off→on(GUI) | SE(3) per-camera refinement, lr 1e-5. |
 | `--coarse_factor`/`--coarse_until` | — | coarse-to-fine: densify at lower res, finish at full. |
-| `--opacity_reg`/`--scale_reg` | 0.01 | MCMC regularizers. |
+| `--opacity_reg`/`--scale_reg` | 0.01 | MCMC regularizers. **`opacity_reg` is scene-dependent and can be CATASTROPHIC on many-view scenes — see §6.** |
+| `--holdout_list` | off | File of COLMAP image names to use as the test set instead of the every-`--test_every` rule. For captures whose views come in inseparable GROUPS (the 12 rig crops of one 360 pano). WP-O3. |
+| `--loss_mask` | off | Average L1 **and the per-pixel SSIM map** over the VALID mask only. Use when the mask removes a large part of the frame; `--rgb_object_masked` (which composites over black) is the WP-D1 object-refit lever and is the wrong tool there — §6. WP-O3. |
 | `--geo_reg` | off | edge-aware curvature depth smoothness. **No effect on textureless mush — leave off** (§6). |
 | `--lpips_lambda` | 0 | perceptual loss weight. 0=off. ~0.2 at factor≥2, gated (below). |
 | `--lpips_gated` | on | **gate LPIPS toward under-resolved (high-error) crops** so it doesn't over-texture well-resolved regions. Makes LPIPS safe at any resolution. |
@@ -186,6 +188,43 @@ own cull is still unfixed — see §7.
     default 5e5) is the one untested lever before any future >3M attempt. Verdict:
     still do not raise cap_max above 3M for quality; >3M is merely *safe* now, and
     only worth revisiting with a `noise_lr` flag or on a capture that starves 3M.
+- **`--opacity_reg 0.01` (a PRODUCTION DEFAULT) on a large many-view scene: destroys the
+  model, silently.** Found by WP-O3 (2026-08-05, 1 584-view 360 walkthrough; evidence
+  `_infusion/wpo3_RECORD.md` §3 + `_infusion/wpo3/diag_collapse{,2,3}.json`, an 8-arm ×
+  5 000-step controlled sweep). The run completes with no error, a plausible loss (0.08), a
+  plausible logged PSNR and the Gaussian count pinned at the cap — and every render is a
+  **flat colour**: mean opacity 2.5e-4, **99.87 % of Gaussians dead**, means blown to
+  **±2.1e6** with the camera cloud normalised to radius 1. Held-out masked LPIPS 0.695.
+  - **Mechanism:** `opacity_reg` presses every Gaussian's opacity down on *every* step,
+    while the photometric counter-pressure only acts when that Gaussian is rendered. Our
+    object-orbit captures render each Gaussian in most of ~200 views; a walkthrough with
+    1 584 views renders it in a handful, so opacity loses. gsplat MCMC then injects
+    **maximum** positional noise at near-zero opacity **by design**
+    (`op_sigmoid(1-opacity)`, k=100, x0=0.995 — that is how dead Gaussians explore), so the
+    whole cloud random-walks apart.
+  - **`scale_reg 0.01` is NOT the problem** — isolated: arm G (opacity_reg 0, scale_reg
+    0.01) healthy; arm H (opacity_reg 0.01, scale_reg 0) 99.9 % dead. Keep scale_reg.
+  - **Fix:** `--opacity_reg 0` on such scenes. Worth **+3.34 dB / −20.5 % masked LPIPS** at
+    an identical step budget.
+  - **How to detect it:** the training log will NOT tell you. Check the checkpoint:
+    `sigmoid(opacities).mean()` (healthy ≈0.3–0.6) and `means.norm(dim=1).median()`
+    (healthy ≈1–2 in normalised units). `_infusion/wpo3_diag_collapse.py::ckpt_stats` does it.
+- **`--rgb_object_masked` with a mask that removes most of the frame:** wrong lever. It
+  composites BOTH sides over black and takes a plain frame mean, so a 33 %-valid mask
+  divides the photometric term by 3 (regularizers untouched → they dominate) and
+  manufactures hard black edges at the mask boundary for SSIM to chase. Under live MCMC that
+  compounds the opacity collapse above into a rasterizer memory blow-up (19.6 → 57.9 GB,
+  `CUDA error: an illegal memory access`). It was built for WP-D1's object-extract refit,
+  where the mask keeps most of the object and densification is OFF (`refine_stop_iter=1`) —
+  that is the only regime it is validated in. Use **`--loss_mask`** instead (averages L1 and
+  the SSIM map over the valid pixels; neither rescales the loss nor creates edges). The two
+  flags are independent and must not be combined.
+- **30 k steps is a step *count*, not a schedule — check your epochs.** 30 k over 1 584
+  views is **19 epochs**; production object runs give each of ~200 views 100–250. Also
+  ~6.5× fewer pixel-gradients than a GPU_V4 run (30 k × 0.92 MP vs 30 k × 6 MP). WP-O3 ran
+  200 k (~126 epochs) — but honestly, most of that was wasted: the last 170 k steps bought
+  only −5.5 % LPIPS and +0.29 dB held-out while train PSNR climbed 18.0 → 20.8 (i.e. it was
+  mostly fitting the training views). Budget ~60–100 k for this shape of capture.
 - **Edge-aware depth-smoothness (`--geo_reg`):** zero effect on textureless mush —
   it's a *geometry* lever, the mush is lost *appearance* detail. Gradients verified
   to flow (not a no-op); just the wrong lever. Kept off by default.

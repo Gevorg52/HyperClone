@@ -1,0 +1,12 @@
+{
+ "grid_heldout_pano_00000.jpg": "held-out pano pano_00000, equator crops 4-7 (GT|render|mask)",
+ "grid_heldout_pano_00048.jpg": "held-out pano pano_00048, equator crops 4-7 (GT|render|mask)",
+ "grid_heldout_pano_00096.jpg": "held-out pano pano_00096, equator crops 4-7 (GT|render|mask)",
+ "grid_heldout_pano_00144.jpg": "held-out pano pano_00144, equator crops 4-7 (GT|render|mask)",
+ "closeup_seam_pano_00000.jpg": "seam check, pano pano_00000: crops (5, 7) centre on the ffmpeg v360 stitch seams (yaw +-90 deg)",
+ "closeup_seam_pano_00048.jpg": "seam check, pano pano_00048: crops (5, 7) centre on the ffmpeg v360 stitch seams (yaw +-90 deg)",
+ "closeup_operator_pano_00000_cam00.jpg": "ghost check: pano_00000_cam00.jpg, only 14% of the crop is valid \u2014 the red region is operator/nadir/seam, unsupervised in EVERY view",
+ "closeup_operator_pano_00088_cam04.jpg": "ghost check: pano_00088_cam04.jpg, only 15% of the crop is valid \u2014 the red region is operator/nadir/seam, unsupervised in EVERY view",
+ "closeup_thin_pano_00024_cam03.jpg": "thin-structure check: pano_00024_cam03.jpg (Laplacian-var rank 1..N of held-out)",
+ "closeup_thin_pano_00072_cam02.jpg": "thin-structure check: pano_00072_cam02.jpg (Laplacian-var rank 1..N of held-out)"
+}

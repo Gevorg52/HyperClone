@@ -259,7 +259,43 @@ pano frames registered in the crop-rig arm; mean reproj ≤1.5 px; trajectory sa
 wall-clock) persisted per GATE EVIDENCE RULE. Deliver `sparse/0` + the
 `convert_to_equirectangular()` artifact.
 
-### WP-O3 — 360 training lane — ~2–3 days
+### WP-O3 — 360 training lane — ~2–3 days — ✅ GATE PASSED 2026-08-05 (ARM 2)
+> **Shipped `core/train_360_prep.py` (`--capture-type 360`, default-OFF) + two default-OFF
+> trainer flags (`--holdout_list`, `--loss_mask`) + 18 tests (suite 211→**235**). Packaged
+> WP-O2 ARM A into the trainer layout — names flattened `pano_cameraN/pano_XXXXX.jpg` →
+> `pano_XXXXX_camNN.jpg` in BOTH the file tree and the COLMAP model, masks renamed to the
+> trainer's `<stem>.png` convention, pixels untouched — giving **1 584 train / 228 test
+> crops (19 withheld panos × 12, zero intra-pano leakage)**.
+> **THE HEADLINE IS A NEGATIVE RESULT: the production trainer config destroys this capture,
+> and the single cause is `--opacity_reg 0.01`.** ARM 1 ran 30 k steps to completion with a
+> plausible loss and a full 3 M cap and rendered **flat colour**: held-out masked LPIPS
+> **0.6949** / PSNR **13.86**, mean opacity **0.00025**, **99.87 % dead**, means at ±2.1 e6
+> (camera cloud radius = 1). An 8-arm × 5 k-step sweep isolates it — arm G (`opacity_reg 0`,
+> `scale_reg 0.01`) healthy vs arm H (`opacity_reg 0.01`, `scale_reg 0`) 99.9 % dead. Why:
+> 1 584 views ⇒ any one Gaussian is rendered rarely, so the every-step opacity penalty beats
+> the photometric term, and gsplat's MCMC injects **maximum** noise at near-zero opacity by
+> design (`op_sigmoid(1-opacity)`) → positional runaway. `--rgb_object_masked` (WP-D1's
+> object-refit lever) amplifies it on these 33 %-valid crops — ÷3 loss magnitude plus black
+> mask-boundary edges — into a rasterizer memory blow-up; `--loss_mask` is the
+> correct-semantics replacement. **Not 360-specific: expect this on any large many-view
+> walkthrough.**
+> **ARM 2** (`--opacity_reg 0 --loss_mask --max_steps 200000`, else identical): **74 min
+> 32 s**, 3 M Gaussians, mean opacity 0.555, dead 21.3 %, ‖mean‖ p99 4.20. Held-out
+> (228 crops): **masked LPIPS 0.5222** tiled / 0.5572 bbox, masked **PSNR 17.483**, SSIM
+> 0.4334. **Ablation inside ARM 2: at the same 30 k budget the fix alone is worth +3.34 dB
+> and −20.5 % LPIPS; the next 170 k steps add only −5.5 % LPIPS / +0.29 dB.** Visual gate:
+> **no operator ghost, no seam-band phantom geometry** (crops 5/7 point straight down the
+> v360 seams), corridor walkable (`walkthrough.mp4`, 151 SfM poses). The splat is
+> **structurally correct but soft** — capture-limited by the 1 920²-per-lens proxy, which
+> re-arms §7's 8K request; `_027`/`_028` are already WP-O1-proven at 7680×3840.
+> Honest negatives: the skin-tone bystander detector FAILS here (cream paper ⇒ 228/228 false
+> positives, so the bystander check is visual over ~25 crops, not exhaustive — masking ALL
+> people is the WP-O1 follow-up); the held-out split is **interpolation**, so the numbers are
+> optimistic for true novel views; ARM 2 moves three levers at once (the sweep isolates two);
+> `pose_opt` is OFF in both arms on a reasoned-but-unmeasured argument (the 12 crops share an
+> optical centre by construction) and is the cleanest next A/B.
+> Evidence: `_infusion/wpo3_RECORD.md` + `_infusion/wpo3/`; PLY
+> `_dataset/360/train/wpo3_run_arm2/ply/point_cloud_199999.ply`.
 Dataset writer: rig crops → the trainer's expected COLMAP layout (pinhole cameras, poses
 from rig frames; optionally densified re-crops [more yaw steps / 2 extra pitch rows] sharing
 pano poses). Per-crop masks → existing loss-mask plumbing. Train baseline config (3M cap,

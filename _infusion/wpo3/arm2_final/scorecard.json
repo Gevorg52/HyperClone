@@ -1,0 +1,174 @@
+{
+ "wp": "WP-O3",
+ "created": "2026-08-05T01:35:23",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\_infusion\\wpo3_eval.py",
+  "--ckpt",
+  "_dataset/360/train/wpo3_run_arm2/ckpts/ckpt_199999_rank0.pt",
+  "--data_dir",
+  "_dataset/360/train/wpo3_flowershop_077",
+  "--out",
+  "_infusion/wpo3/arm2_final",
+  "--do",
+  "metrics,figures,video",
+  "--n_closeups",
+  "3",
+  "--progress",
+  "200",
+  "--train_log",
+  "_dataset/360/train/wpo3_train_arm2.log"
+ ],
+ "ckpt": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo3_run_arm2\\ckpts\\ckpt_199999_rank0.pt",
+ "ckpt_step": 200000,
+ "num_gaussians": 3000000,
+ "data_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo3_flowershop_077",
+ "holdout_list": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo3_flowershop_077\\holdout_test.txt",
+ "factor": 1,
+ "rasterize_mode": "antialiased",
+ "masked_lpips_tile": 128,
+ "masked_lpips_cover": 0.8,
+ "heldout": {
+  "num_views": 228,
+  "num_panos": 19,
+  "full_psnr": {
+   "mean": 16.719625625283406,
+   "median": 16.567267686618663,
+   "std": 1.5924112575768226,
+   "min": 11.0778588905286,
+   "max": 22.3571266282902,
+   "n": 228
+  },
+  "full_ssim": {
+   "mean": 0.44062627982674984,
+   "median": 0.4127950519323349,
+   "std": 0.11344029186732357,
+   "min": 0.22783373296260834,
+   "max": 0.7872454524040222,
+   "n": 228
+  },
+  "full_lpips": {
+   "mean": 0.5587454610749295,
+   "median": 0.5607880353927612,
+   "std": 0.036257137886757065,
+   "min": 0.46989911794662476,
+   "max": 0.6523792147636414,
+   "n": 228
+  },
+  "valid_frac": {
+   "mean": 0.3318787994222683,
+   "median": 0.3716249018907547,
+   "std": 0.07150793299026184,
+   "min": 0.14161241054534912,
+   "max": 0.4053320288658142,
+   "n": 228
+  },
+  "masked_psnr": {
+   "mean": 17.48267010100418,
+   "median": 17.20420414324392,
+   "std": 2.112010859150847,
+   "min": 11.524787314880115,
+   "max": 24.853093039678114,
+   "n": 228
+  },
+  "masked_ssim": {
+   "mean": 0.433428671668496,
+   "median": 0.40790413320064545,
+   "std": 0.14230499037951677,
+   "min": 0.19266416132450104,
+   "max": 0.8437424898147583,
+   "n": 228
+  },
+  "masked_lpips_bbox": {
+   "mean": 0.5572034719220379,
+   "median": 0.5606229305267334,
+   "std": 0.041402661522278617,
+   "min": 0.42480939626693726,
+   "max": 0.6632673144340515,
+   "n": 228
+  },
+  "masked_lpips_tiled": {
+   "mean": 0.5222141281107648,
+   "median": 0.5288282019751414,
+   "std": 0.05011673476394161,
+   "min": 0.36171172973182464,
+   "max": 0.6173226568433974,
+   "n": 228
+  }
+ },
+ "trainer_results_json": {
+  "psnr": 16.719625625283406,
+  "ssim": 0.440626255383617,
+  "num_gaussians": 3000000,
+  "steps": 200000,
+  "strategy": "mcmc",
+  "antialiased": true,
+  "pose_opt": false,
+  "data_factor": 1,
+  "coarse_factor": null
+ },
+ "figures": {
+  "grid_heldout_pano_00000.jpg": "held-out pano pano_00000, equator crops 4-7 (GT|render|mask)",
+  "grid_heldout_pano_00048.jpg": "held-out pano pano_00048, equator crops 4-7 (GT|render|mask)",
+  "grid_heldout_pano_00096.jpg": "held-out pano pano_00096, equator crops 4-7 (GT|render|mask)",
+  "grid_heldout_pano_00144.jpg": "held-out pano pano_00144, equator crops 4-7 (GT|render|mask)",
+  "closeup_seam_pano_00000.jpg": "seam check, pano pano_00000: crops (5, 7) centre on the ffmpeg v360 stitch seams (yaw +-90 deg)",
+  "closeup_seam_pano_00048.jpg": "seam check, pano pano_00048: crops (5, 7) centre on the ffmpeg v360 stitch seams (yaw +-90 deg)",
+  "closeup_operator_pano_00000_cam00.jpg": "ghost check: pano_00000_cam00.jpg, only 14% of the crop is valid \u2014 the red region is operator/nadir/seam, unsupervised in EVERY view",
+  "closeup_operator_pano_00088_cam04.jpg": "ghost check: pano_00088_cam04.jpg, only 15% of the crop is valid \u2014 the red region is operator/nadir/seam, unsupervised in EVERY view",
+  "closeup_operator_pano_00096_cam04.jpg": "ghost check: pano_00096_cam04.jpg, only 16% of the crop is valid \u2014 the red region is operator/nadir/seam, unsupervised in EVERY view",
+  "closeup_thin_pano_00024_cam03.jpg": "thin-structure check: pano_00024_cam03.jpg (Laplacian-var rank 1..N of held-out)",
+  "closeup_thin_pano_00072_cam02.jpg": "thin-structure check: pano_00072_cam02.jpg (Laplacian-var rank 1..N of held-out)",
+  "closeup_thin_pano_00064_cam02.jpg": "thin-structure check: pano_00064_cam02.jpg (Laplacian-var rank 1..N of held-out)"
+ },
+ "video": {
+  "frames": 151,
+  "fps": 12,
+  "camera": 4,
+  "path": "_infusion\\wpo3\\arm2_final\\walkthrough.mp4",
+  "ffmpeg": "ffmpeg -y -loglevel error -framerate 12 -i _infusion\\wpo3\\arm2_final\\_walkthrough_frames\\%05d.jpg -c:v libx264 -pix_fmt yuv420p -crf 18 _infusion\\wpo3\\arm2_final\\walkthrough.mp4"
+ },
+ "train_log": {
+  "log": "_dataset/360/train/wpo3_train_arm2.log",
+  "head": [
+   "[Train] Seeded RNG with 0",
+   "[Data] holdout_list: 228 held out by name (holdout_test.txt)",
+   "[Data] 1812 images (1584 train, 228 test)",
+   "[Data] 622325 SfM points, scene_scale=1.989",
+   "[Init] 622325 Gaussians from SfM points (opacity=0.5)",
+   "[Train] MCMC densification: cap_max=3000000, refine_stop=25000",
+   "[Train] Starting 200000 steps, 1584 train images",
+   "[Train] strategy=mcmc, antialiased=True, ssim_lambda=0.2, sh_degree=3",
+   "step=100 | loss=0.289008 | psnr=12.46 | #GS=622325 | mem=19599MB | 72.1 it/s | eta=2772s",
+   "step=200 | loss=0.266264 | psnr=13.31 | #GS=622325 | mem=19599MB | 80.4 it/s | eta=2486s",
+   "step=300 | loss=0.254790 | psnr=13.96 | #GS=622325 | mem=19599MB | 83.6 it/s | eta=2387s",
+   "step=400 | loss=0.247832 | psnr=13.90 | #GS=622325 | mem=19599MB | 85.4 it/s | eta=2336s",
+   "step=500 | loss=0.245919 | psnr=14.39 | #GS=622325 | mem=19599MB | 86.7 it/s | eta=2302s",
+   "step=600 | loss=0.229414 | psnr=14.95 | #GS=653441 | mem=19599MB | 85.7 it/s | eta=2327s",
+   "step=700 | loss=0.233648 | psnr=14.89 | #GS=686113 | mem=19599MB | 86.2 it/s | eta=2312s",
+   "step=800 | loss=0.230099 | psnr=14.96 | #GS=720418 | mem=19599MB | 86.6 it/s | eta=2301s",
+   "step=900 | loss=0.241594 | psnr=14.77 | #GS=756438 | mem=19599MB | 86.7 it/s | eta=2296s",
+   "step=1000 | loss=0.231603 | psnr=14.87 | #GS=794259 | mem=19599MB | 86.9 it/s | eta=2290s",
+   "step=1100 | loss=0.236531 | psnr=14.91 | #GS=833971 | mem=19599MB | 86.9 it/s | eta=2289s",
+   "step=1200 | loss=0.229257 | psnr=15.25 | #GS=875669 | mem=19599MB | 86.6 it/s | eta=2295s"
+  ],
+  "tail": [
+   "step=199400 | loss=0.121696 | psnr=20.99 | #GS=3000000 | mem=19599MB | 44.8 it/s | eta=13s",
+   "step=199500 | loss=0.121357 | psnr=20.75 | #GS=3000000 | mem=19599MB | 44.8 it/s | eta=11s",
+   "step=199600 | loss=0.120725 | psnr=20.77 | #GS=3000000 | mem=19599MB | 44.8 it/s | eta=9s",
+   "step=199700 | loss=0.119293 | psnr=21.11 | #GS=3000000 | mem=19599MB | 44.8 it/s | eta=7s",
+   "step=199800 | loss=0.120794 | psnr=20.73 | #GS=3000000 | mem=19599MB | 44.8 it/s | eta=4s",
+   "step=199900 | loss=0.118636 | psnr=21.00 | #GS=3000000 | mem=19599MB | 44.8 it/s | eta=2s",
+   "step=200000 | loss=0.125579 | psnr=20.81 | #GS=3000000 | mem=19599MB | 44.8 it/s | eta=0s",
+   "[Checkpoint] Saved ckpt_199999_rank0.pt",
+   "[PLY] Saved point_cloud_199999.ply",
+   "",
+   "[Eval] Running on 228 test images...",
+   "[Eval] PSNR=16.72 SSIM=0.4406",
+   "[Stats] Written to _dataset\\360\\train\\wpo3_run_arm2\\stats\\results.json",
+   "",
+   "[Done] Training complete in 4471.8s"
+  ],
+  "num_lines": 2024
+ }
+}

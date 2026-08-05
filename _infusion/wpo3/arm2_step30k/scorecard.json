@@ -1,0 +1,99 @@
+{
+ "wp": "WP-O3",
+ "created": "2026-08-05T01:11:36",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\_infusion\\wpo3_eval.py",
+  "--ckpt",
+  "_dataset/360/train/wpo3_run_arm2/ckpts/ckpt_29999_rank0.pt",
+  "--data_dir",
+  "_dataset/360/train/wpo3_flowershop_077",
+  "--out",
+  "_infusion/wpo3/arm2_step30k",
+  "--do",
+  "metrics",
+  "--progress",
+  "200"
+ ],
+ "ckpt": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo3_run_arm2\\ckpts\\ckpt_29999_rank0.pt",
+ "ckpt_step": 30000,
+ "num_gaussians": 3000000,
+ "data_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo3_flowershop_077",
+ "holdout_list": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo3_flowershop_077\\holdout_test.txt",
+ "factor": 1,
+ "rasterize_mode": "antialiased",
+ "masked_lpips_tile": 128,
+ "masked_lpips_cover": 0.8,
+ "heldout": {
+  "num_views": 228,
+  "num_panos": 19,
+  "full_psnr": {
+   "mean": 16.561384119450093,
+   "median": 16.5269283649684,
+   "std": 1.3026687855994215,
+   "min": 13.245599933820188,
+   "max": 20.89713578825622,
+   "n": 228
+  },
+  "full_ssim": {
+   "mean": 0.4544285659988721,
+   "median": 0.43156059086322784,
+   "std": 0.10002899773695378,
+   "min": 0.26756417751312256,
+   "max": 0.7867813110351562,
+   "n": 228
+  },
+  "full_lpips": {
+   "mean": 0.5816706055611894,
+   "median": 0.5822083055973053,
+   "std": 0.03022543218473215,
+   "min": 0.49895840883255005,
+   "max": 0.6681828498840332,
+   "n": 228
+  },
+  "valid_frac": {
+   "mean": 0.3318787994222683,
+   "median": 0.3716249018907547,
+   "std": 0.07150793299026184,
+   "min": 0.14161241054534912,
+   "max": 0.4053320288658142,
+   "n": 228
+  },
+  "masked_psnr": {
+   "mean": 17.192529833650152,
+   "median": 16.928193403604077,
+   "std": 1.7817228366273394,
+   "min": 12.649953546932391,
+   "max": 25.09436957685013,
+   "n": 228
+  },
+  "masked_ssim": {
+   "mean": 0.43520295940208853,
+   "median": 0.4048617482185364,
+   "std": 0.12537591404855766,
+   "min": 0.23246166110038757,
+   "max": 0.834597647190094,
+   "n": 228
+  },
+  "masked_lpips_bbox": {
+   "mean": 0.5824982620644987,
+   "median": 0.5866320133209229,
+   "std": 0.033819913660530755,
+   "min": 0.46309781074523926,
+   "max": 0.6814255714416504,
+   "n": 228
+  },
+  "masked_lpips_tiled": {
+   "mean": 0.5524322092054834,
+   "median": 0.5575197984774907,
+   "std": 0.0416948681872833,
+   "min": 0.39949888984362286,
+   "max": 0.635731619137984,
+   "n": 228
+  }
+ },
+ "trainer_results_json": null,
+ "figures": {},
+ "video": {},
+ "train_log": null
+}

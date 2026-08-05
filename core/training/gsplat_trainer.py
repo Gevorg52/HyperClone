@@ -118,6 +118,7 @@ def load_colmap_data(
     factor: int = 4,
     test_every: int = 8,
     normalize: bool = True,
+    holdout_list: str | None = None,
 ):
     """Load COLMAP reconstruction and images.
 
@@ -294,7 +295,31 @@ def load_colmap_data(
     # CONTIGUOUS arc of the trajectory (images are name-sorted ~ capture order) as the
     # test set and trains on the rest — simulates an under-observed/unseen region.
     _holdout = os.environ.get("APEX_HOLDOUT", "")
-    if _holdout:
+    if holdout_list:
+        # Explicit test-set membership by COLMAP image name (one per line, '#' comments).
+        # Needed whenever views come in GROUPS that must not be split — e.g. the 12
+        # rig crops of one 360 panorama (WP-O3): they share an optical centre, so
+        # holding out only some of them leaks the held-out view into training.
+        # Default None => the every-Nth rule below is untouched.
+        wanted = set()
+        with open(holdout_list, "r", encoding="utf8") as fh:
+            for line in fh:
+                line = line.split("#", 1)[0].strip()
+                if line:
+                    wanted.add(line.replace("\\", "/"))
+        by_name = {n.replace("\\", "/"): i for i, n in enumerate(image_names)}
+        missing = sorted(wanted - set(by_name))
+        if missing:
+            raise ValueError(
+                f"--holdout_list {holdout_list}: {len(missing)} name(s) are not in the "
+                f"reconstruction, e.g. {missing[:3]}")
+        test_indices = np.array(sorted(by_name[n] for n in wanted), dtype=np.int64)
+        mask = np.zeros(len(indices), dtype=bool)
+        mask[test_indices] = True
+        train_indices = indices[~mask]
+        print(f"[Data] holdout_list: {len(test_indices)} held out by name "
+              f"({os.path.basename(holdout_list)})")
+    elif _holdout:
         hs, hf = (float(x) for x in _holdout.split(","))
         n = len(indices)
         lo, hi = int(hs * n), int((hs + hf) * n)
@@ -680,8 +705,13 @@ def ssim(
     window_size: int = 11,
     C1: float = 0.01 ** 2,
     C2: float = 0.03 ** 2,
+    return_map: bool = False,
 ) -> torch.Tensor:
-    """Compute SSIM between two images. Input: (B, C, H, W) in [0, 1]."""
+    """Compute SSIM between two images. Input: (B, C, H, W) in [0, 1].
+
+    return_map=True returns the per-pixel SSIM map (B, C, H, W) instead of its mean, so a
+    caller can average it over a validity mask (--loss_mask) rather than over the frame.
+    """
     window = _fspecial_gauss(window_size, 1.5, img1.device)
     window = window.unsqueeze(0).unsqueeze(0).expand(3, 1, -1, -1)
     pad = window_size // 2
@@ -700,7 +730,7 @@ def ssim(
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / (
         (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2)
     )
-    return ssim_map.mean()
+    return ssim_map if return_map else ssim_map.mean()
 
 
 # ---------------------------------------------------------------------------
@@ -1031,6 +1061,7 @@ def train(args):
         factor=args.data_factor,
         test_every=args.test_every,
         normalize=args.normalize_world_space,
+        holdout_list=args.holdout_list,
     )
     coarse_until = args.coarse_until if args.coarse_factor > args.data_factor else 0
     if args.extra_views and coarse_until > 0:
@@ -1042,6 +1073,7 @@ def train(args):
             factor=args.coarse_factor,
             test_every=args.test_every,
             normalize=args.normalize_world_space,
+            holdout_list=args.holdout_list,
         )
         print(f"[Train] Coarse-to-fine: factor {args.coarse_factor} until step "
               f"{coarse_until}, then factor {args.data_factor}")
@@ -1430,13 +1462,34 @@ def train(args):
             rendered = rendered * m_rgb
             gt_image = gt_image * m_rgb
 
+        # Loss validity mask (WP-O3) — EXCLUDE pixels from the photometric loss instead of
+        # compositing them over black. `rgb_object_masked` (above) zeroes both sides, which
+        # (a) divides the loss magnitude by the valid fraction and (b) manufactures hard
+        # black edges at the mask boundary that the SSIM windows then chase. On the 360 rig
+        # crops (mean 33% valid) that combination made MCMC blow up — see
+        # `_infusion/wpo3_RECORD.md`. Here both terms are averaged over the VALID pixels
+        # only: L1 over the mask, and the per-pixel SSIM map over the mask. Default OFF.
+        loss_mask = None
+        if args.loss_mask and "mask" in batch:
+            loss_mask = batch["mask"].to(device, non_blocking=True)          # (H,W) [0,1]
+
         # L1 + SSIM loss
-        l1_loss = F.l1_loss(rendered, gt_image)
+        if loss_mask is not None:
+            w = loss_mask.unsqueeze(-1)
+            denom = w.sum() * rendered.shape[-1] + 1e-8
+            l1_loss = ((rendered - gt_image).abs() * w).sum() / denom
+        else:
+            l1_loss = F.l1_loss(rendered, gt_image)
 
         if ssim_lambda > 0:
             rendered_bchw = rendered.permute(2, 0, 1).unsqueeze(0)
             gt_bchw = gt_image.permute(2, 0, 1).unsqueeze(0)
-            ssim_val = ssim(rendered_bchw, gt_bchw)
+            if loss_mask is not None:
+                smap = ssim(rendered_bchw, gt_bchw, return_map=True)[0]      # (C,H,W)
+                ssim_val = ((smap * loss_mask).sum()
+                            / (loss_mask.sum() * smap.shape[0] + 1e-8))
+            else:
+                ssim_val = ssim(rendered_bchw, gt_bchw)
             loss = (1.0 - ssim_lambda) * l1_loss + ssim_lambda * (1.0 - ssim_val)
         else:
             loss = l1_loss
@@ -1668,9 +1721,16 @@ def train(args):
         if bil_grids is not None:
             loss = loss + 10.0 * _bil_tv(bil_grids.grids)
 
-        # PSNR for logging
+        # PSNR for logging (over the valid pixels when --loss_mask is on, so the logged
+        # number is comparable to the held-out masked PSNR instead of being inflated by
+        # the excluded region)
         with torch.no_grad():
-            mse = F.mse_loss(rendered, gt_image)
+            if loss_mask is not None:
+                w = loss_mask.unsqueeze(-1)
+                mse = (((rendered - gt_image) ** 2) * w).sum() / (
+                    w.sum() * rendered.shape[-1] + 1e-8)
+            else:
+                mse = F.mse_loss(rendered, gt_image)
             psnr = 10.0 * math.log10(1.0 / (mse.item() + 1e-10))
             running_loss = 0.95 * running_loss + 0.05 * loss.item()
             running_psnr = 0.95 * running_psnr + 0.05 * psnr
@@ -1864,6 +1924,11 @@ def main():
                              "nondeterministic (statistically matched, not "
                              "bit-identical)")
     parser.add_argument("--test_every", type=int, default=8)
+    parser.add_argument("--holdout_list", type=str, default=None,
+                        help="File of COLMAP image names (one per line) to use as the test "
+                             "set instead of the every-Nth --test_every rule. For captures "
+                             "whose views come in inseparable GROUPS (e.g. the 12 rig crops "
+                             "of one 360 pano). Default off.")
     parser.add_argument("--sh_degree", type=int, default=3)
     parser.add_argument("--ssim_lambda", type=float, default=0.2)
     parser.add_argument("--normalize_world_space",
@@ -1912,6 +1977,15 @@ def main():
                              "pixels the deleted background Gaussians can no longer "
                              "explain. Default OFF (production unchanged). Needs masks/ "
                              "or masks_{factor}/ next to the images.")
+    parser.add_argument("--loss_mask",
+                        action=argparse.BooleanOptionalAction, default=False,
+                        help="WP-O3: average the L1 and SSIM terms over the VALID mask "
+                             "pixels only (mask=1) instead of over the whole frame, and "
+                             "exclude the rest entirely. Unlike --rgb_object_masked this "
+                             "neither rescales the loss by the valid fraction nor creates "
+                             "black edges at the mask boundary — use it when the mask "
+                             "removes a LARGE part of the frame (360 rig crops keep about "
+                             "a third). Default OFF (production unchanged). Needs masks/.")
     # Sparse-depth supervision (free, faithful: rendered depth vs SfM points)
     parser.add_argument("--depth_lambda", type=float, default=0.0,
                         help="Weight of sparse depth loss: L1(rendered_depth, SfM_point_z) "

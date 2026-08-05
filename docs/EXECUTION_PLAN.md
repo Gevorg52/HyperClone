@@ -706,9 +706,45 @@ attention" against the sm_120 landmine before any use.
   28 new tests (suite 183→**211**). Evidence `_infusion/wpo2_RECORD.md` + `_infusion/wpo2/`
   (A/B scorecard, poses CSVs, rig JSON, trajectory plots, sweep + noise JSON); upstream
   snapshots in `tools/reference_sources/colmap_panorama/`.
-- **WP-O3 — 360 training lane** (~2–3 d): rig crops → existing perspective trainer
-  (masks plumbed); held-out = whole pano frames. Gate: trains to completion, baseline
-  held-out masked-LPIPS recorded, no operator ghosts / seam phantoms.
+- **WP-O3 — 360 training lane** (~2–3 d) — **✅ GATE PASSED 2026-08-05** on ARM 2, after
+  ARM 1 (the production config) **FAILED** it. `core/train_360_prep.py` (`--capture-type 360`
+  default-OFF) packages WP-O2 ARM A → trainer layout (flat names in file layout AND model,
+  trainer mask-name convention, pano-grouped split): **1 812 crops = 1 584 train / 228 test
+  (19 panos × 12, zero intra-pano leakage)**. Two default-OFF trainer flags:
+  `--holdout_list` (explicit test-set membership for view GROUPS the every-Nth rule cannot
+  express) and `--loss_mask` (average L1 + the SSIM **map** over the VALID pixels instead of
+  compositing over black). 18 new tests (suite 211→**235**).
+  **⚠ HEADLINE NEGATIVE — `--opacity_reg 0.01` (a production default) DESTROYS this scene.**
+  ARM 1 ran 30 k steps to completion with a normal-looking loss and a full 3 M cap, and
+  produced a model whose every render is a flat colour: held-out masked LPIPS **0.6949**,
+  masked PSNR **13.86**, mean opacity **0.00025**, **99.87 %** of Gaussians dead, means blown
+  to **±2.1 e6** (camera-cloud radius = 1). An 8-arm × 5 k-step controlled sweep isolates it:
+  arm G (`opacity_reg 0`, `scale_reg 0.01`) healthy, arm H (`opacity_reg 0.01`,
+  `scale_reg 0`) 99.9 % dead — **`opacity_reg` alone is the cause, `scale_reg` is harmless.**
+  Mechanism: 1 584 views ⇒ each Gaussian is rendered rarely, so the every-step opacity
+  penalty beats the photometric term; gsplat MCMC then injects **maximum** noise at
+  near-zero opacity by design (`op_sigmoid(1-opacity)`, k=100, x0=0.995) → positional
+  runaway. `--rgb_object_masked` amplifies it (÷3 loss magnitude on 33 %-valid crops + black
+  boundary edges) into an outright rasterizer memory blow-up (19.6→57.9 GB). **This is NOT
+  360-specific — expect it on any large many-view walkthrough.**
+  **ARM 2** (`--opacity_reg 0 --loss_mask --max_steps 200000`, else identical): 200 k steps,
+  **74 min 32 s**, 3 M Gaussians, mean opacity 0.555, dead 21.3 %, ‖mean‖ p99 4.20 — healthy.
+  Held-out (228 crops): **masked LPIPS 0.5222** (tiled) / 0.5572 (bbox), masked PSNR
+  **17.483**, SSIM 0.4334; full-frame 0.5587 / 16.720 / 0.4406. **Step-count ablation inside
+  ARM 2: at the same 30 k budget the fix alone gives +3.34 dB / −20.5 % LPIPS; the next 170 k
+  steps add only −5.5 % LPIPS and +0.29 dB** ⇒ the fix is nearly the whole win, the long
+  schedule buys perceptual sharpness only. Visual gate all PASS: **no operator ghost** (he
+  fills the GT of the most-excluded held-out crops and is simply absent from the render),
+  **no seam-band phantom geometry** (crops 5/7 look straight down the v360 seam), corridor
+  walkable (`walkthrough.mp4`, 151 poses). Splat is structurally correct but **soft** —
+  capture-limited by the 1 920²/lens proxy source, which re-arms PLAN_360 §7's 8K request.
+  Honest negatives: the skin-tone bystander heuristic is useless here (cream paper ⇒ 228/228
+  false positives — bystander check is visual over ~25 crops only, not exhaustive); the
+  held-out split is INTERPOLATION (neighbours ~0.4 units away stay in training) so the
+  numbers are optimistic; ARM 2 moves 3 levers at once (the 5 k sweep isolates two of them).
+  Evidence `_infusion/wpo3_RECORD.md` + `_infusion/wpo3/` (both arms' metrics/scorecards,
+  22 figures, MP4, `ckpt_health.json`, `diag_collapse{,2,3}.json`); PLY
+  `_dataset/360/train/wpo3_run_arm2/ply/point_cloud_199999.ply`.
 - **WP-O4 (optional)** — fisheye-native A/B via gsplat `camera_model="fisheye"` +
   OPENCV_FISHEYE 2-cam rig; adopt only on clear win vs WP-O3.
 
