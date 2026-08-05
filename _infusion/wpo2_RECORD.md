@@ -152,8 +152,11 @@ mean 1.08202, range 0.0058, sd 0.0028. COLMAP's incremental mapper is multi-thre
 **not bit-reproducible even at a fixed `--seed`**. The 198-vs-200 gap (0.012 px) is inside
 that spread; 192/194 (≈ +0.03 px) are the only values separated from the rest.
 
-Confirmed at full scale: ARM B on all 151 frames gives **1.2694 px at ih_fov 198 vs 1.2588 px
-at ih_fov 200** — i.e. the ranking *flips*, again by less than the noise.
+The same picture at full scale: ARM B on all 151 frames gives **1.2694 px at ih_fov 198 vs
+1.2588 px at ih_fov 200** — i.e. the ranking *flips*, again by less than the noise. Honest
+caveat on that sentence: those are **one run per value at 151 frames** (the noise floor above
+was measured on the 20-frame problem, sd ≈ 0.003–0.008 px), so the flip demonstrates that the
+20-frame ranking does not carry over, not that 200 is the better value.
 
 Consequences, decided and recorded:
 - **WP-O1's `--ih_fov/--iv_fov` default stays 200.** Nothing in the sweep justifies changing

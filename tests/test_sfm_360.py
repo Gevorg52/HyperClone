@@ -305,3 +305,74 @@ class TestHelpers:
     def test_report_schema_keys_are_json_serialisable(self):
         s = trajectory_stats(np.random.default_rng(0).normal(size=(20, 3)))
         json.dumps(s)          # numpy scalars would blow up here
+
+
+# --------------------------------------------------------------------------- review fixes
+
+class _FakeImage:
+    def __init__(self, name):
+        self.name = name
+
+
+class _FakeRec:
+    """Enough of a pycolmap.Reconstruction for reconstruction_metrics()."""
+
+    def __init__(self, names):
+        self.images = {i: _FakeImage(n) for i, n in enumerate(names)}
+
+    def reg_image_ids(self):
+        return list(self.images)
+
+    def num_images(self):
+        return len(self.images)
+
+    num_reg_images = num_images
+
+    def num_frames(self):
+        return len(self.images)
+
+    num_reg_frames = num_frames
+
+    def num_points3D(self):
+        return 0
+
+    def compute_num_observations(self):
+        return 0
+
+    def compute_mean_reprojection_error(self):
+        return 0.0
+
+    def compute_mean_track_length(self):
+        return 0.0
+
+    def compute_mean_observations_per_reg_image(self):
+        return 0.0
+
+
+class TestStrictPanoRegistration:
+    """A held-out split needs ALL 12 crops of a pano, not 'any crop registered'."""
+
+    def test_partial_pano_counts_as_registered_but_not_fully(self):
+        from core.sfm_360 import reconstruction_metrics
+
+        names = [f"pano_camera{c}/pano_00000.jpg" for c in range(12)]      # complete
+        names += [f"pano_camera{c}/pano_00001.jpg" for c in range(9)]      # 3 crops missing
+        m = reconstruction_metrics(_FakeRec(names), 2,
+                                   lambda n: n.split("/", 1)[1], images_per_pano=12)
+        assert m["num_registered_panos"] == 2
+        assert m["panos_fully_registered"] == 1
+        assert m["images_per_pano"] == 12
+        assert m["panos_fully_registered_pct"] == 50.0
+
+    def test_defaults_to_one_image_per_pano(self):
+        from core.sfm_360 import reconstruction_metrics
+
+        m = reconstruction_metrics(_FakeRec(["pano_00000.jpg", "pano_00001.jpg"]), 2)
+        assert m["num_registered_panos"] == m["panos_fully_registered"] == 2
+
+
+class TestCaptureTypeChoices:
+    def test_insta360_is_not_a_choice_of_this_module(self, capsys):
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(["--capture-type", "insta360"])
+        assert "invalid choice" in capsys.readouterr().err

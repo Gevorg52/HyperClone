@@ -99,12 +99,17 @@ class Watchdog:
     "die loudly with a stack dump". We do both.
     """
 
-    def __init__(self, timeout_s: float, interval_s: float = 60.0):
+    def __init__(self, timeout_s: float, interval_s: float = 60.0,
+                 out_dir: Path | None = None):
         self.timeout_s = float(timeout_s)
         self.interval_s = float(interval_s)
         self.t0 = time.time()
         self.stage_name = "init"
         self.stage_t0 = self.t0
+        # Set by reconstruct() so the timeout path can flag the half-written run dir before
+        # os._exit skips every normal teardown (the `except BaseException` in main() never
+        # runs for a watchdog kill).
+        self.out_dir = Path(out_dir) if out_dir else None
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -126,6 +131,13 @@ class Watchdog:
                           f"(--timeout_s {self.timeout_s:.0f}). This is the colmap#3599 "
                           f"failure mode; dumping all Python stacks and exiting 3.",
                           flush=True)
+                    # os._exit() skips main()'s handler, so mark the dir here or the
+                    # partial run would look complete to the next reader.
+                    if self.out_dir is not None:
+                        mark_incomplete(self.out_dir, TimeoutError(
+                            f"watchdog timeout after {el:.0f} s in stage "
+                            f"'{self.stage_name}' (--timeout_s {self.timeout_s:.0f}); "
+                            f"no sfm_report.json was written"))
                     faulthandler.dump_traceback()
                     sys.stdout.flush()
                     sys.stderr.flush()
@@ -316,6 +328,13 @@ class PanoProcessor:
 
         valid_fracs = []
         for cam_idx, (map_x, map_y) in enumerate(self.maps):
+            # BORDER_WRAP is correct for the YAW (x) axis — an ERP is periodic in x, so a
+            # sample at x = W - 0.2 legitimately blends with x = 0. It is NOT correct for
+            # PITCH (y): wrapping past a pole teleports a sample to the opposite side of the
+            # sphere instead of mirroring across the pole. The shipped preset stays in range
+            # (max |pitch| + vfov/2 = 35 + 45 = 80 deg < 90), so no y tap ever leaves [0, H).
+            # Any future preset whose pitch row + half-vFOV reaches +-90 deg MUST handle the
+            # pole explicitly (e.g. mirror y and shift x by W/2) instead of relying on this.
             image = cv2.remap(pano, map_x, map_y, cv2.INTER_LINEAR,
                               borderMode=cv2.BORDER_WRAP)
             mask = self.excl_masks[cam_idx]
@@ -448,16 +467,30 @@ def _f(x) -> float:
     return round(float(x), 6)
 
 
-def reconstruction_metrics(rec, n_input_panos: int, pano_of_image=None) -> dict:
-    """Registration / error / track statistics for one reconstruction."""
-    reg_panos = set()
+def reconstruction_metrics(rec, n_input_panos: int, pano_of_image=None,
+                           images_per_pano: int = 1) -> dict:
+    """Registration / error / track statistics for one reconstruction.
+
+    Two registration counts, deliberately: `num_registered_panos` is permissive (a pano
+    counts if ANY of its crops has a pose) and `panos_fully_registered` is strict (all
+    `images_per_pano` crops posed). The strict one is the semantics a held-out split needs
+    — withholding a pano only means something if every one of its crops actually exists in
+    the model.
+    """
+    per_pano: dict = {}
     for image_id in rec.reg_image_ids():
         name = rec.images[image_id].name
-        reg_panos.add(pano_of_image(name) if pano_of_image else name)
+        key = pano_of_image(name) if pano_of_image else name
+        per_pano[key] = per_pano.get(key, 0) + 1
+    reg_panos = set(per_pano)
+    n_full = sum(1 for c in per_pano.values() if c >= int(images_per_pano))
     return {
         "num_input_panos": int(n_input_panos),
         "num_registered_panos": len(reg_panos),
         "registered_pct": _f(100.0 * len(reg_panos) / max(1, n_input_panos)),
+        "images_per_pano": int(images_per_pano),
+        "panos_fully_registered": int(n_full),
+        "panos_fully_registered_pct": _f(100.0 * n_full / max(1, n_input_panos)),
         "num_images": int(rec.num_images()),
         "num_reg_images": int(rec.num_reg_images()),
         "num_frames": int(rec.num_frames()),
@@ -722,6 +755,10 @@ def run_matcher(args, database_path: Path, opts) -> dict:
     return info
 
 
+BA_REFINE_FLAGS = ("ba_refine_sensor_from_rig", "ba_refine_focal_length",
+                   "ba_refine_principal_point", "ba_refine_extra_params")
+
+
 def mapper_options(args, fix_rig: bool):
     import pycolmap
 
@@ -731,6 +768,16 @@ def mapper_options(args, fix_rig: bool):
         kw.update(ba_refine_sensor_from_rig=False, ba_refine_focal_length=False,
                   ba_refine_principal_point=False, ba_refine_extra_params=False)
     return pycolmap.IncrementalPipelineOptions(**kw)
+
+
+def ba_refine_settings(args, fix_rig: bool) -> dict:
+    """The BA refine flags as pycolmap will actually see them (defaults included).
+
+    Read back off a throwaway options object rather than re-listed by hand, so the report
+    cannot drift from what mapper_options() sets.
+    """
+    opts = mapper_options(args, fix_rig)
+    return {name: bool(getattr(opts, name)) for name in BA_REFINE_FLAGS}
 
 
 def run_crop_rig(args, paths: Paths, wd: Watchdog) -> dict:
@@ -818,7 +865,8 @@ def run_crop_rig(args, paths: Paths, wd: Watchdog) -> dict:
             (paths.qa / "pano_order.json").write_text(json.dumps(names, indent=1), "utf8")
 
     metrics = reconstruction_metrics(rec, len(pano_names),
-                                     lambda n: processor.split_image_name(n)[1])
+                                     lambda n: processor.split_image_name(n)[1],
+                                     images_per_pano=n_cams)
     return {
         "arm": "crop_rig",
         "render_type": args.render_type,
@@ -949,7 +997,7 @@ def reconstruct(args) -> dict:
     paths.sparse.mkdir(parents=True, exist_ok=True)
 
     pycolmap.set_random_seed(int(args.seed))
-    wd = Watchdog(args.timeout_s, args.heartbeat_s).start()
+    wd = Watchdog(args.timeout_s, args.heartbeat_s, out_dir=paths.out_dir).start()
     t_all = time.time()
     try:
         runner = run_crop_rig if args.arm == "crop_rig" else run_spherical
@@ -972,7 +1020,9 @@ def reconstruct(args) -> dict:
                    "num_threads": int(args.num_threads)},
         "options": {"arm": args.arm, "matcher": args.matcher,
                     "render_type": args.render_type if args.arm == "crop_rig" else None,
-                    "max_panos": int(args.max_panos), "timeout_s": float(args.timeout_s)},
+                    "max_panos": int(args.max_panos), "timeout_s": float(args.timeout_s),
+                    # gate-relevant mapper settings, recorded in the artifact itself
+                    **ba_refine_settings(args, fix_rig=args.arm == "crop_rig")},
         **result,
     }
     report["timings_s"]["total"] = round(time.time() - t_all, 2)
@@ -994,7 +1044,7 @@ def build_parser() -> argparse.ArgumentParser:
                     "DEFAULT-OFF: does nothing without --capture-type 360.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     p.add_argument("--capture-type", dest="capture_type", default="off",
-                   choices=["off", "360", "insta360"],
+                   choices=["off", "360"],
                    help="OFF by default. '360' opts into the 360 SfM lane.")
     p.add_argument("--arm", choices=list(ARMS), default="crop_rig",
                    help="crop_rig = 12 virtual pinholes per pano as one rig frame; "

@@ -281,7 +281,12 @@ better. If not run by 2026-09, park.
 
 - X4/X5 in **8K30 360 mode** (5.7K60 only if motion blur proves worse than resolution
   loss). H.265 max bitrate.
-- **FlowState + Horizon Lock ON** (upright panos = COLMAP precondition). **Balanced
+- **FlowState + Horizon Lock ON** (upright panos = COLMAP precondition). Measured cost of
+  ignoring it, WP-O2 on the un-locked `_077` clip: pano zenith tilt **median 11° / p90 27° /
+  max 48.6°** off the mean zenith (both arms agree to 0.3°) — yet COLMAP still registered
+  **151/151** at 1.23 px, so the "approximately upright" precondition is softer than its
+  wording. Shoot with Horizon Lock anyway (free); an ingest levelling pass is the cheap
+  retro-fit for footage that lacks it. **Balanced
   Exposure = Auto**; **FlickerFix ON** indoors under fluorescent/LED.
 - Walk SLOWLY (half normal pace), stick overhead or chest-forward but CONSISTENT; keep
   **≥0.8 m from everything** (official blind-zone; close foliage = seam ghosts); loop the
