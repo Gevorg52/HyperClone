@@ -306,6 +306,50 @@ visual checks persisted: no operator ghosts, no seam-band phantom geometry, corr
 walkable in viewer. Negative results (e.g., low-res source too soft) recorded honestly —
 they justify requesting the 8K original.
 
+### WP-O5 — 8K validation + free-viewpoint quality — ✅ GATE PASSED 2026-08-05
+> **Commissioned by the user's Postshot verdict on the WP-O3 `_077` splat — UNUSABLE in free
+> view ("hot mess… only from key angles everything lines up") — against an interpolative
+> holdout that said masked LPIPS 0.5222. §5's WP-O3 entry had already flagged that split as
+> the wrong instrument; this WP built the right ones and re-ran the lane on real 8K.**
+> **SfM on `_027` (94 panos @ 7680×3840 → 1 128 crops of 1920², f=960; `core/sfm_360.py`
+> derives crop geometry from pano height, so 8K needed no code change): 94/94 registered
+> (100 %, all 12 crops each), mean reproj 1.2096 px crop / 1.3308 px ERP, ONE reconstruction,
+> 63 min 46 s — 4.0× faster than WP-O2's 4 h 14 m at 4× the pixels per crop.** Stage split:
+> render 9.9 s · SIFT extract 198.7 s · match 3 470.6 s · map 132.4 s. §4's plan said "ALIKED
+> +LightGlue on crops is a later upgrade"; it was built (`--features aliked`, default-OFF) and
+> **it failed the parity guard**: at 11 476 provably identical pairs it is +0.166 px reproj
+> (~20× the mapper's noise floor), worse in every track-length stratum, worse on a matched
+> track population, unchanged at native resolution, and 2.3× slower. It does yield 4.0× the
+> points and agrees with SIFT on poses to 0.08 of an inter-panorama step — so the regression is
+> narrow, and the parity criterion may be the wrong one here (see the follow-up below).
+> **Training, 4 arms × 30 k** (baseline / +pose_opt / +opacity_reg 1e-3 / +erank 0.01@7k).
+> **`--opacity_reg 0.001` destroys the model exactly like 0.01 did, only ~10× later** — 99.9 %
+> dead by step 10 000, then a 4.6 → 61.7 GB rasterizer blow-up and a CUDA illegal memory access
+> at ~11 500. **The safe value is 0.** This run also had the GPU to itself, which removes
+> WP-O3's doubt about whether that crash was contention.
+> **`--pose_opt` is a measured NO-OP** (view-stability 3/8 sweeps, +0.00001; −0.10 dB held-out)
+> — WP-O3's ranked-first open question, closed with a negative.
+> **Held-out metrics cannot rank the arms** (masked PSNR 21.469 / 21.366 / 21.456, LPIPS
+> 0.5505 / 0.5499 / 0.5517) even though one arm has 4.5× fewer needles — which is the whole
+> point. A GT-free **viewpoint-stability** metric (LPIPS between consecutive renders of a small
+> lateral sweep, valid only at equal on-path fidelity) ranks **arm D (erank) first, winning
+> 8/8 sweeps by 3.2 %**. 8K vs the proxy: masked **PSNR 17.483 → 21.469**, SSIM
+> **0.4334 → 0.7140** — §7's 8K request is vindicated.
+> **Free-view verdict, bounded honestly: usable to ≈ ±1–1.5 m off the capture path** (rooms
+> readable, walls planar at 1.67 inter-panorama steps, where `_077` smeared) **but a genuinely
+> unvisited viewpoint 4.62 m off-path is incoherent in every arm.**
+> **Two transferable negatives.** (1) **Post-hoc pruning cannot fix free view** — deleting all
+> sub-0.05-opacity Gaussians (18–33 % of the model) is visually a no-op at every viewpoint on
+> four independent models, and deleting needles is catastrophic even on-path because they ARE
+> the surface. (2) **The `_027` theatre yields a 16× sparser cloud per panorama than `_077`
+> — detection is identical (~4 000 kpts/crop) but MATCHING collapses, 39.2 → 4.7 inliers per
+> verified pair** (texture-poor repetitive tiling and/or SIFT at 1920²; not isolated).
+> **Highest-value follow-up: the ALIKED-init A/B** (≈5× denser init on this capture).
+> New: `core/sfm_360_hloc.py`, `--features/--aliked_*/--retrieval_num`, `tools/prune_ply.py`
+> (+ the erank/needle metric), `_infusion/wpo5_{sfm_ab,reproj_split,traj_agree,train,eval,
+> needle_probe,viewstab,pipeline}.py`, 26 tests (suite 235 → 263).
+> Evidence: `_infusion/wpo5_RECORD.md` + `_infusion/wpo5/`.
+
 ### WP-O4 (optional, after O3 closes) — fisheye-native A/B — ~2–4 days
 Plumb `camera_model` through gsplat_trainer (flag, default "pinhole"); OPENCV_FISHEYE
 per-lens SfM (2-camera rig, circle cropped <180°, black-corner+operator masks); train on

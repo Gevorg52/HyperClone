@@ -1,0 +1,160 @@
+{
+ "wp": "WP-O5",
+ "probe": "needles vs fog, no retraining",
+ "created": "2026-08-05T08:47:24",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\_infusion\\wpo5_needle_probe.py",
+  "--data_dir",
+  "_dataset/360/train/wpo3_flowershop_077",
+  "--ckpt",
+  "_dataset/360/train/wpo3_run_arm2/ckpts/ckpt_199999_rank0.pt",
+  "--out",
+  "_infusion/wpo5/needle_probe_wpo3"
+ ],
+ "ckpt": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo3_run_arm2\\ckpts\\ckpt_199999_rank0.pt",
+ "num_gaussians": 3000000,
+ "kept_per_variant": {
+  "all": 3000000,
+  "no-fog (opacity>=0.05)": 1999692,
+  "no-needles (erank>=2.0)": 1429490,
+  "neither": 432587
+ },
+ "kept_frac_per_variant": {
+  "all": 1.0,
+  "no-fog (opacity>=0.05)": 0.666564,
+  "no-needles (erank>=2.0)": 0.476497,
+  "neither": 0.144196
+ },
+ "stats": {
+  "num_gaussians": 3000000,
+  "opacity_mean": 0.5549964904785156,
+  "opacity_median": 0.8401748538017273,
+  "opacity_frac_below": {
+   "0.005": 0.09501166666666666,
+   "0.01": 0.21299966666666667,
+   "0.02": 0.27672966666666665,
+   "0.05": 0.333436,
+   "0.1": 0.36795133333333335,
+   "0.2": 0.40420433333333333,
+   "0.5": 0.45796533333333334
+  },
+  "opacity_hist_edges": [
+   0.0,
+   0.005,
+   0.01,
+   0.02,
+   0.05,
+   0.1,
+   0.2,
+   0.5,
+   1.0
+  ],
+  "opacity_hist": [
+   285035,
+   353964,
+   191190,
+   170119,
+   103546,
+   108759,
+   161283,
+   1626104
+  ],
+  "bbox_p1": [
+   -2.0052312541007997,
+   -0.9526262366771698,
+   -1.8081169152259826
+  ],
+  "bbox_p99": [
+   2.6417479515075684,
+   1.6314286124706265,
+   3.6465892791748047
+  ],
+  "bbox_extent": [
+   4.646979205608368,
+   2.5840548491477966,
+   5.454706194400787
+  ],
+  "outliers_beyond_3x_bbox": 2653,
+  "outliers_beyond_10x_bbox": 713,
+  "rel_radius_p99": 1.2754487736184144,
+  "rel_radius_max": 18628.663169437445,
+  "mean_norm_median": 1.6988990306854248,
+  "mean_norm_p99": 4.197790622711182,
+  "scale_max_axis_median": 0.00256945937871933,
+  "erank_mean": 2.1755331398903404,
+  "erank_median": 1.9813360756816492,
+  "needle_frac_erank_lt_2": 0.5235033333333333,
+  "needle_frac_erank_lt_1_5": 0.277599,
+  "aspect_ratio_median": 6.86423921585083
+ },
+ "scale": {
+  "used": "baseline",
+  "metres_per_unit": 5.460964,
+  "step_median_units": 0.109871,
+  "assumed_walk_mps": 1.2,
+  "pano_fps": 2.0,
+  "baseline_step_m": 0.6,
+  "diagnostic_ceiling": {
+   "assumed_ceiling_m": 3.0,
+   "points_vertical_extent_units_p1_p99": 2.483595,
+   "metres_per_unit_ceiling": 1.207926,
+   "ratio_baseline_over_ceiling": 4.5209
+  },
+  "diagnostic_camera_height_spread_units_p1_p99": 0.856074,
+  "diagnostic_camera_height_spread_in_steps": 7.792,
+  "caveat": "metre labels are indicative; the exact relation is offset_m / baseline_step_m = offset in inter-panorama steps"
+ },
+ "views": [
+  {
+   "group": "pano_00000",
+   "label": "on-path (reference)",
+   "kind": "onpath"
+  },
+  {
+   "group": "pano_00000",
+   "label": "lateral -1.00 m (-1.67 steps)",
+   "kind": "lateral"
+  },
+  {
+   "group": "pano_00000",
+   "label": "lateral +1.00 m (+1.67 steps)",
+   "kind": "lateral"
+  },
+  {
+   "group": "pano_00150",
+   "label": "on-path (reference)",
+   "kind": "onpath"
+  },
+  {
+   "group": "pano_00150",
+   "label": "lateral -1.00 m (-1.67 steps)",
+   "kind": "lateral"
+  },
+  {
+   "group": "pano_00150",
+   "label": "lateral +1.00 m (+1.67 steps)",
+   "kind": "lateral"
+  },
+  {
+   "group": "unvisited",
+   "label": "unvisited az 0 deg (2.46 m from any capture position)",
+   "kind": "unvisited"
+  },
+  {
+   "group": "unvisited",
+   "label": "unvisited az 180 deg (2.46 m from any capture position)",
+   "kind": "unvisited"
+  }
+ ],
+ "figures": {
+  "probe_pano_00000_onpath_00.jpg": "pano_00000 / on-path (reference): all | no-fog (opacity>=0.05) | no-needles (erank>=2.0) | neither",
+  "probe_pano_00000_lateral_01.jpg": "pano_00000 / lateral -1.00 m (-1.67 steps): all | no-fog (opacity>=0.05) | no-needles (erank>=2.0) | neither",
+  "probe_pano_00000_lateral_02.jpg": "pano_00000 / lateral +1.00 m (+1.67 steps): all | no-fog (opacity>=0.05) | no-needles (erank>=2.0) | neither",
+  "probe_pano_00150_onpath_03.jpg": "pano_00150 / on-path (reference): all | no-fog (opacity>=0.05) | no-needles (erank>=2.0) | neither",
+  "probe_pano_00150_lateral_04.jpg": "pano_00150 / lateral -1.00 m (-1.67 steps): all | no-fog (opacity>=0.05) | no-needles (erank>=2.0) | neither",
+  "probe_pano_00150_lateral_05.jpg": "pano_00150 / lateral +1.00 m (+1.67 steps): all | no-fog (opacity>=0.05) | no-needles (erank>=2.0) | neither",
+  "probe_unvisited_unvisited_06.jpg": "unvisited / unvisited az 0 deg (2.46 m from any capture position): all | no-fog (opacity>=0.05) | no-needles (erank>=2.0) | neither",
+  "probe_unvisited_unvisited_07.jpg": "unvisited / unvisited az 180 deg (2.46 m from any capture position): all | no-fog (opacity>=0.05) | no-needles (erank>=2.0) | neither"
+ }
+}

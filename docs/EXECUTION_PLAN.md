@@ -749,6 +749,63 @@ attention" against the sm_120 landmine before any use.
   `_dataset/360/train/wpo3_run_arm2/ply/point_cloud_199999.ply`.
 - **WP-O4 (optional)** — fisheye-native A/B via gsplat `camera_model="fisheye"` +
   OPENCV_FISHEYE 2-cam rig; adopt only on clear win vs WP-O3.
+- **WP-O5 — 8K validation + free-viewpoint quality** — **✅ GATE PASSED 2026-08-05**
+  (SfM half outright; training/free-view half with a bounded claim). Commissioned after the
+  user's Postshot verdict on the WP-O3 `_077` splat: UNUSABLE free-view ("hot mess... only from
+  key angles everything lines up") while its interpolative holdout said LPIPS 0.5222 — exactly
+  the failure the WP-O3 record warned its split could not see.
+  **SfM (8K `_027`, 94 panos @ 7680×3840 → 1 128 crops of 1920² f=960 — `core/sfm_360.py` is
+  confirmed resolution-agnostic): 94/94 panoramas registered (100 %, all 12 crops each), mean
+  reproj 1.2096 px crop / 1.3308 px ERP, 1 reconstruction, 63 min 46 s = 4.0× faster than
+  WP-O2's 4 h 14 m at 4× the pixels per crop.**
+  **⚠ The SIFT-parity guard FAILED for ALIKED+LightGlue, so SIFT shipped.** New default-OFF
+  `--features aliked` (+ `core/sfm_360_hloc.py`: HLoc ALIKED/LightGlue/NetVLAD into the same
+  COLMAP DB, our own mask filter standing in for COLMAP's `MaskFeatures`, and
+  `pycolmap.geometric_verification(rig_verification=True)` — hloc's own verifier takes no rig
+  options). Controlled to **exactly 11 476 identical pairs** in every arm: ALIKED is +0.166 px
+  reproj (~20× the mapper's noise floor), worse in **every** track-length stratum, worse still
+  on a matched track population (+0.46 px), unchanged at native resolution (hypothesis
+  refuted), and **2.3× slower** end to end. **The speed premise that motivated the WP is also
+  false: SIFT extraction at 8K is 198.7 s of a 3 826 s run (3 %) — WP-O2's cost was matching +
+  mapping, never SIFT.** Honest counter-evidence: ALIKED yields **4.0× the points / 3.8× the
+  inlier matches**, and the two stacks **agree on camera poses to 0.08 of an inter-panorama
+  step**, so the regression is narrow.
+  **Training: 4 arms × 30 k** (A baseline / B +pose_opt / C +opacity_reg 1e-3 / D +erank
+  0.01@7k; **D added mid-WP on measurement**, recorded as a deviation).
+  **⚠ HEADLINE NEGATIVE #1 — `--opacity_reg 0.001` DESTROYS THE MODEL TOO; the safe value is
+  0, not "small".** Arm C reached **99.9 % dead / mean opacity 0.0077 / ‖mean‖ p99 36.8 by step
+  10 000**, then the rasterizer climbed 4.6 → 61.7 GB and died with a CUDA illegal memory
+  access at ~11 500 (exit 3). It had the GPU to itself, which upgrades WP-O3's hedged "the
+  crash may have been contention" into a clean mechanism claim.
+  **⚠ HEADLINE NEGATIVE #2 — post-hoc PRUNING cannot fix free view.** On the rejected `_077`
+  splat and on all three healthy 8K arms, deleting every sub-0.05-opacity Gaussian (18–33 % of
+  the model) leaves the render **visually identical at every viewpoint**; deleting the needles
+  instead (52 % of `_077`) is catastrophic **even on-path** — they *are* the surface. Only
+  training-time levers are admissible. New `tools/prune_ply.py` (PLY reader proven bit-exact
+  against `gsplat.export_splats`; opacity/bbox/erank pruning; `splat_stats` reports
+  `needle_frac_erank_lt_2` / `erank_mean` / `aspect_ratio_median`).
+  **Interpolative metrics cannot rank the arms** — masked PSNR 21.469 / 21.366 / 21.456 and
+  LPIPS 0.5505 / 0.5499 / 0.5517 for A/B/D, all within noise, while D has **4.5× fewer
+  needles**. So `_infusion/wpo5_viewstab.py` adds a GT-free **viewpoint-stability** metric
+  (LPIPS between consecutive renders of a small lateral sweep; valid only because on-path
+  fidelity is equal): **arm D wins 8/8 sweeps (−3.2 %, p ≈ 0.004); `--pose_opt` is a measured
+  NO-OP (3/8, +0.00001)** — closing the WP-O3 hand-off's ranked-first question with a negative.
+  8K vs the `_077` proxy: masked **PSNR 17.483 → 21.469 (+3.99 dB)**, SSIM **0.4334 → 0.7140**.
+  **Free-view verdict (bounded, honest): the usable envelope is now ≈ ±1–1.5 m around the
+  capture path** (at lateral ±1.0 m = 1.67 inter-panorama steps rooms are readable and walls
+  planar in A/B/D, where `_077` degenerated to paint-smear) **but a genuinely unvisited
+  viewpoint 4.62 m off-path is still incoherent in every arm.** Final arbiter: the user in Postshot.
+  **Also found: the 8K theatre yields a 16× sparser SfM cloud per panorama than `_077`**
+  (38 450 pts / 94 panos vs 622 325 / 151). Detection is identical (~4 000 kpts/crop);
+  **MATCHING collapses — 39.2 → 4.7 inliers per verified pair.** Texture-poor repetitive scene
+  and/or SIFT at 1920², not isolated. **Highest-value follow-up: the ALIKED-init A/B** (≈5×
+  denser init here) — the parity guard's accuracy criterion may be the wrong criterion for
+  this class of scene.
+  26 new tests (suite 235 → **263**). Evidence `_infusion/wpo5_RECORD.md` + `_infusion/wpo5/`
+  (3 SfM scorecards, reproj-split, trajectory-agreement, train_runs, viewstab, 28 off-path
+  sheets, 8 needle-probe sheets, fog pairs, 2 MP4s). PLYs (gitignored): arm D
+  `_dataset/360/train/wpo5_run_D/ply/point_cloud_29999{,_pruned_op05}.ply`; retro-pruned `_077`
+  `_dataset/360/train/wpo3_run_arm2/ply/point_cloud_199999_pruned_op05.ply`.
 
 ## Annex A — H100 causal-ArtiFixer probe (optional, ~$1, not excluded)
 Rent an H100 spot (sm_90: stock FA2/FA3 works). Steps: clone nv-tlabs/artifixer + weights

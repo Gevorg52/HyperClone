@@ -98,7 +98,8 @@ is a self-contained subprocess (`core/training/gsplat_trainer.py`).
 | `--antialiased` | on | Mip-Splatting (`rasterize_mode`). Keep on. |
 | `--pose_opt` | off→on(GUI) | SE(3) per-camera refinement, lr 1e-5. |
 | `--coarse_factor`/`--coarse_until` | — | coarse-to-fine: densify at lower res, finish at full. |
-| `--opacity_reg`/`--scale_reg` | 0.01 | MCMC regularizers. **`opacity_reg` is scene-dependent and can be CATASTROPHIC on many-view scenes — see §6.** |
+| `--opacity_reg`/`--scale_reg` | 0.01 | MCMC regularizers. **On a many-view walkthrough `opacity_reg` must be exactly 0 — 0.01 AND 0.001 both destroy the model (WP-O3, WP-O5); "small" is not safe, see §6.** `scale_reg` is harmless — keep it. |
+| `--erank_lambda`/`--erank_start` | 0/7000 | Anti-needle hinge (WP-Q2). On the WP-O5 8K walkthrough `0.01 @ 7k` cut needles (erank<2) **43.8 % → 9.7 %** at identical held-out PSNR/SSIM/LPIPS, identical opacity health and +3 % wall clock, and was the **only** arm that improved free-viewpoint stability (8/8 sweeps). Cheap; consider it default-ON for walkthroughs. |
 | `--holdout_list` | off | File of COLMAP image names to use as the test set instead of the every-`--test_every` rule. For captures whose views come in inseparable GROUPS (the 12 rig crops of one 360 pano). WP-O3. |
 | `--loss_mask` | off | Average L1 **and the per-pixel SSIM map** over the VALID mask only. Use when the mask removes a large part of the frame; `--rgb_object_masked` (which composites over black) is the WP-D1 object-refit lever and is the wrong tool there — §6. WP-O3. |
 | `--geo_reg` | off | edge-aware curvature depth smoothness. **No effect on textureless mush — leave off** (§6). |
@@ -206,6 +207,15 @@ own cull is still unfixed — see §7.
     0.01) healthy; arm H (opacity_reg 0.01, scale_reg 0) 99.9 % dead. Keep scale_reg.
   - **Fix:** `--opacity_reg 0` on such scenes. Worth **+3.34 dB / −20.5 % masked LPIPS** at
     an identical step budget.
+  - **"Just use a smaller value" DOES NOT WORK — measured, WP-O5 2026-08-05.** `0.001` (10×
+    below the destructive value) reaches the *same* end, roughly 10× later: **99.9 % of
+    Gaussians dead and mean opacity 0.0077 by step 10 000**, ‖mean‖ p99 blown 9.0 → 36.8,
+    then the rasterizer climbs **4.6 → 61.7 GB** over ~500 steps and the process dies with
+    `CUDA error: an illegal memory access was encountered` (~step 11 500). Train PSNR was
+    already 6 dB below the healthy arm while the loss looked ordinary. **The safe value is 0.**
+  - **The crash is the mechanism, not GPU contention.** WP-O3 could only say its crashed arms
+    had shared the GPU with an eval. WP-O5's arm C ran alone in a sequential sweep and died
+    identically, so collapse → positional runaway → OOM-class crash is one causal chain.
   - **How to detect it:** the training log will NOT tell you. Check the checkpoint:
     `sigmoid(opacities).mean()` (healthy ≈0.3–0.6) and `means.norm(dim=1).median()`
     (healthy ≈1–2 in normalised units). `_infusion/wpo3_diag_collapse.py::ckpt_stats` does it.
@@ -229,6 +239,26 @@ own cull is still unfixed — see §7.
   200 k (~126 epochs) — but honestly, most of that was wasted: the last 170 k steps bought
   only −5.5 % LPIPS and +0.29 dB held-out while train PSNR climbed 18.0 → 20.8 (i.e. it was
   mostly fitting the training views). Budget ~60–100 k for this shape of capture.
+- **Post-hoc PRUNING to fix free-viewpoint mush: cannot work. Both variants measured.**
+  WP-O5 (2026-08-05) took the WP-O3 splat the user rejected in Postshot ("hot mess… only from
+  key angles everything lines up") and ablated it without retraining
+  (`_infusion/wpo5_needle_probe.py`, evidence `_infusion/wpo5/needle_probe_wpo3/`):
+  - **Deleting low-opacity "fog" does nothing.** 33.3 % of its 3 M Gaussians sit below
+    opacity 0.05; deleting all 1 000 308 of them leaves the render **visually identical** at
+    on-path, lateral-off-path and never-visited viewpoints alike. So an opacity-pruned PLY is
+    a smaller file (708 → 472 MB), **not** a quality fix — do not ship one as a rescue.
+  - **Deleting needles is catastrophic.** The same checkpoint is **52.4 % needles**
+    (effective rank < 2; 27.8 % below 1.5; median axis aspect **6.9 : 1**), but dropping them
+    dissolves the walls into confetti **even at on-path viewpoints where the full render is
+    fine**. Needles here are not a contaminant on top of a good surface — they *are* the
+    surface representation.
+  - **Therefore the only admissible intervention is at TRAINING time** (grow fatter Gaussians:
+    `--erank_lambda`), never at export time. `tools/prune_ply.py` reports
+    `needle_frac_erank_lt_2` / `erank_mean` / `aspect_ratio_median` next to the opacity stats
+    so this is one command to check on any checkpoint.
+  - **Caveat kept explicit:** "needles cause the off-path failure" is a *hypothesis*. The
+    ablation proves only that needles cannot be removed after the fact; it cannot prove they
+    are the cause, because they are load-bearing where the render is good too.
 - **Edge-aware depth-smoothness (`--geo_reg`):** zero effect on textureless mush —
   it's a *geometry* lever, the mush is lost *appearance* detail. Gradients verified
   to flow (not a no-op); just the wrong lever. Kept off by default.

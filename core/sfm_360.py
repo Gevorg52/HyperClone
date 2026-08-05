@@ -53,9 +53,18 @@ deviations from upstream:
      process dumps every thread's Python stack and exits 3.
   5. Covisibility filtering (needs a depth-derived .npz we do not have) is not ported.
 
+FEATURES (WP-O5, crop_rig only): `--features sift` (DEFAULT, unchanged WP-O2 behaviour) or
+`--features aliked` = ALIKED + LightGlue on the GPU via HLoc, written into the SAME database
+and handed to the SAME mapper (`core/sfm_360_hloc.py`). Only keypoints/descriptors/matcher
+change; the rig config, the WP-O1 masks, `rig_verification`, `skip_image_pairs_in_same_frame`,
+the sequential pairing options and the mapper options are shared, so the two are a controlled
+A/B. `--retrieval_num k` unions NetVLAD top-k pairs in as the loop-closure equivalent of
+`--loop_detection 1`.
+
 ENVIRONMENT: our pycolmap 4.1.0 wheel is built WITHOUT CUDA ("COLMAP 4.1.0 Commit fa8e3b3 on
 2026-06-26 without CUDA"), so SIFT extraction and matching run on the CPU. `--use_gpu 1` is
-accepted and recorded but has no effect in this build; the default is CPU.
+accepted and recorded but has no effect in this build; the default is CPU. `--features aliked`
+is the GPU path (torch/CUDA, not COLMAP's CUDA).
 
 EXIT CODES: 0 = ok · 1 = the run failed (bad input / COLMAP error) · 2 = usage (arm flag off,
 missing args, out_dir already populated without --overwrite) · 3 = `--timeout_s` fired.
@@ -728,17 +737,25 @@ def matching_options(args, rig: bool):
     return opts
 
 
+def sequential_pairing_options(args):
+    """The one place SequentialPairingOptions is built, so the SIFT matcher and the
+    `--features aliked` pair generator provably see the same pairing."""
+    import pycolmap
+
+    return pycolmap.SequentialPairingOptions(
+        overlap=int(args.overlap),
+        quadratic_overlap=bool(args.quadratic_overlap),
+        loop_detection=bool(args.loop_detection),
+        num_threads=int(args.num_threads))
+
+
 def run_matcher(args, database_path: Path, opts) -> dict:
     import pycolmap
 
     t0 = time.time()
     info = {"matcher": args.matcher}
     if args.matcher == "sequential":
-        pairing = pycolmap.SequentialPairingOptions(
-            overlap=int(args.overlap),
-            quadratic_overlap=bool(args.quadratic_overlap),
-            loop_detection=bool(args.loop_detection),
-            num_threads=int(args.num_threads))
+        pairing = sequential_pairing_options(args)
         info.update(overlap=int(args.overlap),
                     quadratic_overlap=bool(args.quadratic_overlap),
                     loop_detection=bool(args.loop_detection),
@@ -809,27 +826,49 @@ def run_crop_rig(args, paths: Paths, wd: Watchdog) -> dict:
     t_render = time.time() - t0
     valid = np.array([s["valid_frac"] for s in stats])          # (n_panos, n_cams)
 
-    wd.stage("extract_features")
-    t0 = time.time()
-    reader = pycolmap.ImageReaderOptions(
-        camera_model=processor.camera.model_name,
-        camera_params=processor.camera.params_to_string())
-    if paths.masks is not None:
-        reader.mask_path = crop_masks
-    pycolmap.extract_features(
-        paths.database, crop_images, reader_options=reader,
-        camera_mode=pycolmap.CameraMode.PER_FOLDER,
-        extraction_options=pycolmap.FeatureExtractionOptions(
-            use_gpu=bool(args.use_gpu), gpu_index=str(args.gpu_index),
-            num_threads=int(args.num_threads)))
-    t_extract = time.time() - t0
+    hloc_info = None
+    if getattr(args, "features", "sift") == "aliked":
+        # WP-O5 GPU stack. Same database, same rig config, same masks, same pairing options,
+        # same rig_verification — only the keypoints/descriptors/matcher differ.
+        from core import sfm_360_hloc
 
-    wd.stage("apply_rig_config")
-    with pycolmap.Database.open(paths.database) as db:
-        pycolmap.apply_rig_config([processor.rig_config], db)
+        t0 = time.time()
+        hloc_info = sfm_360_hloc.build_database(
+            args, paths.database, crop_images,
+            crop_masks if paths.masks is not None else None,
+            processor.camera, processor.rig_config,
+            sequential_pairing_options(args),
+            workdir=paths.out_dir / "hloc", stage=wd.stage)
+        t_extract = hloc_info["timings_s"].get("extract", 0.0)
+        match_info = {"matcher": f"{args.matcher}+hloc-lightglue",
+                      "overlap": int(args.overlap),
+                      "quadratic_overlap": bool(args.quadratic_overlap),
+                      "loop_detection": bool(args.loop_detection),
+                      "expand_rig_images": bool(sequential_pairing_options(args)
+                                                .expand_rig_images),
+                      "seconds": round(time.time() - t0 - t_extract, 2)}
+    else:
+        wd.stage("extract_features")
+        t0 = time.time()
+        reader = pycolmap.ImageReaderOptions(
+            camera_model=processor.camera.model_name,
+            camera_params=processor.camera.params_to_string())
+        if paths.masks is not None:
+            reader.mask_path = crop_masks
+        pycolmap.extract_features(
+            paths.database, crop_images, reader_options=reader,
+            camera_mode=pycolmap.CameraMode.PER_FOLDER,
+            extraction_options=pycolmap.FeatureExtractionOptions(
+                use_gpu=bool(args.use_gpu), gpu_index=str(args.gpu_index),
+                num_threads=int(args.num_threads)))
+        t_extract = time.time() - t0
 
-    wd.stage(f"match_{args.matcher}")
-    match_info = run_matcher(args, paths.database, matching_options(args, rig=True))
+        wd.stage("apply_rig_config")
+        with pycolmap.Database.open(paths.database) as db:
+            pycolmap.apply_rig_config([processor.rig_config], db)
+
+        wd.stage(f"match_{args.matcher}")
+        match_info = run_matcher(args, paths.database, matching_options(args, rig=True))
 
     wd.stage("incremental_mapping")
     t0 = time.time()
@@ -869,6 +908,8 @@ def run_crop_rig(args, paths: Paths, wd: Watchdog) -> dict:
                                      images_per_pano=n_cams)
     return {
         "arm": "crop_rig",
+        "features": getattr(args, "features", "sift"),
+        "hloc": hloc_info,
         "render_type": args.render_type,
         "num_virtual_cameras": n_cams,
         "pano_size": [pano_w, pano_h],
@@ -1019,6 +1060,7 @@ def reconstruct(args) -> dict:
                    "use_gpu_requested": bool(args.use_gpu),
                    "num_threads": int(args.num_threads)},
         "options": {"arm": args.arm, "matcher": args.matcher,
+                    "features": getattr(args, "features", "sift"),
                     "render_type": args.render_type if args.arm == "crop_rig" else None,
                     "max_panos": int(args.max_panos), "timeout_s": float(args.timeout_s),
                     # gate-relevant mapper settings, recorded in the artifact itself
@@ -1070,6 +1112,21 @@ def build_parser() -> argparse.ArgumentParser:
                    help="crop_rig only: threads used to render crops")
 
     g = p.add_argument_group("features / matching / mapping")
+    g.add_argument("--features", default="sift", choices=["sift", "aliked"],
+                   help="sift = pycolmap CPU SIFT + match_sequential (WP-O2, the default; "
+                        "production behaviour unchanged). aliked = ALIKED+LightGlue on the GPU "
+                        "via HLoc into the SAME database (WP-O5, crop_rig arm only) — same rig "
+                        "config, same masks, same rig_verification, same mapper")
+    g.add_argument("--aliked_max_keypoints", type=int, default=8192,
+                   help="--features aliked: keypoints per crop (SIFT's max_num_features is "
+                        "8192, so this is parity)")
+    g.add_argument("--aliked_resize_max", type=int, default=1600,
+                   help="--features aliked: longest side fed to ALIKED (production value, "
+                        "core/feature_configs.py); <=0 = native crop resolution")
+    g.add_argument("--retrieval_num", type=int, default=0,
+                   help="--features aliked: union NetVLAD top-k retrieval pairs into the "
+                        "sequential pairs (the loop-closure equivalent of --loop_detection 1). "
+                        "0 = sequential only")
     g.add_argument("--matcher", default="sequential",
                    choices=["sequential", "exhaustive", "vocabtree"],
                    help="sequential is rig-aware (expand_rig_images) and is what COLMAP's own "
@@ -1107,6 +1164,10 @@ def main(argv=None) -> int:
         return 2
     if not args.out_dir:
         print("--out_dir is required with --capture-type 360")
+        return 2
+    if getattr(args, "features", "sift") == "aliked" and args.arm != "crop_rig":
+        print("--features aliked is implemented for --arm crop_rig only (the rig config and "
+              "rig_verification are what make it a controlled swap)")
         return 2
     try:
         reconstruct(args)

@@ -1,0 +1,192 @@
+{
+ "wp": "WP-O5",
+ "created": "2026-08-05T08:20:01",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\_infusion\\wpo5_reproj_split.py",
+  "--model",
+  "sift=_dataset/360/sfm/wpo5_ab_sift/sparse/0",
+  "--model",
+  "aliked=_dataset/360/sfm/wpo5_ab_aliked/sparse/0",
+  "--out",
+  "_infusion/wpo5/reproj_split.json"
+ ],
+ "note": "reprojection error per 3D point, split by track length. Errors are in the 1920x1920 crop model's pixels.",
+ "models": {
+  "sift": {
+   "dir": "_dataset/360/sfm/wpo5_ab_sift/sparse/0",
+   "num_reg_images": 240,
+   "num_points3D": 9761,
+   "num_observations": 37871,
+   "mean_track_length": 3.8798,
+   "track_length_hist": {
+    "2": 1343,
+    "3": 4505,
+    "4": 1610,
+    "5": 909,
+    "6": 461,
+    "7": 341,
+    "8": 223,
+    "9": 166,
+    "10": 109
+   },
+   "track_length_ge_11": 94,
+   "by_track_length": {
+    "all": {
+     "n": 9761,
+     "mean": 1.2023,
+     "median": 1.1586,
+     "p90": 1.9849,
+     "p99": 2.6677,
+     "max": 3.7204
+    },
+    "track>=2": {
+     "n": 9761,
+     "mean": 1.2023,
+     "median": 1.1586,
+     "p90": 1.9849,
+     "p99": 2.6677,
+     "max": 3.7204
+    },
+    "track>=3": {
+     "n": 8418,
+     "mean": 1.2497,
+     "median": 1.2043,
+     "p90": 1.9957,
+     "p99": 2.6352,
+     "max": 3.5065
+    },
+    "track>=4": {
+     "n": 3913,
+     "mean": 1.3606,
+     "median": 1.3111,
+     "p90": 2.035,
+     "p99": 2.5925,
+     "max": 3.4865
+    },
+    "track>=6": {
+     "n": 1394,
+     "mean": 1.3999,
+     "median": 1.326,
+     "p90": 2.0256,
+     "p99": 2.4313,
+     "max": 2.9753
+    },
+    "track>=10": {
+     "n": 203,
+     "mean": 1.5144,
+     "median": 1.4428,
+     "p90": 2.0786,
+     "p99": 2.3275,
+     "max": 2.3755
+    },
+    "track==2": {
+     "n": 1343,
+     "mean": 0.9054,
+     "median": 0.7289,
+     "p90": 1.8452,
+     "p99": 3.1177,
+     "max": 3.7204
+    }
+   }
+  },
+  "aliked": {
+   "dir": "_dataset/360/sfm/wpo5_ab_aliked/sparse/0",
+   "num_reg_images": 240,
+   "num_points3D": 39330,
+   "num_observations": 138298,
+   "mean_track_length": 3.5163,
+   "track_length_hist": {
+    "2": 13742,
+    "3": 12849,
+    "4": 5242,
+    "5": 2766,
+    "6": 1632,
+    "7": 1112,
+    "8": 685,
+    "9": 438,
+    "10": 271
+   },
+   "track_length_ge_11": 593,
+   "by_track_length": {
+    "all": {
+     "n": 39330,
+     "mean": 1.3685,
+     "median": 1.401,
+     "p90": 2.1947,
+     "p99": 2.8885,
+     "max": 3.8507
+    },
+    "track>=2": {
+     "n": 39330,
+     "mean": 1.3685,
+     "median": 1.401,
+     "p90": 2.1947,
+     "p99": 2.8885,
+     "max": 3.8507
+    },
+    "track>=3": {
+     "n": 25588,
+     "mean": 1.5478,
+     "median": 1.562,
+     "p90": 2.2178,
+     "p99": 2.7638,
+     "max": 3.4553
+    },
+    "track>=4": {
+     "n": 12739,
+     "mean": 1.6554,
+     "median": 1.6551,
+     "p90": 2.2335,
+     "p99": 2.699,
+     "max": 3.4553
+    },
+    "track>=6": {
+     "n": 4731,
+     "mean": 1.7234,
+     "median": 1.7201,
+     "p90": 2.2267,
+     "p99": 2.5888,
+     "max": 3.0587
+    },
+    "track>=10": {
+     "n": 864,
+     "mean": 1.7741,
+     "median": 1.7779,
+     "p90": 2.2273,
+     "p99": 2.5619,
+     "max": 3.0587
+    },
+    "track==2": {
+     "n": 13742,
+     "mean": 1.0344,
+     "median": 0.896,
+     "p90": 2.1061,
+     "p99": 3.0783,
+     "max": 3.8507
+    }
+   }
+  }
+ },
+ "matched_top_tracks": {
+  "n_points_each": 9761,
+  "by_model": {
+   "sift": {
+    "n": 9761,
+    "mean": 1.2023,
+    "median": 1.1586,
+    "p90": 1.9849,
+    "p99": 2.6677,
+    "max": 3.7204
+   },
+   "aliked": {
+    "n": 9761,
+    "mean": 1.6656,
+    "median": 1.6639,
+    "p90": 2.2269,
+    "p99": 2.6614,
+    "max": 3.4553
+   }
+  }
+ }
+}

@@ -1,0 +1,398 @@
+{
+ "wp": "WP-O5",
+ "check": "SIFT-parity guard (crop-rig SfM, features-only A/B)",
+ "created": "2026-08-05T08:18:47",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\_infusion\\wpo5_sfm_ab.py",
+  "--dataset",
+  "_dataset/360/theater_027_8k",
+  "--panos",
+  "20",
+  "--work",
+  "_dataset/360/sfm",
+  "--out",
+  "_infusion/wpo5/sfm_parity_ab.json"
+ ],
+ "dataset": "_dataset/360/theater_027_8k",
+ "panos": 20,
+ "seed": 0,
+ "shared": "rig config, SIMPLE_PINHOLE intrinsics, WP-O1 masks, SequentialPairingOptions(overlap=10, quadratic, loop_detection=0), rig_verification=True, skip_image_pairs_in_same_frame, mapper options",
+ "arms": [
+  {
+   "tag": "sift",
+   "features": "sift",
+   "returncode": 0,
+   "wall_clock_s": 173.71,
+   "argv": [
+    "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "-m",
+    "core.sfm_360",
+    "--capture-type",
+    "360",
+    "--arm",
+    "crop_rig",
+    "--features",
+    "sift",
+    "--dataset",
+    "_dataset/360/theater_027_8k",
+    "--out_dir",
+    "_dataset\\360\\sfm\\wpo5_ab_sift",
+    "--overwrite",
+    "--max_panos",
+    "20",
+    "--matcher",
+    "sequential",
+    "--overlap",
+    "10",
+    "--quadratic_overlap",
+    "1",
+    "--loop_detection",
+    "0",
+    "--retrieval_num",
+    "0",
+    "--seed",
+    "0",
+    "--timeout_s",
+    "21600.0",
+    "--heartbeat_s",
+    "300",
+    "--progress",
+    "10"
+   ],
+   "log": "_dataset\\360\\sfm\\wpo5_ab_sift.log",
+   "out_dir": "_dataset\\360\\sfm\\wpo5_ab_sift",
+   "timings_s": {
+    "render": 2.28,
+    "extract": 46.69,
+    "match": 105.52,
+    "mapping": 12.95,
+    "total": 173.46
+   },
+   "metrics_crop": {
+    "num_input_panos": 20,
+    "num_registered_panos": 20,
+    "registered_pct": 100.0,
+    "images_per_pano": 12,
+    "panos_fully_registered": 20,
+    "panos_fully_registered_pct": 100.0,
+    "num_images": 240,
+    "num_reg_images": 240,
+    "num_frames": 20,
+    "num_reg_frames": 20,
+    "num_points3D": 9761,
+    "num_observations": 37871,
+    "mean_reproj_error_px": 1.202296,
+    "mean_track_length": 3.879828,
+    "mean_obs_per_reg_image": 157.795833
+   },
+   "metrics_equirect": {
+    "num_input_panos": 20,
+    "num_registered_panos": 20,
+    "registered_pct": 100.0,
+    "images_per_pano": 1,
+    "panos_fully_registered": 20,
+    "panos_fully_registered_pct": 100.0,
+    "num_images": 20,
+    "num_reg_images": 20,
+    "num_frames": 20,
+    "num_reg_frames": 20,
+    "num_points3D": 9761,
+    "num_observations": 37871,
+    "mean_reproj_error_px": 1.309472,
+    "mean_track_length": 3.879828,
+    "mean_obs_per_reg_image": 1893.55
+   },
+   "trajectory": {
+    "n": 20,
+    "pca_extent_sorted": [
+     10.334965,
+     0.781311,
+     0.195138
+    ],
+    "pca_extent_ratio": [
+     1.0,
+     0.075599,
+     0.018881
+    ],
+    "bbox_extent_sorted": [
+     9.989897,
+     2.967693,
+     0.42884
+    ],
+    "bbox_axes_sorted": [
+     2,
+     0,
+     1
+    ],
+    "bbox_extent_ratio": [
+     1.0,
+     0.297069,
+     0.042927
+    ],
+    "step_median": 0.478139,
+    "step_mean": 0.613889,
+    "step_p90": 1.103009,
+    "step_max": 1.218343,
+    "step_p90_over_median": 2.306879,
+    "step_max_over_median": 2.548094,
+    "num_steps_gt_5x_median": 0,
+    "path_length": 11.663895,
+    "end_to_end_displacement": 9.48997,
+    "path_over_displacement": 1.229076,
+    "extent_over_median_step": 21.614987,
+    "up_world": [
+     0.01883,
+     -0.99957,
+     -0.022472
+    ],
+    "height_extent": 0.600592,
+    "height_std": 0.234381,
+    "floorplan_extent_sorted": [
+     10.325503,
+     0.743147
+    ],
+    "floorplan_aspect": 0.071972,
+    "height_over_floorplan_extent": 0.058166
+   },
+   "matching": {
+    "matcher": "sequential",
+    "overlap": 10,
+    "quadratic_overlap": true,
+    "loop_detection": false,
+    "expand_rig_images": true,
+    "seconds": 105.52
+   },
+   "hloc": null,
+   "crop_size": [
+    1920,
+    1920
+   ],
+   "crop_focal": 960.0,
+   "database": {
+    "num_images": 240,
+    "keypoints_total": 906283,
+    "keypoints_per_image_mean": 3776.2,
+    "keypoints_per_image_min": 1286,
+    "keypoints_per_image_max": 7663,
+    "matched_image_pairs": 11476,
+    "verified_image_pairs": 11476,
+    "inlier_matches": 78518
+   }
+  },
+  {
+   "tag": "aliked",
+   "features": "aliked",
+   "returncode": 0,
+   "wall_clock_s": 387.63,
+   "argv": [
+    "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "-m",
+    "core.sfm_360",
+    "--capture-type",
+    "360",
+    "--arm",
+    "crop_rig",
+    "--features",
+    "aliked",
+    "--dataset",
+    "_dataset/360/theater_027_8k",
+    "--out_dir",
+    "_dataset\\360\\sfm\\wpo5_ab_aliked",
+    "--overwrite",
+    "--max_panos",
+    "20",
+    "--matcher",
+    "sequential",
+    "--overlap",
+    "10",
+    "--quadratic_overlap",
+    "1",
+    "--loop_detection",
+    "0",
+    "--retrieval_num",
+    "0",
+    "--seed",
+    "0",
+    "--timeout_s",
+    "21600.0",
+    "--heartbeat_s",
+    "300",
+    "--progress",
+    "10",
+    "--aliked_max_keypoints",
+    "8192",
+    "--aliked_resize_max",
+    "1600"
+   ],
+   "log": "_dataset\\360\\sfm\\wpo5_ab_aliked.log",
+   "out_dir": "_dataset\\360\\sfm\\wpo5_ab_aliked",
+   "timings_s": {
+    "render": 2.2,
+    "extract": 15.03,
+    "match": 319.61,
+    "mapping": 44.44,
+    "total": 386.71
+   },
+   "metrics_crop": {
+    "num_input_panos": 20,
+    "num_registered_panos": 20,
+    "registered_pct": 100.0,
+    "images_per_pano": 12,
+    "panos_fully_registered": 20,
+    "panos_fully_registered_pct": 100.0,
+    "num_images": 240,
+    "num_reg_images": 240,
+    "num_frames": 20,
+    "num_reg_frames": 20,
+    "num_points3D": 39330,
+    "num_observations": 138298,
+    "mean_reproj_error_px": 1.368451,
+    "mean_track_length": 3.516349,
+    "mean_obs_per_reg_image": 576.241667
+   },
+   "metrics_equirect": {
+    "num_input_panos": 20,
+    "num_registered_panos": 20,
+    "registered_pct": 100.0,
+    "images_per_pano": 1,
+    "panos_fully_registered": 20,
+    "panos_fully_registered_pct": 100.0,
+    "num_images": 20,
+    "num_reg_images": 20,
+    "num_frames": 20,
+    "num_reg_frames": 20,
+    "num_points3D": 39330,
+    "num_observations": 138298,
+    "mean_reproj_error_px": 1.490358,
+    "mean_track_length": 3.516349,
+    "mean_obs_per_reg_image": 6914.9
+   },
+   "trajectory": {
+    "n": 20,
+    "pca_extent_sorted": [
+     10.269643,
+     0.772715,
+     0.177593
+    ],
+    "pca_extent_ratio": [
+     1.0,
+     0.075243,
+     0.017293
+    ],
+    "bbox_extent_sorted": [
+     10.190427,
+     1.251056,
+     1.129807
+    ],
+    "bbox_axes_sorted": [
+     2,
+     1,
+     0
+    ],
+    "bbox_extent_ratio": [
+     1.0,
+     0.122768,
+     0.110869
+    ],
+    "step_median": 0.528947,
+    "step_mean": 0.60754,
+    "step_p90": 1.088833,
+    "step_max": 1.173517,
+    "step_p90_over_median": 2.058492,
+    "step_max_over_median": 2.218591,
+    "num_steps_gt_5x_median": 0,
+    "path_length": 11.543257,
+    "end_to_end_displacement": 9.498213,
+    "path_over_displacement": 1.215308,
+    "extent_over_median_step": 19.415264,
+    "up_world": [
+     -0.041746,
+     -0.996529,
+     -0.07202
+    ],
+    "height_extent": 0.576949,
+    "height_std": 0.224093,
+    "floorplan_extent_sorted": [
+     10.261734,
+     0.733393
+    ],
+    "floorplan_aspect": 0.071469,
+    "height_over_floorplan_extent": 0.056223
+   },
+   "matching": {
+    "matcher": "sequential+hloc-lightglue",
+    "overlap": 10,
+    "quadratic_overlap": true,
+    "loop_detection": false,
+    "expand_rig_images": true,
+    "seconds": 319.61
+   },
+   "hloc": {
+    "backend": "hloc-aliked-lightglue",
+    "aliked_max_keypoints": 8192,
+    "aliked_resize_max": 1600,
+    "retrieval_num": 0,
+    "workdir": "_dataset\\360\\sfm\\wpo5_ab_aliked\\hloc",
+    "features_h5": "_dataset\\360\\sfm\\wpo5_ab_aliked\\hloc\\feats-aliked-n8192-r1600.h5",
+    "mask_filter": {
+     "images": 240,
+     "kept": 572867,
+     "dropped": 1133341,
+     "empty_images": [],
+     "min_kept": 309,
+     "missing_masks": 0,
+     "dropped_frac": 0.664246,
+     "seconds": 4.28
+    },
+    "mask_check": {
+     "images_checked": 60,
+     "keypoints_checked": 133250,
+     "keypoints_on_masked_pixels": 0
+    },
+    "pairs": {
+     "sequential": 11476,
+     "retrieval": 0,
+     "union": 11476,
+     "path": "_dataset\\360\\sfm\\wpo5_ab_aliked\\hloc\\pairs.txt"
+    },
+    "matches_h5": "_dataset\\360\\sfm\\wpo5_ab_aliked\\hloc\\feats-aliked-n8192-r1600_matches-aliked-lightglue_pairs.h5",
+    "database": {
+     "num_images": 240,
+     "num_cameras": 12,
+     "num_rigs": 1,
+     "num_frames": 20,
+     "num_keypoints": 572867,
+     "num_matched_image_pairs": 11476,
+     "num_verified_image_pairs": 11476,
+     "num_inlier_matches": 296730
+    },
+    "rig_verification": true,
+    "timings_s": {
+     "import_images": 4.72,
+     "extract": 15.03,
+     "pairs": 0.02,
+     "match": 301.02,
+     "import": 4.88,
+     "verify": 2.93
+    },
+    "seconds": 328.6
+   },
+   "crop_size": [
+    1920,
+    1920
+   ],
+   "crop_focal": 960.0,
+   "database": {
+    "num_images": 240,
+    "keypoints_total": 572867,
+    "keypoints_per_image_mean": 2386.9,
+    "keypoints_per_image_min": 309,
+    "keypoints_per_image_max": 4083,
+    "matched_image_pairs": 11476,
+    "verified_image_pairs": 11476,
+    "inlier_matches": 296730
+   }
+  }
+ ]
+}

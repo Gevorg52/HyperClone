@@ -742,3 +742,54 @@ black), `_infusion/wpo3_eval.py`, `_infusion/wpo3_diag_collapse.py`.
 
 ### No new dependencies
 No pip install of any kind. torch 2.11.0+cu128 untouched, gsplat not rebuilt.
+
+---
+
+## WP-O5 — 8K validation + free-viewpoint quality (added 2026-08-05)
+
+New: `core/sfm_360_hloc.py` (GPU feature backend for the 360 crop-rig SfM lane),
+`core/sfm_360.py --features aliked` (default stays `sift`), `tools/prune_ply.py`,
+`_infusion/wpo5_{sfm_ab,train,eval}.py`. **Nothing was vendored and nothing was
+installed** — every component below was already present and already logged; this
+section records the dependency surface of the 8K lane end to end.
+
+### Components reused (all previously logged; new *usage* recorded here)
+- **HLoc v1.5** (`../Hierarchical-Localization`, editable, **Apache-2.0**) — used as a
+  LIBRARY, unmodified. `extract_features.main` (ALIKED, NetVLAD), `match_features.main`
+  (LightGlue), `pairs_from_retrieval.main`, `reconstruction.get_image_ids`,
+  `triangulation.import_features` / `import_matches`. Deliberately NOT used:
+  `triangulation.estimation_and_geometric_verification`, because it calls
+  `pycolmap.verify_matches`, which takes no rig options — we call
+  `pycolmap.geometric_verification(..., GeometricVerifierOptions(rig_verification=True))`
+  instead so the GPU path honours the same rig constraint the SIFT path sets on
+  `FeatureMatchingOptions`. The two RoMa patches in `tools/patches/` are unrelated and
+  untouched.
+- **ALIKED** (`aliked-n16`) and **LightGlue** — weights and code via the `lightglue`
+  package, through HLoc's `hloc/extractors/aliked.py` + `hloc/matchers/lightglue.py`.
+  ALIKED: Zhao et al., *ALIKED: A Lighter Keypoint and Descriptor Extraction Network*,
+  **arXiv:2304.03608** (code **BSD-3-Clause**). LightGlue: Lindenberger et al., ICCV 2023,
+  **arXiv:2306.13643** (code **Apache-2.0**, weights non-commercial-flavoured on the
+  original SuperPoint variant — the ALIKED variant is the clean one). Same conf strings the
+  GUI production stack already uses (`core/feature_configs.py`, `core/matcher_configs.py`).
+- **NetVLAD** — HLoc's `netvlad` global-descriptor conf, weights fetched by HLoc on first
+  use (MatConvNet Pitts30k port; original NetVLAD is research-licensed). Used only as the
+  loop-closure pair source (`--retrieval_num`), i.e. the GPU equivalent of COLMAP's
+  vocab-tree `--loop_detection 1`.
+- **pycolmap 4.1.0** (**BSD-3-Clause**) — `import_images`, `apply_rig_config`,
+  `SequentialPairGenerator` (so the GPU arm matches EXACTLY the pairs the SIFT arm does),
+  `geometric_verification`, `incremental_mapping`. COLMAP's panorama geometry is upstream
+  (logged under WP-O2).
+- **gsplat v1.5.3** AOT sm_120 (**Apache-2.0**) — `export_splats` writes every pruned PLY,
+  so pruned deliverables stay byte-compatible with the trainer's own output.
+- **OpenCV** (Apache-2.0) — masks, contact sheets. **ffmpeg/libx264** — the MP4s.
+
+### New code, all ours
+`core/sfm_360_hloc.py` (mask filter standing in for COLMAP's `MaskFeatures`, which HLoc has
+no equivalent of; pair bookkeeping; the rig-aware verification call), the `--features` /
+`--aliked_*` / `--retrieval_num` flags, `tools/prune_ply.py` (PLY reader that is the exact
+inverse of `gsplat.export_splats`, opacity/bbox pruning, `splat_stats`),
+`_infusion/wpo5_sfm_ab.py`, `_infusion/wpo5_train.py`, `_infusion/wpo5_eval.py`.
+
+### No new dependencies
+No pip install of any kind. torch 2.11.0+cu128 untouched, gsplat not rebuilt, pycolmap and
+HLoc unchanged.

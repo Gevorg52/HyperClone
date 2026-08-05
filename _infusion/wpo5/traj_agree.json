@@ -1,0 +1,43 @@
+{
+ "wp": "WP-O5",
+ "created": "2026-08-05T08:36:21",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\_infusion\\wpo5_traj_agree.py",
+  "--ref",
+  "sift=_dataset/360/sfm/wpo5_ab_sift/sparse_equirectangular/0",
+  "--other",
+  "aliked=_dataset/360/sfm/wpo5_ab_aliked/sparse_equirectangular/0",
+  "--other",
+  "aliked_native=_dataset/360/sfm/wpo5_ab_aliked_native/sparse_equirectangular/0",
+  "--out",
+  "_infusion/wpo5/traj_agree.json"
+ ],
+ "reference": {
+  "name": "sift",
+  "dir": "_dataset/360/sfm/wpo5_ab_sift/sparse_equirectangular/0",
+  "num_panos": 20,
+  "step_median_units": 0.478139,
+  "path_length_units": 11.663895
+ },
+ "comparisons": {
+  "aliked": {
+   "dir": "_dataset/360/sfm/wpo5_ab_aliked/sparse_equirectangular/0",
+   "num_common_panos": 20,
+   "similarity_scale": 1.006774,
+   "rmse_units": 0.038817,
+   "max_units": 0.087084,
+   "rmse_in_reference_steps": 0.08118,
+   "max_in_reference_steps": 0.18213
+  },
+  "aliked_native": {
+   "dir": "_dataset/360/sfm/wpo5_ab_aliked_native/sparse_equirectangular/0",
+   "num_common_panos": 20,
+   "similarity_scale": 1.004921,
+   "rmse_units": 0.030957,
+   "max_units": 0.092839,
+   "rmse_in_reference_steps": 0.06474,
+   "max_in_reference_steps": 0.19417
+  }
+ }
+}

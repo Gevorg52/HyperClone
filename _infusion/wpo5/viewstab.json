@@ -1,0 +1,176 @@
+{
+ "wp": "WP-O5",
+ "metric": "viewpoint stability (LPIPS between consecutive renders of a pure lateral translation)",
+ "created": "2026-08-05T12:20:16",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\_infusion\\wpo5_viewstab.py",
+  "--data_dir",
+  "_dataset/360/train/wpo5_theater_027_8k",
+  "--arm",
+  "A=_dataset/360/train/wpo5_run_A/ckpts/ckpt_29999_rank0.pt",
+  "--arm",
+  "B=_dataset/360/train/wpo5_run_B/ckpts/ckpt_29999_rank0.pt",
+  "--arm",
+  "D=_dataset/360/train/wpo5_run_D/ckpts/ckpt_29999_rank0.pt",
+  "--out",
+  "_infusion/wpo5/viewstab.json"
+ ],
+ "data_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo5_theater_027_8k",
+ "frame_cam": 6,
+ "num_poses": 8,
+ "num_steps": 12,
+ "span_in_pano_steps": 2.0,
+ "step_median_units": 0.153716,
+ "delta_per_sample_in_pano_steps": 0.1818,
+ "confound": "lower is smoother, but a blurrier model also scores lower \u2014 only comparable across arms with equal on-path fidelity (see docstring)",
+ "arms": {
+  "A": {
+   "ckpt": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo5_run_A\\ckpts\\ckpt_29999_rank0.pt",
+   "mean_consecutive_lpips": 0.130433,
+   "median_consecutive_lpips": 0.135208,
+   "worst_sweep_mean": 0.180912,
+   "seconds": 11.2,
+   "per_sweep": [
+    {
+     "pano": "pano_00000",
+     "mean": 0.18091196905482898,
+     "max": 0.18262021243572235
+    },
+    {
+     "pano": "pano_00013",
+     "mean": 0.13178777830167251,
+     "max": 0.14272713661193848
+    },
+    {
+     "pano": "pano_00026",
+     "mean": 0.12155359847979112,
+     "max": 0.12636928260326385
+    },
+    {
+     "pano": "pano_00039",
+     "mean": 0.1386281820860776,
+     "max": 0.1429843306541443
+    },
+    {
+     "pano": "pano_00053",
+     "mean": 0.11139845509420741,
+     "max": 0.11661873012781143
+    },
+    {
+     "pano": "pano_00066",
+     "mean": 0.14905369959094308,
+     "max": 0.15767547488212585
+    },
+    {
+     "pano": "pano_00079",
+     "mean": 0.06381133131005547,
+     "max": 0.06772388517856598
+    },
+    {
+     "pano": "pano_00093",
+     "mean": 0.1463167884133079,
+     "max": 0.1467636674642563
+    }
+   ]
+  },
+  "B": {
+   "ckpt": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo5_run_B\\ckpts\\ckpt_29999_rank0.pt",
+   "mean_consecutive_lpips": 0.130445,
+   "median_consecutive_lpips": 0.125536,
+   "worst_sweep_mean": 0.18662,
+   "seconds": 10.4,
+   "per_sweep": [
+    {
+     "pano": "pano_00000",
+     "mean": 0.18662004443732175,
+     "max": 0.18726104497909546
+    },
+    {
+     "pano": "pano_00013",
+     "mean": 0.12509464811195026,
+     "max": 0.12868767976760864
+    },
+    {
+     "pano": "pano_00026",
+     "mean": 0.1239201846447858,
+     "max": 0.13004380464553833
+    },
+    {
+     "pano": "pano_00039",
+     "mean": 0.12597765638069672,
+     "max": 0.13066935539245605
+    },
+    {
+     "pano": "pano_00053",
+     "mean": 0.11342603442343799,
+     "max": 0.11927107721567154
+    },
+    {
+     "pano": "pano_00066",
+     "mean": 0.15167141367088666,
+     "max": 0.16441231966018677
+    },
+    {
+     "pano": "pano_00079",
+     "mean": 0.06344794007864865,
+     "max": 0.06622875481843948
+    },
+    {
+     "pano": "pano_00093",
+     "mean": 0.15340478311885486,
+     "max": 0.1545548141002655
+    }
+   ]
+  },
+  "D": {
+   "ckpt": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo5_run_D\\ckpts\\ckpt_29999_rank0.pt",
+   "mean_consecutive_lpips": 0.126206,
+   "median_consecutive_lpips": 0.127528,
+   "worst_sweep_mean": 0.172945,
+   "seconds": 10.5,
+   "per_sweep": [
+    {
+     "pano": "pano_00000",
+     "mean": 0.17294497787952423,
+     "max": 0.17618617415428162
+    },
+    {
+     "pano": "pano_00013",
+     "mean": 0.12644422054290771,
+     "max": 0.12989075481891632
+    },
+    {
+     "pano": "pano_00026",
+     "mean": 0.11966230110688643,
+     "max": 0.12376049160957336
+    },
+    {
+     "pano": "pano_00039",
+     "mean": 0.1286122907291759,
+     "max": 0.13570377230644226
+    },
+    {
+     "pano": "pano_00053",
+     "mean": 0.10783044519749554,
+     "max": 0.1133473813533783
+    },
+    {
+     "pano": "pano_00066",
+     "mean": 0.14728985320438037,
+     "max": 0.1601554900407791
+    },
+    {
+     "pano": "pano_00079",
+     "mean": 0.06241200254722075,
+     "max": 0.06481093913316727
+    },
+    {
+     "pano": "pano_00093",
+     "mean": 0.14445561847903512,
+     "max": 0.1455589383840561
+    }
+   ]
+  }
+ }
+}
