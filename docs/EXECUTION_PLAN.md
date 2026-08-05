@@ -795,7 +795,8 @@ attention" against the sm_120 landmine before any use.
   capture path** (at lateral ±1.0 m = 1.67 inter-panorama steps rooms are readable and walls
   planar in A/B/D, where `_077` degenerated to paint-smear) **but a genuinely unvisited
   viewpoint 4.62 m off-path is still incoherent in every arm.** Final arbiter: the user in Postshot.
-  **Also found: the 8K theatre yields a 16× sparser SfM cloud per panorama than `_077`**
+  **Also found: the 8K theatre yields a 10.1× sparser SfM cloud per panorama than `_077`
+  (corrected per review 2026-08-05; raw total-point ratio was 16× but conflates capture length)**
   (38 450 pts / 94 panos vs 622 325 / 151). Detection is identical (~4 000 kpts/crop);
   **MATCHING collapses — 39.2 → 4.7 inliers per verified pair.** Texture-poor repetitive scene
   and/or SIFT at 1920², not isolated. **Highest-value follow-up: the ALIKED-init A/B** (≈5×
@@ -822,7 +823,8 @@ attention" against the sm_120 landmine before any use.
   `_dataset/360/train/wpo5_run_D/ply/point_cloud_29999_aligned{,_pruned_op05}.ply`.
   **This makes the splat level and navigable; it does not add parallax — the ±1.5 m envelope
   is unchanged.**
-  26 new tests (suite 235 → 263), +14 in the addendum (**277**). Evidence `_infusion/wpo5_RECORD.md` + `_infusion/wpo5/`
+  28 new tests (suite 235 → 263; count corrected per review 2026-08-05), +14 in the addendum
+  (**277**). Evidence `_infusion/wpo5_RECORD.md` + `_infusion/wpo5/`
   (3 SfM scorecards, reproj-split, trajectory-agreement, train_runs, viewstab, 28 off-path
   sheets, 8 needle-probe sheets, fog pairs, 2 MP4s). PLYs (gitignored): arm D
   `_dataset/360/train/wpo5_run_D/ply/point_cloud_29999{,_pruned_op05}.ply`; retro-pruned `_077`

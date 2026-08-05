@@ -357,8 +357,9 @@ crops** — 3 % of the run. Matching was 91 % of it and mapping only 132 s (WP-O
 | observations / registered image | 1 393 | **126** |
 
 **Detection is fine; matching is what fell over.** The same number of SIFT keypoints per crop
-produce 8.3× fewer inliers per pair, so the triangulated cloud is **16× sparser per
-panorama** than the scene WP-O3 trained on. Two plausible causes, not separated here: this
+produce 8.3× fewer inliers per pair, so the triangulated cloud is **10.1× sparser per
+panorama** than the scene WP-O3 trained on (corrected per review 2026-08-05: 4,121 vs
+409 pts/pano; the earlier "16×" was the raw total-point ratio, conflating capture length). Two plausible causes, not separated here: this
 scene is texture-poor and repetitive (mint-green tiling, plain painted walls, plain ceiling)
 where `_077`'s walls were covered edge-to-edge in charcoal drawings; and SIFT descriptors at
 1920² are less viewpoint-repeatable than at 960².
@@ -722,8 +723,9 @@ not to "freely navigable".
    follow-up:** run the full ALIKED SfM (~5× the init points on this capture: 4.0× measured on
    the 20-panorama subset) and train arm D on both inits. One command each; the code is
    already in the repo and tested.
-4. **The 8K theater capture yields a 16× sparser SfM cloud per panorama than WP-O3's `_077`
-   (§4a)** — 38 450 points for 94 panoramas vs 622 325 for 151. Detection is identical
+4. **The 8K theater capture yields a 10.1× sparser SfM cloud per panorama than WP-O3's `_077`
+   (§4a; corrected per review 2026-08-05 — per-pano normalization: 409 vs 4,121 pts/pano)**
+   — 38 450 points for 94 panoramas vs 622 325 for 151. Detection is identical
    (~4 000 keypoints/crop); *matching* collapses (39.2 → 4.7 inliers per verified pair). Cause
    not isolated between "texture-poor repetitive scene" and "SIFT descriptors less repeatable
    at 1920²". A 3 M-Gaussian model seeded from 38 k points is a plausible contributor to the

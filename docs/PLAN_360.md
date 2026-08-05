@@ -341,7 +341,8 @@ they justify requesting the 8K original.
 > **Two transferable negatives.** (1) **Post-hoc pruning cannot fix free view** — deleting all
 > sub-0.05-opacity Gaussians (18–33 % of the model) is visually a no-op at every viewpoint on
 > four independent models, and deleting needles is catastrophic even on-path because they ARE
-> the surface. (2) **The `_027` theatre yields a 16× sparser cloud per panorama than `_077`
+> the surface. (2) **The `_027` theatre yields a 10.1× sparser cloud per panorama than `_077`
+> (per-pano normalized; corrected per review 2026-08-05)
 > — detection is identical (~4 000 kpts/crop) but MATCHING collapses, 39.2 → 4.7 inliers per
 > verified pair** (texture-poor repetitive tiling and/or SIFT at 1920²; not isolated).
 > **Highest-value follow-up: the ALIKED-init A/B** (≈5× denser init on this capture).
