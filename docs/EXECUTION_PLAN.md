@@ -713,7 +713,7 @@ attention" against the sm_120 landmine before any use.
   (19 panos × 12, zero intra-pano leakage)**. Two default-OFF trainer flags:
   `--holdout_list` (explicit test-set membership for view GROUPS the every-Nth rule cannot
   express) and `--loss_mask` (average L1 + the SSIM **map** over the VALID pixels instead of
-  compositing over black). 18 new tests (suite 211→**235**).
+  compositing over black). 21 new tests (+3 in the ea5758f housekeeping commit; suite 211→**235**).
   **⚠ HEADLINE NEGATIVE — `--opacity_reg 0.01` (a production default) DESTROYS this scene.**
   ARM 1 ran 30 k steps to completion with a normal-looking loss and a full 3 M cap, and
   produced a model whose every render is a flat colour: held-out masked LPIPS **0.6949**,
@@ -726,7 +726,9 @@ attention" against the sm_120 landmine before any use.
   near-zero opacity by design (`op_sigmoid(1-opacity)`, k=100, x0=0.995) → positional
   runaway. `--rgb_object_masked` amplifies it (÷3 loss magnitude on 33 %-valid crops + black
   boundary edges) into an outright rasterizer memory blow-up (19.6→57.9 GB). **This is NOT
-  360-specific — expect it on any large many-view walkthrough.**
+  360-specific — expect it on any large many-view walkthrough** (scope caveat, review
+  2026-08-05: mechanism-based inference from ONE scene under `--strategy mcmc`; not yet
+  replicated on a second capture or under `--strategy default`).
   **ARM 2** (`--opacity_reg 0 --loss_mask --max_steps 200000`, else identical): 200 k steps,
   **74 min 32 s**, 3 M Gaussians, mean opacity 0.555, dead 21.3 %, ‖mean‖ p99 4.20 — healthy.
   Held-out (228 crops): **masked LPIPS 0.5222** (tiled) / 0.5572 (bbox), masked PSNR

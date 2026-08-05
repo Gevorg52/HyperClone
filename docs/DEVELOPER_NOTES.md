@@ -209,6 +209,10 @@ own cull is still unfixed — see §7.
   - **How to detect it:** the training log will NOT tell you. Check the checkpoint:
     `sigmoid(opacities).mean()` (healthy ≈0.3–0.6) and `means.norm(dim=1).median()`
     (healthy ≈1–2 in normalised units). `_infusion/wpo3_diag_collapse.py::ckpt_stats` does it.
+  - **Scope caveat (review 2026-08-05):** the many-view generalization is a mechanism-based
+    inference from ONE scene under `--strategy mcmc`; the MCMC noise-injection step is
+    load-bearing in the runaway. Not yet replicated on a second capture or under
+    `--strategy default` — hedge accordingly until a second scene confirms.
 - **`--rgb_object_masked` with a mask that removes most of the frame:** wrong lever. It
   composites BOTH sides over black and takes a plain frame mean, so a 33 %-valid mask
   divides the photometric term by 3 (regularizers untouched → they dominate) and

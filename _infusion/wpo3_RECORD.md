@@ -24,7 +24,7 @@ and the single cause is `--opacity_reg 0.01`.** Both arms are recorded in full.
 | `gsplat_trainer.py --loss_mask` | average L1 **and the per-pixel SSIM map** over the VALID mask only. Default OFF ⇒ production unchanged. (`ssim()` gained `return_map=`; its default return is unchanged.) |
 | `_infusion/wpo3_eval.py` | held-out masked PSNR/SSIM/LPIPS + figure strips + walk-through MP4 + scorecard. |
 | `_infusion/wpo3_diag_collapse.py` | the 8-arm short-run sweep that found the root cause. |
-| `tests/test_train_360_prep.py` | 18 tests (naming, split, layout, trainer consumption). Suite **232 passing** (211 → 232 incl. 3 WP-O2 housekeeping tests). |
+| `tests/test_train_360_prep.py` | 21 tests (naming, split, layout, trainer consumption). Suite **235 passing** (211 → 214 via WP-O2 housekeeping (+3) → 235 (+21); counts corrected per review 2026-08-05). |
 
 ### 1a. Why a packaging step at all — the two shape mismatches
 
@@ -372,7 +372,7 @@ python _infusion/wpo3_eval.py --ckpt <ckpt.pt> \
   --data_dir _dataset/360/train/wpo3_flowershop_077 --out _infusion/wpo3/<arm> \
   --train_log <log>
 
-python -m pytest tests -q          # 232 passed
+python -m pytest tests -q          # 235 passed (corrected per review 2026-08-05)
 ```
 
 ---
