@@ -1,0 +1,288 @@
+{
+ "tool": "tools/align_ply.py",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\tools\\align_ply.py",
+  "--ply",
+  "_dataset/360/train/wpo5_run_D/ply/point_cloud_29999.ply",
+  "--data_dir",
+  "_dataset/360/train/wpo5_theater_027_8k",
+  "--out",
+  "_dataset/360/train/wpo5_run_D/ply/point_cloud_29999_aligned.ply",
+  "--up_axis",
+  "y_down",
+  "--step_m",
+  "0.65",
+  "--verify",
+  "4",
+  "--transform_json",
+  "_infusion/wpo5/align_armD.json"
+ ],
+ "created": "2026-08-05T12:46:07",
+ "source": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo5_run_D\\ply\\point_cloud_29999.ply",
+ "out": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo5_run_D\\ply\\point_cloud_29999_aligned.ply",
+ "out_bytes": 708001478,
+ "up_axis": "y_down",
+ "rotation_matrix": [
+  [
+   0.9919703915838395,
+   0.12643583478143922,
+   0.0029532870034425667
+  ],
+  [
+   -0.12643583478143922,
+   0.9908841737170817,
+   0.04650305323456672
+  ],
+  [
+   0.0029532870034425667,
+   -0.04650305323456672,
+   0.9989137821332421
+  ]
+ ],
+ "centre_source_frame": [
+  -0.0881196192591316,
+  0.48524765942340514,
+  0.08114483688191369
+ ],
+ "scale_metres_per_unit": 4.2285832135499435,
+ "rotation_angle_deg": 7.742230839532905,
+ "up_prior_mean_camera": [
+  -1.3079480566356726e-10,
+  -1.0,
+  -1.6927356711678728e-10
+ ],
+ "up_estimated_floor_normal": [
+  0.1264358347814392,
+  -0.9908841737170815,
+  -0.046503053234566716
+ ],
+ "up_estimate_chain": {
+  "seed_method": "trajectory-plane",
+  "prior_mean_camera_up": [
+   -1.3079480566356726e-10,
+   -1.0,
+   -1.6927356711678728e-10
+  ],
+  "trajectory_plane": {
+   "normal": [
+    0.13840138726778478,
+    -0.9894330990774419,
+    0.04321109177469187
+   ],
+   "singular_values": [
+    11.211610809519875,
+    6.778863772351569,
+    0.9678913612615417
+   ],
+   "planarity_ratio": 7.003744473466581,
+   "angle_vs_prior_deg": 8.336708578789958
+  },
+  "ransac_history": [
+   {
+    "inliers": 1858,
+    "candidates": 20474,
+    "moved_deg": 2.0862159908291598
+   },
+   {
+    "inliers": 1935,
+    "candidates": 19994,
+    "moved_deg": 0.7125811122082372
+   },
+   {
+    "inliers": 1948,
+    "candidates": 19917,
+    "moved_deg": 2.5886250362879966
+   }
+  ]
+ },
+ "floor_plane": {
+  "normal": [
+   0.1264358347814392,
+   -0.9908841737170815,
+   -0.046503053234566716
+  ],
+  "offset": -0.49573918634678943,
+  "method": "ransac+refit",
+  "inliers": 1948,
+  "candidates": 19917,
+  "threshold": 0.034750587279558806,
+  "tilt_vs_prior_deg": 2.5886250362879966
+ },
+ "step_median_units": 0.1537157878121352,
+ "num_stations": 94,
+ "num_cameras": 1128,
+ "assumed_step_m": 0.65,
+ "scale_assumption": "2 panoramas/s at ~1.3 m/s walking => one inter-panorama step is 0.5 s of walking ~ 0.65 m. This is an ASSUMPTION; every metre figure downstream inherits it.",
+ "camera_height_above_floor_m": {
+  "median": 2.148646815240366,
+  "p5": 1.0702930322853565,
+  "p95": 3.104936256441002,
+  "sd": 0.5402417051383887,
+  "note": "positive = above the fitted floor plane; a handheld 360 stick should sit ~1.8-2.3 m, and the spread is the operator raising/lowering it"
+ },
+ "trajectory_extent_m": [
+  18.23251658726495,
+  2.3478719876547545,
+  13.883872042813774
+ ],
+ "verification": {
+  "views": [
+   {
+    "index": 0,
+    "name": "pano_00000_cam00.jpg",
+    "max_abs_diff": 0.015061013400554657,
+    "mean_abs_diff": 7.80707341618836e-06,
+    "psnr_db": 74.1542973264641
+   },
+   {
+    "index": 375,
+    "name": "pano_00031_cam03.jpg",
+    "max_abs_diff": 0.017866313457489014,
+    "mean_abs_diff": 7.789499250066001e-07,
+    "psnr_db": 92.35283596763146
+   },
+   {
+    "index": 751,
+    "name": "pano_00062_cam07.jpg",
+    "max_abs_diff": 0.0042098164558410645,
+    "mean_abs_diff": 4.929721626467654e-07,
+    "psnr_db": 98.47016061633698
+   },
+   {
+    "index": 1127,
+    "name": "pano_00093_cam11.jpg",
+    "max_abs_diff": 0.007527291774749756,
+    "mean_abs_diff": 2.7864246021636063e-07,
+    "psnr_db": 104.84787123074499
+   }
+  ],
+  "max_abs_diff": 0.017866313457489014,
+  "min_psnr_db": 74.1542973264641
+ },
+ "before": {
+  "num_gaussians": 3000000,
+  "opacity_mean": 0.4090466797351837,
+  "opacity_median": 0.22037087380886078,
+  "opacity_frac_below": {
+   "0.005": 0.0035686666666666666,
+   "0.01": 0.04573933333333333,
+   "0.02": 0.097942,
+   "0.05": 0.19838633333333333,
+   "0.1": 0.32088133333333335,
+   "0.2": 0.4781476666666667,
+   "0.5": 0.652961
+  },
+  "opacity_hist_edges": [
+   0.0,
+   0.005,
+   0.01,
+   0.02,
+   0.05,
+   0.1,
+   0.2,
+   0.5,
+   1.0
+  ],
+  "opacity_hist": [
+   10706,
+   126512,
+   156608,
+   301333,
+   367485,
+   471799,
+   524440,
+   1041117
+  ],
+  "bbox_p1": [
+   -6.42453145980835,
+   -2.236500322818756,
+   -4.860403666496277
+  ],
+  "bbox_p99": [
+   7.706774549484246,
+   2.6162033081054688,
+   4.483800020217894
+  ],
+  "bbox_extent": [
+   14.131306009292596,
+   4.852703630924225,
+   9.34420368671417
+  ],
+  "outliers_beyond_3x_bbox": 4763,
+  "outliers_beyond_10x_bbox": 865,
+  "rel_radius_p99": 1.4135890657397245,
+  "rel_radius_max": 2527.3827543171883,
+  "mean_norm_median": 4.007905006408691,
+  "mean_norm_p99": 9.336958885192871,
+  "scale_max_axis_median": 2.4687540189916035e-06,
+  "erank_mean": 2.312993277331711,
+  "erank_median": 2.0880670537885946,
+  "needle_frac_erank_lt_2": 0.09681033333333333,
+  "needle_frac_erank_lt_1_5": 0.003466,
+  "aspect_ratio_median": 5.147961616516113
+ },
+ "after": {
+  "num_gaussians": 3000000,
+  "opacity_mean": 0.4090466797351837,
+  "opacity_median": 0.22037087380886078,
+  "opacity_frac_below": {
+   "0.005": 0.0035686666666666666,
+   "0.01": 0.04573933333333333,
+   "0.02": 0.097942,
+   "0.05": 0.19838633333333333,
+   "0.1": 0.32088133333333335,
+   "0.2": 0.4781476666666667,
+   "0.5": 0.652961
+  },
+  "opacity_hist_edges": [
+   0.0,
+   0.005,
+   0.01,
+   0.02,
+   0.05,
+   0.1,
+   0.2,
+   0.5,
+   1.0
+  ],
+  "opacity_hist": [
+   10706,
+   126512,
+   156608,
+   301333,
+   367485,
+   471799,
+   524440,
+   1041117
+  ],
+  "bbox_p1": [
+   -27.295310974121094,
+   -9.551660823822022,
+   -20.763626098632812
+  ],
+  "bbox_p99": [
+   33.23725891113281,
+   8.063294410705566,
+   18.355133056640625
+  ],
+  "bbox_extent": [
+   60.532569885253906,
+   17.61495523452759,
+   39.11875915527344
+  ],
+  "outliers_beyond_3x_bbox": 5219,
+  "outliers_beyond_10x_bbox": 1430,
+  "rel_radius_p99": 1.4291713458000137,
+  "rel_radius_max": 3067.654106362313,
+  "mean_norm_median": 16.84956169128418,
+  "mean_norm_p99": 39.40159225463867,
+  "scale_max_axis_median": 1.0439329344080761e-05,
+  "erank_mean": 2.3129932926272048,
+  "erank_median": 2.0880670537885946,
+  "needle_frac_erank_lt_2": 0.09681033333333333,
+  "needle_frac_erank_lt_1_5": 0.003466,
+  "aspect_ratio_median": 5.147961616516113
+ },
+ "seconds": 5.39
+}

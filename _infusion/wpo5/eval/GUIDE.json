@@ -1,0 +1,170 @@
+{
+ "wp": "WP-O5 addendum",
+ "created": "2026-08-05T12:50:07",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\_infusion\\wpo5_guide.py",
+  "--ply",
+  "_dataset/360/train/wpo5_run_D/ply/point_cloud_29999_aligned.ply",
+  "--transform",
+  "_infusion/wpo5/align_armD.json",
+  "--data_dir",
+  "_dataset/360/train/wpo5_theater_027_8k",
+  "--out",
+  "_infusion/wpo5/eval/GUIDE.jpg"
+ ],
+ "ply": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo5_run_D\\ply\\point_cloud_29999_aligned.ply",
+ "transform": "D:\\REPOS\\HYPERclone\\apex-sfm\\_infusion\\wpo5\\align_armD.json",
+ "up_axis": "y_down",
+ "eye_height_m": 2.148646815240366,
+ "num_stations": 94,
+ "density_radius_m": 2.5,
+ "min_separation_m": 2.5,
+ "fov_deg": 75.0,
+ "stops": [
+  {
+   "stop": 1,
+   "station_index": 4,
+   "position_m": [
+    12.42303931397173,
+    -1.8457187720677315,
+    -1.4829445083619217
+   ],
+   "plan_xy_m": [
+    12.42303931397173,
+    -1.4829445083619217
+   ],
+   "bearing": [
+    -0.9537169507482268,
+    0.30070579950427334
+   ],
+   "nearby_stations": 6
+  },
+  {
+   "stop": 2,
+   "station_index": 12,
+   "position_m": [
+    1.3181862103084612,
+    -2.1982522472596524,
+    2.386519669104592
+   ],
+   "plan_xy_m": [
+    1.3181862103084612,
+    2.386519669104592
+   ],
+   "bearing": [
+    0.9914448613738104,
+    -0.13052619222005166
+   ],
+   "nearby_stations": 14
+  },
+  {
+   "stop": 3,
+   "station_index": 21,
+   "position_m": [
+    -3.281226968127034,
+    -2.0127250608355047,
+    3.0730807072874216
+   ],
+   "plan_xy_m": [
+    -3.281226968127034,
+    3.0730807072874216
+   ],
+   "bearing": [
+    0.9990482215818578,
+    0.04361938736533595
+   ],
+   "nearby_stations": 24
+  },
+  {
+   "stop": 4,
+   "station_index": 40,
+   "position_m": [
+    3.5799506976895756,
+    -2.6227937064130304,
+    -5.149540819856562
+   ],
+   "plan_xy_m": [
+    3.5799506976895756,
+    -5.149540819856562
+   ],
+   "bearing": [
+    0.1305261922200515,
+    -0.9914448613738104
+   ],
+   "nearby_stations": 8
+  },
+  {
+   "stop": 5,
+   "station_index": 53,
+   "position_m": [
+    2.0137070697753,
+    -2.018991591187321,
+    -8.174289449766704
+   ],
+   "plan_xy_m": [
+    2.0137070697753,
+    -8.174289449766704
+   ],
+   "bearing": [
+    0.38268343236508984,
+    -0.9238795325112867
+   ],
+   "nearby_stations": 16
+  },
+  {
+   "stop": 6,
+   "station_index": 59,
+   "position_m": [
+    1.3578638982216635,
+    -2.7460743436911437,
+    -3.90533251888483
+   ],
+   "plan_xy_m": [
+    1.3578638982216635,
+    -3.90533251888483
+   ],
+   "bearing": [
+    -0.21643961393810257,
+    0.9762960071199335
+   ],
+   "nearby_stations": 11
+  },
+  {
+   "stop": 7,
+   "station_index": 83,
+   "position_m": [
+    0.0218001569150566,
+    -2.2917186324493803,
+    -1.1792219079616855
+   ],
+   "plan_xy_m": [
+    0.0218001569150566,
+    -1.1792219079616855
+   ],
+   "bearing": [
+    -0.04361938736533589,
+    0.9990482215818578
+   ],
+   "nearby_stations": 25
+  },
+  {
+   "stop": 8,
+   "station_index": 88,
+   "position_m": [
+    -1.3246858263856183,
+    -2.0933476157981468,
+    1.3700488973889278
+   ],
+   "plan_xy_m": [
+    -1.3246858263856183,
+    1.3700488973889278
+   ],
+   "bearing": [
+    0.9990482215818578,
+    0.04361938736533595
+   ],
+   "nearby_stations": 36
+  }
+ ]
+}

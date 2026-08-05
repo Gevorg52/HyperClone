@@ -801,7 +801,28 @@ attention" against the sm_120 landmine before any use.
   and/or SIFT at 1920², not isolated. **Highest-value follow-up: the ALIKED-init A/B** (≈5×
   denser init here) — the parity guard's accuracy criterion may be the wrong criterion for
   this class of scene.
-  26 new tests (suite 235 → **263**). Evidence `_infusion/wpo5_RECORD.md` + `_infusion/wpo5/`
+  **ADDENDUM 2026-08-05 (user retested arm D in Postshot: still "hot mess... none of this is
+  usable... maybe I'm just not finding the right spaces"):** `tools/align_ply.py` bakes ONE
+  lossless similarity transform into the model — gravity-aligned, floor at 0, recentred,
+  metric (**4.2286 m/unit** from the measured 0.15372-unit median station step and a stated
+  0.65 m/step assumption), **up = −Y** (`y_down`, the INRIA/gsplat/COLMAP convention Postshot
+  itself exports). It rotates means, scales, quats **and the spherical harmonics** — SH via
+  per-band least squares against **gsplat's own `spherical_harmonics`**, so no Wigner-D and no
+  convention to get wrong. **Verified lossless: min PSNR 74.2 dB / mean abs diff 7.8e-6 over
+  4 views** rendered from correspondingly transformed cameras. Gravity needed three
+  estimators — the mean camera up is the mean STICK direction and is **systematically 8.3°
+  off**; the trajectory-plane normal seeds an iterated RANSAC floor fit, which puts camera
+  height at a plausible **2.15 m** median (vs an impossible 2.76 m before). Two recorded
+  negatives: a point-height-entropy gravity search wanders 50° onto a wall axis, and the 12
+  rig crops sharing an optical centre make `median(diff(camera_centres))` **0**, which
+  silently produced `scale = 1.0` until `distinct_centres()` was added. Plus
+  `_infusion/wpo5_guide.py` → `GUIDE.jpg`: metric top-down floor plan + 8 numbered
+  best-supported stops with renders (bearing rule corrected — "most points in front" picks the
+  nearest WALL every time) and `README_POSTSHOT.md`. Aligned PLYs at
+  `_dataset/360/train/wpo5_run_D/ply/point_cloud_29999_aligned{,_pruned_op05}.ply`.
+  **This makes the splat level and navigable; it does not add parallax — the ±1.5 m envelope
+  is unchanged.**
+  26 new tests (suite 235 → 263), +14 in the addendum (**277**). Evidence `_infusion/wpo5_RECORD.md` + `_infusion/wpo5/`
   (3 SfM scorecards, reproj-split, trajectory-agreement, train_runs, viewstab, 28 off-path
   sheets, 8 needle-probe sheets, fog pairs, 2 MP4s). PLYs (gitignored): arm D
   `_dataset/360/train/wpo5_run_D/ply/point_cloud_29999{,_pruned_op05}.ply`; retro-pruned `_077`

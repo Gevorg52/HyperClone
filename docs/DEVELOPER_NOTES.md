@@ -259,6 +259,24 @@ own cull is still unfixed — see §7.
   - **Caveat kept explicit:** "needles cause the off-path failure" is a *hypothesis*. The
     ablation proves only that needles cannot be removed after the fact; it cannot prove they
     are the cause, because they are load-bearing where the render is good too.
+- **Estimating gravity from mean CAMERA UP on a hand-held 360 stick: systematically wrong.**
+  WP-O5 addendum (2026-08-05). The mean camera up is the mean *stick* direction, and an
+  operator who leans the stick biases it consistently rather than randomly — measured **8.3
+  deg** off on `_027`, which put the "floor" at a 2.76 m median camera height (impossible) and
+  smeared the point-height histogram into a single hump with no floor/ceiling structure. Use
+  instead: **normal of the plane through the capture stations** (the walking plane; check
+  planarity S[1]/S[2] first) as the seed, then an **iterated RANSAC floor plane** — which put
+  camera height at a plausible 2.15 m median. `tools/align_ply.py` does all three and records
+  each. **Also a negative:** picking the direction that maximises point-height histogram
+  peakiness wanders onto a wall/corridor axis (50 deg off, camera-height spread 8x worse).
+- **Rotating a 3DGS model: the SH coefficients MUST be rotated too.** Means/scales/quats are
+  the obvious ones; spherical harmonics are a function of the *world-space view direction*, so
+  a global rotation rotates every Gaussian's view-dependent lobe. Skipping it leaves the model
+  looking right from one direction and wrong as you orbit. No Wigner-D implementation is
+  needed: each band is a rotation-closed (2l+1)-dim space, so solve `A D = B` over sampled
+  directions with the basis evaluated by **gsplat's own `spherical_harmonics`** (convention
+  matches by construction). `tools/align_ply.py::sh_rotation_matrix`, and
+  `tests/test_align_ply.py` asserts the render CHANGES if you drop it.
 - **Edge-aware depth-smoothness (`--geo_reg`):** zero effect on textureless mush —
   it's a *geometry* lever, the mush is lost *appearance* detail. Gradients verified
   to flow (not a no-op); just the wrong lever. Kept off by default.

@@ -600,6 +600,111 @@ experience the user rejected.
 
 ---
 
+## 9b. ADDENDUM (2026-08-05) — gravity-aligned metric PLY + a viewpoint guide
+
+User feedback on the arm-D PLY in Postshot: still a *"hot mess, none of this is usable…
+maybe I'm just not finding the right spaces."* Two causes were addressable without
+retraining — the model was in raw SfM coordinates (tilted floor, arbitrary origin and scale),
+and nothing told the user where the reconstruction is actually supported.
+
+### 9b.1 `tools/align_ply.py` — one lossless similarity transform
+
+`x' = s R (x - c)`, baked into the full Gaussian model. What moves, and the trap in each:
+**means** (`s R (x-c)`), **scales** (log-space `+= log s`; rotation does not touch them),
+**quats** (`q_R (x) q`, global rotation on the LEFT, gsplat's `(w,x,y,z)` order), and — the
+one that is usually skipped — **the spherical harmonics**. SH are a function of the
+world-space view direction, so rotating the scene rotates every Gaussian's view-dependent
+lobe; leaving them alone silently breaks specular/lighting behaviour as you orbit.
+
+**SH rotation without hand-rolling Wigner-D.** Each band `l` spans a (2l+1)-dimensional space
+closed under rotation, so `D_l` is the solution of a small linear system:
+`A D = B` with `A[i,n] = Y_n(u_i)`, `B[i,m] = Y_m(R^T u_i)` over 512 Fibonacci-sphere
+directions in float64, giving `c' = D c`. The basis `Y` is evaluated with **gsplat's own
+`spherical_harmonics`**, so the convention matches the rasterizer by construction rather than
+by assumption. `D` comes out block-diagonal per band — asserted in the tests, and itself a
+correctness signal.
+
+**Gravity, in three escalating steps, because the obvious one is wrong here:**
+
+| estimator | result | why it was not enough |
+|---|---|---|
+| mean camera up (the "up" the trainer's normalisation already left at −Y) | `[0, −1, 0]` | it is the mean **stick** direction; an operator who leans the stick biases it **systematically** — measured **8.34°** off |
+| normal of the plane through the 94 capture stations (the walking plane) | `[0.138, −0.989, 0.043]` | planarity ratio 7.0, so well-conditioned; halves the camera-height spread (0.644 → 0.391 u) |
+| **RANSAC floor plane, re-seeded from that and iterated** | **`[0.126, −0.991, −0.047]`** | **shipped.** 1 948 inliers, 14.7 cm thickness. The iteration oscillates ~2°, so the best-inlier round wins, not the last |
+
+A **point-height-entropy** search was also tried (maximise floor/ceiling peakiness) and is a
+**negative result**: it wandered 50° away onto a wall/corridor axis and made the camera-height
+spread 8× worse. Recorded so nobody retries it.
+
+Sanity after alignment: camera height above the fitted floor **median 2.15 m** (p5 1.07,
+p95 3.10) — right for a selfie stick — and a walked area of **18.2 × 13.9 m**. Under the raw
+camera-up estimate the same numbers were a physically impossible 2.76 m median.
+
+**Up axis: `y_down` (up = −Y).** Researched: Jawset's docs never state Postshot's PLY up
+convention, but a PlayCanvas core developer confirms in a solved thread that a
+**Postshot-exported** PLY has "positive Y axis go into the ground", and SuperSplat/PlayCanvas
+apply a fixed 180° Z rotation to match that. So `y_down` ships exactly the convention Postshot
+itself emits. Documented as needing a 2-minute empirical confirmation by the user;
+`--up_axis {y_down,y_up,z_up,z_down}` makes the alternative one flag away.
+
+**Scale: 4.2286 m per normalised unit**, from the measured median inter-station step
+(0.15372 u) and the stated assumption that one step = 0.5 s of walking = **0.65 m**. A latent
+trap was caught here: the 12 rig crops of a panorama share an optical centre exactly, so a
+naive `diff(camera_centres)` is mostly zeros and its median is **0** — which silently produced
+`scale = 1.0` on the first run. `distinct_centres()` collapses co-located cameras and the
+report prints "94 distinct stations from 1128 cameras" so it cannot happen quietly again.
+
+**VERIFICATION — the transform is invisible.** Renders of the same views from the original
+model and from the aligned model with correspondingly transformed cameras
+(`c2w' = [R·R_c | s·R·(t−c)]`):
+
+| view | max abs diff | mean abs diff | PSNR |
+|---|---|---|---|
+| pano_00000_cam00 | 1.506e-02 | 7.81e-06 | 74.2 dB |
+| pano_00031_cam03 | 1.787e-02 | 7.79e-07 | 92.4 dB |
+| pano_00062_cam07 | 4.210e-03 | 4.93e-07 | 98.5 dB |
+| pano_00093_cam11 | 7.527e-03 | 2.79e-07 | 104.8 dB |
+
+Worst case **74.2 dB / mean 7.8e-6** — float32 rasterizer noise (tile depth-sort ties flip
+after any float transform), not a modelling error. 14 new tests (`tests/test_align_ply.py`)
+including a real gsplat render before/after, **and a guard that asserts the render DOES change
+if the SH rotation is dropped**, so a future "simplification" cannot quietly remove it.
+
+### 9b.2 `_infusion/wpo5_guide.py` → `_infusion/wpo5/eval/GUIDE.jpg`
+
+A metric top-down floor plan of the 94 capture stations with **8 numbered stops** and a bearing
+arrow at each, beside the render you get standing there (eye height 2.15 m — the capture's own
+median, which is where the splat is supported — 75° FOV). Stops are chosen greedily by
+surrounding station density with a 2.5 m minimum separation.
+
+The bearing rule is a corrected second attempt, worth recording: scoring each direction by
+"most reconstructed points in front" picks the **nearest wall** every time and produced eight
+useless blurry close-ups. The shipped rule scores geometry at a *useful* distance
+(3 m .. 9 m) and penalises anything inside 1.8 m, which turns the stops into corridor and
+room views. 7 of 8 stops now show recognisable space; stop 4 is still a washed-out wall.
+
+`README_POSTSHOT.md` sits beside the PLYs (and committed at `_infusion/wpo5/`): which file to
+load, the up-axis and what to do if it loads wrong, the metric-scale assumption, where the good
+spaces are, and the honest envelope (usable ~±1.5 m from the path; incoherent well beyond it;
+the pruned file is smaller, not better).
+
+### 9b.3 Deliverables
+
+| what | path |
+|---|---|
+| **aligned + pruned (start here)** | `_dataset/360/train/wpo5_run_D/ply/point_cloud_29999_aligned_pruned_op05.ply` (567.5 MB, 2 404 841) |
+| aligned, full | `_dataset/360/train/wpo5_run_D/ply/point_cloud_29999_aligned.ply` (708.0 MB, 3 M) |
+| transform + verification | `_infusion/wpo5/align_armD.json` |
+| viewpoint guide | `_infusion/wpo5/eval/GUIDE.jpg` + `GUIDE.json` |
+| Postshot readme | `_infusion/wpo5/README_POSTSHOT.md` (copy beside the PLYs) |
+
+**What this addendum does NOT fix:** the splat is still capture-limited. Aligning it makes it
+navigable and level; it does not add the parallax that free-viewpoint navigation needs. The
+user's "none of this is usable" verdict is expected to improve to "usable near the path" —
+not to "freely navigable".
+
+---
+
 ## 10. Negative findings, deviations and follow-ups — recorded honestly
 
 1. **`--opacity_reg 0.001` destroys the model too (§5b).** The safe value is **0**, not

@@ -345,6 +345,18 @@ they justify requesting the 8K original.
 > — detection is identical (~4 000 kpts/crop) but MATCHING collapses, 39.2 → 4.7 inliers per
 > verified pair** (texture-poor repetitive tiling and/or SIFT at 1920²; not isolated).
 > **Highest-value follow-up: the ALIKED-init A/B** (≈5× denser init on this capture).
+> **ADDENDUM (same day, after the user retested in Postshot):** `tools/align_ply.py` +
+> `_infusion/wpo5_guide.py`. The delivered PLY was in raw SfM coordinates — tilted floor,
+> arbitrary origin and scale — which is most of why navigation felt disorienting. One lossless
+> similarity transform now bakes in gravity alignment (floor at Y=0), recentring and metric
+> scale (4.2286 m/unit under a stated 0.65 m-per-station assumption), with **up = −Y**, the
+> convention Postshot itself exports. Means, scales, quats AND spherical harmonics are rotated
+> (SH by per-band least squares against gsplat's own basis); verified lossless at
+> **min PSNR 74.2 dB**. §6's "Horizon Lock ON" advice now has a fallback: gravity IS
+> recoverable post-hoc, but NOT from the mean camera up — on a hand-held stick that is
+> systematically **8.3°** off, so the walking-plane normal + an iterated floor RANSAC are what
+> actually work. A `GUIDE.jpg` (metric floor plan + 8 best-supported stops with renders) and
+> `README_POSTSHOT.md` ship alongside. Suite 263 → **277**.
 > New: `core/sfm_360_hloc.py`, `--features/--aliked_*/--retrieval_num`, `tools/prune_ply.py`
 > (+ the erank/needle metric), `_infusion/wpo5_{sfm_ab,reproj_split,traj_agree,train,eval,
 > needle_probe,viewstab,pipeline}.py`, 26 tests (suite 235 → 263).

@@ -793,3 +793,20 @@ inverse of `gsplat.export_splats`, opacity/bbox pruning, `splat_stats`),
 ### No new dependencies
 No pip install of any kind. torch 2.11.0+cu128 untouched, gsplat not rebuilt, pycolmap and
 HLoc unchanged.
+
+### Addendum (2026-08-05) — `tools/align_ply.py`, `_infusion/wpo5_guide.py`
+Also 100 % our own code. Notable reuse and provenance:
+- **`core/alignment.py::_rotation_between_vectors`** — reused unchanged (our own code, WP from
+  the GUI export stage). The gravity ESTIMATOR is new: mean-camera-up prior -> trajectory-plane
+  normal -> iterated RANSAC floor plane.
+- **Spherical-harmonic rotation** — the method (each SH band is a rotation-closed
+  (2l+1)-dimensional space, so the band matrix is recovered by least squares over sampled
+  directions instead of Wigner-D/Ivanic-Ruedenberg recursions) is standard textbook SH theory,
+  **not** taken from any repo. The SH BASIS is evaluated by calling **gsplat's own
+  `spherical_harmonics`** (Apache-2.0, already logged), which is what guarantees the
+  convention matches the rasterizer. No third-party SH code was consulted or vendored.
+- **Postshot up-axis convention** — researched, not vendored. Jawset's own docs do not state
+  it; the actionable evidence is a PlayCanvas core developer's statement in a solved forum
+  thread that Postshot-exported PLYs have "positive Y axis go into the ground", consistent
+  with the INRIA/gsplat/COLMAP convention we already emit. Cited in
+  `_infusion/wpo5/README_POSTSHOT.md`; nothing was copied.
