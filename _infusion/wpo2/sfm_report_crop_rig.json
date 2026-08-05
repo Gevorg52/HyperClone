@@ -1,0 +1,160 @@
+{
+ "wp": "WP-O2",
+ "created": "2026-08-04T22:16:21",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "-m",
+  "core.sfm_360",
+  "--capture-type",
+  "360",
+  "--arm",
+  "crop_rig",
+  "--dataset",
+  "_dataset/360/flowershop_077_ihfov198",
+  "--out_dir",
+  "_dataset/360/sfm/wpo2_crop_rig",
+  "--overwrite",
+  "--matcher",
+  "sequential",
+  "--overlap",
+  "10",
+  "--quadratic_overlap",
+  "1",
+  "--loop_detection",
+  "1",
+  "--seed",
+  "0",
+  "--timeout_s",
+  "21600",
+  "--heartbeat_s",
+  "300",
+  "--progress",
+  "50"
+ ],
+ "dataset": "_dataset\\360\\flowershop_077_ihfov198",
+ "image_dir": "_dataset\\360\\flowershop_077_ihfov198\\images",
+ "mask_dir": "_dataset\\360\\flowershop_077_ihfov198\\masks",
+ "use_masks": true,
+ "seed": 0,
+ "colmap": {
+  "version": "COLMAP 4.1.0",
+  "build": "Commit fa8e3b3 on 2026-06-26 without CUDA",
+  "has_cuda": false,
+  "use_gpu_requested": false,
+  "num_threads": -1
+ },
+ "options": {
+  "arm": "crop_rig",
+  "matcher": "sequential",
+  "render_type": "perspective_overlapping",
+  "max_panos": 0,
+  "timeout_s": 21600.0
+ },
+ "arm": "crop_rig",
+ "render_type": "perspective_overlapping",
+ "num_virtual_cameras": 12,
+ "pano_size": [
+  3840,
+  1920
+ ],
+ "crop_size": [
+  960,
+  960
+ ],
+ "crop_focal": 480.0,
+ "num_crops": 1812,
+ "exclusive_mask_frac_per_camera": [
+  0.409219,
+  0.409219,
+  0.409219,
+  0.409219,
+  0.271612,
+  0.271612,
+  0.271612,
+  0.271612,
+  0.409377,
+  0.409377,
+  0.409377,
+  0.409377
+ ],
+ "sphere_coverage_frac": 0.980135,
+ "valid_frac_mean": 0.331159,
+ "valid_frac_min": 0.113311,
+ "valid_frac_vs_exclusive": 0.911273,
+ "best_reconstruction": 0,
+ "num_reconstructions": 1,
+ "metrics_crop": {
+  "num_input_panos": 151,
+  "num_registered_panos": 151,
+  "registered_pct": 100.0,
+  "num_images": 1812,
+  "num_reg_images": 1812,
+  "num_frames": 151,
+  "num_reg_frames": 151,
+  "num_points3D": 622325,
+  "num_observations": 2525083,
+  "mean_reproj_error_px": 1.231252,
+  "mean_track_length": 4.057499,
+  "mean_obs_per_reg_image": 1393.533664
+ },
+ "metrics_equirect": {
+  "num_input_panos": 151,
+  "num_registered_panos": 151,
+  "registered_pct": 100.0,
+  "num_images": 151,
+  "num_reg_images": 151,
+  "num_frames": 151,
+  "num_reg_frames": 151,
+  "num_points3D": 622325,
+  "num_observations": 2525083,
+  "mean_reproj_error_px": 1.341925,
+  "mean_track_length": 4.057499,
+  "mean_obs_per_reg_image": 16722.403974
+ },
+ "trajectory": {
+  "n": 151,
+  "bbox_extent_sorted": [
+   11.456301,
+   5.543925,
+   5.430543
+  ],
+  "bbox_axes_sorted": [
+   2,
+   1,
+   0
+  ],
+  "bbox_extent_ratio": [
+   1.0,
+   0.483919,
+   0.474022
+  ],
+  "step_median": 0.407898,
+  "step_mean": 0.492714,
+  "step_p90": 0.948648,
+  "step_max": 1.700192,
+  "step_p90_over_median": 2.3257,
+  "step_max_over_median": 4.16818,
+  "num_steps_gt_5x_median": 0,
+  "path_length": 73.90715,
+  "end_to_end_displacement": 3.157246,
+  "path_over_displacement": 23.408739,
+  "extent_over_median_step": 28.086192
+ },
+ "matching": {
+  "matcher": "sequential",
+  "overlap": 10,
+  "quadratic_overlap": true,
+  "loop_detection": true,
+  "expand_rig_images": true,
+  "seconds": 5696.3
+ },
+ "timings_s": {
+  "render": 3.99,
+  "extract": 92.2,
+  "match": 5696.3,
+  "mapping": 9392.98,
+  "total": 15213.31
+ },
+ "sparse_dir": "_dataset\\360\\sfm\\wpo2_crop_rig\\sparse\\0",
+ "equirect_dir": "_dataset\\360\\sfm\\wpo2_crop_rig\\sparse_equirectangular\\0"
+}

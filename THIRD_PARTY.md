@@ -664,3 +664,50 @@ framework and internal modules already logged above; nothing external was vendor
 ### No new dependencies
 Nothing was pip-installed for WP-O1: `cv2` 5.0.0, `numpy`, ffmpeg/ffprobe on PATH, and the
 already-present sam2 clone. torch 2.11.0+cu128 untouched; no CUDA build.
+
+---
+
+## WP-O2 — 360° SfM lane (`core/sfm_360.py`, added 2026-08-04)
+
+### (a) COLMAP panorama SfM — `panorama_sfm.py` / `pycolmap/panorama.py`
+- **Idea/source:** COLMAP's own 360° pipeline. Two upstream revisions were fetched into
+  `tools/reference_sources/colmap_panorama/` (see its README for exact paths/refs):
+  the **self-contained `python/examples/panorama_sfm.py` at tag `4.1.0`** — the revision that
+  matches our installed binary (`COLMAP 4.1.0 Commit fa8e3b3 on 2026-06-26 without CUDA`) —
+  and the `main` @ `319c6e6` split into `python/pycolmap/panorama.py` + a thin CLI.
+  **Neither ships in our pycolmap 4.1.0 wheel** (`site-packages/pycolmap/` has only
+  `__init__.py`, `_core.pyd`, `utils.py`, `cost_functions/`, `pyceres/`), so the logic had to
+  be vendored rather than imported.
+- **Adoption:** `core/sfm_360.py` re-implements the geometry with upstream's math kept
+  faithful — `create_virtual_camera`, `get_virtual_camera_rays`, `spherical_img_from_cam`,
+  `get_virtual_rotations`, `create_pano_rig_config`, `PanoProcessor.convert_to_equirectangular`
+  — and calls the same pycolmap entry points (`extract_features` with
+  `CameraMode.PER_FOLDER` + `mask_path`, `apply_rig_config`, `match_sequential` with
+  `rig_verification` + `skip_image_pairs_in_same_frame`, `incremental_mapping` with
+  `ba_refine_sensor_from_rig/focal_length/principal_point/extra_params = False`).
+  OURS: compositing the WP-O1 operator/nadir/seam masks INTO the exclusive crop masks;
+  building the 12 remap tables and exclusive masks once instead of per pano; the
+  solid-angle sphere-coverage accounting; cv2 IO at q95 instead of PIL defaults; the
+  stage heartbeat + hard `--timeout_s` watchdog for colmap/colmap#3599; the metrics /
+  trajectory / report layer. Upstream's covisibility-`.npz` filtering is NOT ported.
+- **License:** BSD-3-Clause (colmap/colmap). Snapshot files carry upstream's headers.
+
+### (b) COLMAP C++ sources read to pin down behaviour (reference only, nothing vendored into runtime)
+- `src/colmap/controllers/image_reader.cc` and `controllers/pairing.cc` at tag `4.1.0`,
+  snapshotted next to the Python files. They establish the mask-file naming fallback
+  (`<stem>.png` works for `<stem>.jpg`), the "keypoint kept iff mask pixel != 0" rule that
+  makes WP-O1's 255=VALID convention directly usable, and the rig-aware
+  `expand_rig_images` behaviour of the sequential pair generator. BSD-3-Clause.
+
+### (c) COLMAP vocabulary tree (loop detection)
+- `vocab_tree_faiss_flickr100K_words256K.bin`, auto-downloaded and cached by COLMAP itself
+  from `github.com/colmap/colmap/releases/download/3.11.1/` into
+  `%LOCALAPPDATA%\..\.cache\colmap\` on the first `--loop_detection 1` run. Binary asset
+  published by the COLMAP project (BSD-3-Clause project; the tree is trained on Flickr100K).
+  Not redistributed by us.
+
+### No new dependencies
+Nothing was pip-installed for WP-O2: pycolmap 4.1.0, cv2, numpy and matplotlib were already
+present. torch 2.11.0+cu128 untouched; no CUDA build. NOTE: our pycolmap wheel is built
+**without CUDA**, so SIFT extraction and matching run on the CPU in both arms (recorded as
+`colmap.has_cuda: false` in every `sfm_report.json`).

@@ -63,8 +63,14 @@ artifact with no Blackwell evidence. The whole lane needs ZERO new CUDA builds.
   mean track 3.9**; trajectory bbox 11.4×1.5×3.8 (corridor-shaped), smooth steps, path
   length ≈ 10× end-to-end displacement (walk in + rooms + return). Caveats: repeated
   ceres LM warnings "dense Cholesky failure" during BA (map still healthy — watch at
-  scale); a few larger steps suggest mild pose jitter/scale drift. Probe artifacts:
-  session scratchpad `probe_erp/` (promote into `qa/` when WP-O2 runs).
+  scale); a few larger steps suggest mild pose jitter/scale drift. **PROMOTED 2026-08-04 by
+  WP-O2** — metrics re-derived from the probe's own sparse model with WP-O2's code (NOT
+  re-run) and reproducing exactly (40/40, 13 408 pts, 1.2243 px, track 3.944, long axis
+  11.41): `_infusion/wpo2/probe_erp_summary.json` + `probe_erp_scripts/` +
+  `trajectory_plan360_probe.jpg`. The Cholesky warnings DO reproduce at 151 frames and in
+  BOTH WP-O2 arms with no quality cost (§5 WP-O2). Caveat learned at scale: the probe's 40 s
+  slice never entered the room loops, so it understated both the non-planarity of the walk
+  (plane residual 0.24 → 0.88) and the pano tilt (max 16° → 49°).
 - **gsplat 1.5.3 (our sm_120 AOT build) exposes `camera_model: Literal["pinhole","ortho",
   "fisheye","ftheta"]` in `gsplat.rasterization`** — fisheye-native training possible with
   NO rasterizer rebuild. Not plumbed through `core/training/gsplat_trainer.py` (perspective-only).
@@ -203,7 +209,46 @@ understands, + `ingest_report.json` (per-frame sharpness, chosen indices, stitch
 contact sheet (stitch + mask overlays) persisted; operator fully covered by mask on 20
 random frames; report JSON committed. Record negatives honestly.
 
-### WP-O2 — 360 SfM lane — ~2–3 days
+### WP-O2 — 360 SfM lane — ~2–3 days — ✅ GATE PASSED 2026-08-04
+> **Shipped `core/sfm_360.py` + `python -m core.sfm_360 --capture-type 360` (default-OFF:
+> no flag ⇒ exit 2; nothing outside tests/`_infusion` imports it) + 28 tests
+> (`tests/test_sfm_360.py`; suite 183→211). Both arms run on the 151-pano `_077` dataset,
+> seed 0, CPU SIFT (our pycolmap wheel is built **without CUDA** — `has_cuda False`).
+> **ARM A crop-rig: 151/151 registered (100%), mean reproj 1.2313 px in the 960² crop model
+> / 1.3419 px after `convert_to_equirectangular()`, 622 325 points, 1 reconstruction,
+> 4 h 14 m.** ARM B spherical: 151/151, 1.2694 px, 166 670 points, 20.7 m. Trajectory
+> (both arms agree to ~2 %): floor plan 11.9 × 5.4 (aspect 0.45 = corridor + 2 side rooms),
+> 29× the median step long, **0 steps > 5× median**, path/displacement 23.4 — matches §2's
+> 40-frame probe shape at 151 frames. colmap#3599 **did not reproduce** (a heartbeat +
+> `--timeout_s` watchdog stays in as insurance), so the upstream logic shipped; the crop
+> generator is our own code either way because `panorama.py` is NOT in the 4.1.0 wheel —
+> at tag 4.1.0 upstream shipped it as a self-contained `python/examples/panorama_sfm.py`
+> (snapshots + the C++ files that pin mask/pairing behaviour:
+> `tools/reference_sources/colmap_panorama/`).
+> **Honest verdict on the A/B: accuracy is a DEAD HEAT** (both 100 % registered; ARM B is
+> nominally *ahead* in the one comparable unit, ERP px) — §3's "SPHERICAL is generally less
+> accurate" does not reproduce here. ARM A ships as the production lane for what it
+> measurably buys: **3.7× the 3D points and 3.7× the observations** from the same panos, plus
+> pinhole crops + poses that WP-O3 can train on directly, at 12.2× the wall clock.
+> **ih_fov calibration (deferred from WP-O1) = NEGATIVE RESULT**: on 20 frames 192→1.109,
+> 194→1.115, 196→1.084, **198→1.067**, 200→1.079 px, all 20/20 registered — but repeating the
+> identical argv moves the number by up to 0.018 px (COLMAP's mapper is multi-threaded and
+> **not bit-reproducible at a fixed seed**), and at the full 151 frames the ranking FLIPS
+> (198 → 1.2694 vs 200 → 1.2588). Only 192/194 are separable. **`--ih_fov` default stays
+> 200**; the delivered poses are on a 198 re-ingest, so WP-O3 must consume
+> `_dataset/360/flowershop_077_ihfov198`.
+> **Two findings that change the plan: (1) the panos are NOT "approximately upright" —
+> measured zenith tilt median 11° / p90 27° / max 49° (both arms agree), i.e. §3's
+> load-bearing COLMAP precondition is violated by this clip and it registered anyway; §6's
+> "Horizon Lock ON" now has a number behind it and an ingest levelling pass is a cheap future
+> lever. (2) §2's ceres "dense Cholesky failure" warnings DO reproduce at scale and in BOTH
+> arms (ERP 157 / crop-rig 36 `CHOLMOD warning: Matrix not positive definite` lines) with no
+> measurable quality cost — cosmetic, do not chase, re-check only if a scene fragments.**
+> Deliverables: `sparse/0` + `sparse_equirectangular/0` under `_dataset/360/sfm/wpo2_*`;
+> committed evidence + honest negatives in `_infusion/wpo2_RECORD.md` + `_infusion/wpo2/`
+> (A/B scorecard, per-pano pose CSVs, the fixed rig JSON, trajectory plots, sweep + noise
+> floor JSON, independent mask-integrity re-check: **0** keypoints on masked-out pixels
+> across 1 055 352 checked).**
 Vendor/adapt COLMAP's `panorama_sfm.py` logic (RigConfig 12-crop PERSPECTIVE_OVERLAPPING,
 exclusive masks composited WITH our WP-O1 masks) into a `reconstruction` path selectable by
 the flag; run BOTH arms on FLOWERSHOP: (a) crop-rig, (b) SPHERICAL direct (probe

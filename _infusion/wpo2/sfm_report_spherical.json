@@ -1,0 +1,134 @@
+{
+ "wp": "WP-O2",
+ "created": "2026-08-04T22:39:42",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "-m",
+  "core.sfm_360",
+  "--capture-type",
+  "360",
+  "--arm",
+  "spherical",
+  "--dataset",
+  "_dataset/360/flowershop_077_ihfov198",
+  "--out_dir",
+  "_dataset/360/sfm/wpo2_spherical",
+  "--overwrite",
+  "--matcher",
+  "exhaustive",
+  "--seed",
+  "0",
+  "--timeout_s",
+  "21600",
+  "--heartbeat_s",
+  "300"
+ ],
+ "dataset": "_dataset\\360\\flowershop_077_ihfov198",
+ "image_dir": "_dataset\\360\\flowershop_077_ihfov198\\images",
+ "mask_dir": "_dataset\\360\\flowershop_077_ihfov198\\masks",
+ "use_masks": true,
+ "seed": 0,
+ "colmap": {
+  "version": "COLMAP 4.1.0",
+  "build": "Commit fa8e3b3 on 2026-06-26 without CUDA",
+  "has_cuda": false,
+  "use_gpu_requested": false,
+  "num_threads": -1
+ },
+ "options": {
+  "arm": "spherical",
+  "matcher": "exhaustive",
+  "render_type": null,
+  "max_panos": 0,
+  "timeout_s": 21600.0
+ },
+ "arm": "spherical",
+ "camera_model": "EQUIRECTANGULAR",
+ "pano_size": [
+  3840,
+  1920
+ ],
+ "num_panos": 151,
+ "best_reconstruction": 0,
+ "num_reconstructions": 1,
+ "metrics_crop": null,
+ "metrics_equirect": {
+  "num_input_panos": 151,
+  "num_registered_panos": 151,
+  "registered_pct": 100.0,
+  "num_images": 151,
+  "num_reg_images": 151,
+  "num_frames": 151,
+  "num_reg_frames": 151,
+  "num_points3D": 166670,
+  "num_observations": 675169,
+  "mean_reproj_error_px": 1.269446,
+  "mean_track_length": 4.050933,
+  "mean_obs_per_reg_image": 4471.317881
+ },
+ "trajectory": {
+  "n": 151,
+  "pca_extent_sorted": [
+   11.652589,
+   5.565607,
+   3.596218
+  ],
+  "pca_extent_ratio": [
+   1.0,
+   0.477628,
+   0.30862
+  ],
+  "bbox_extent_sorted": [
+   10.431247,
+   8.554874,
+   3.842371
+  ],
+  "bbox_axes_sorted": [
+   2,
+   0,
+   1
+  ],
+  "bbox_extent_ratio": [
+   1.0,
+   0.82012,
+   0.368352
+  ],
+  "step_median": 0.40651,
+  "step_mean": 0.484446,
+  "step_p90": 0.932093,
+  "step_max": 1.654268,
+  "step_p90_over_median": 2.292917,
+  "step_max_over_median": 4.069441,
+  "num_steps_gt_5x_median": 0,
+  "path_length": 72.666838,
+  "end_to_end_displacement": 3.22228,
+  "path_over_displacement": 22.55137,
+  "extent_over_median_step": 28.664966,
+  "up_world": [
+   0.158712,
+   -0.968529,
+   0.191735
+  ],
+  "height_extent": 3.114062,
+  "height_std": 0.912143,
+  "floorplan_extent_sorted": [
+   11.697474,
+   5.322752
+  ],
+  "floorplan_aspect": 0.455034,
+  "height_over_floorplan_extent": 0.266217
+ },
+ "matching": {
+  "matcher": "exhaustive",
+  "seconds": 544.16
+ },
+ "timings_s": {
+  "render": 0.0,
+  "extract": 47.3,
+  "match": 544.16,
+  "mapping": 651.68,
+  "total": 1243.59
+ },
+ "sparse_dir": "_dataset\\360\\sfm\\wpo2_spherical\\sparse\\0",
+ "equirect_dir": "_dataset\\360\\sfm\\wpo2_spherical\\sparse\\0"
+}

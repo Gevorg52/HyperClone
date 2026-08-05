@@ -1,0 +1,134 @@
+{
+ "wp": "WP-O2",
+ "created": "2026-08-04T23:00:15",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "-m",
+  "core.sfm_360",
+  "--capture-type",
+  "360",
+  "--arm",
+  "spherical",
+  "--dataset",
+  "_dataset/360/flowershop_077",
+  "--out_dir",
+  "_dataset/360/sfm/wpo2_spherical_ihfov200",
+  "--overwrite",
+  "--matcher",
+  "exhaustive",
+  "--seed",
+  "0",
+  "--timeout_s",
+  "21600",
+  "--heartbeat_s",
+  "300"
+ ],
+ "dataset": "_dataset\\360\\flowershop_077",
+ "image_dir": "_dataset\\360\\flowershop_077\\images",
+ "mask_dir": "_dataset\\360\\flowershop_077\\masks",
+ "use_masks": true,
+ "seed": 0,
+ "colmap": {
+  "version": "COLMAP 4.1.0",
+  "build": "Commit fa8e3b3 on 2026-06-26 without CUDA",
+  "has_cuda": false,
+  "use_gpu_requested": false,
+  "num_threads": -1
+ },
+ "options": {
+  "arm": "spherical",
+  "matcher": "exhaustive",
+  "render_type": null,
+  "max_panos": 0,
+  "timeout_s": 21600.0
+ },
+ "arm": "spherical",
+ "camera_model": "EQUIRECTANGULAR",
+ "pano_size": [
+  3840,
+  1920
+ ],
+ "num_panos": 151,
+ "best_reconstruction": 0,
+ "num_reconstructions": 1,
+ "metrics_crop": null,
+ "metrics_equirect": {
+  "num_input_panos": 151,
+  "num_registered_panos": 151,
+  "registered_pct": 100.0,
+  "num_images": 151,
+  "num_reg_images": 151,
+  "num_frames": 151,
+  "num_reg_frames": 151,
+  "num_points3D": 166459,
+  "num_observations": 662428,
+  "mean_reproj_error_px": 1.258778,
+  "mean_track_length": 3.979526,
+  "mean_obs_per_reg_image": 4386.940397
+ },
+ "trajectory": {
+  "n": 151,
+  "pca_extent_sorted": [
+   11.587395,
+   5.572023,
+   3.602846
+  ],
+  "pca_extent_ratio": [
+   1.0,
+   0.480869,
+   0.310928
+  ],
+  "bbox_extent_sorted": [
+   10.328215,
+   8.581207,
+   3.749307
+  ],
+  "bbox_axes_sorted": [
+   2,
+   0,
+   1
+  ],
+  "bbox_extent_ratio": [
+   1.0,
+   0.830851,
+   0.363016
+  ],
+  "step_median": 0.417215,
+  "step_mean": 0.48579,
+  "step_p90": 0.88807,
+  "step_max": 1.639649,
+  "step_p90_over_median": 2.128568,
+  "step_max_over_median": 3.929988,
+  "num_steps_gt_5x_median": 0,
+  "path_length": 72.868464,
+  "end_to_end_displacement": 3.182017,
+  "path_over_displacement": 22.900088,
+  "extent_over_median_step": 27.773219,
+  "up_world": [
+   0.154655,
+   -0.970869,
+   0.183019
+  ],
+  "height_extent": 3.097742,
+  "height_std": 0.913,
+  "floorplan_extent_sorted": [
+   11.634838,
+   5.326694
+  ],
+  "floorplan_aspect": 0.457823,
+  "height_over_floorplan_extent": 0.266247
+ },
+ "matching": {
+  "matcher": "exhaustive",
+  "seconds": 541.86
+ },
+ "timings_s": {
+  "render": 0.0,
+  "extract": 47.47,
+  "match": 541.86,
+  "mapping": 643.1,
+  "total": 1232.87
+ },
+ "sparse_dir": "_dataset\\360\\sfm\\wpo2_spherical_ihfov200\\sparse\\0",
+ "equirect_dir": "_dataset\\360\\sfm\\wpo2_spherical_ihfov200\\sparse\\0"
+}

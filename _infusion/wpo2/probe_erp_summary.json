@@ -1,0 +1,92 @@
+{
+ "wp": "WP-O2",
+ "what": "PLAN_360 \u00a72 ERP-direct probe \u2014 metrics RE-DERIVED from the probe's own sparse model with WP-O2's code (NOT re-reconstructed)",
+ "source_model": "C:\\Users\\gevor\\AppData\\Local\\Temp\\claude\\D--REPOS-HYPERclone\\5ccc0eb9-58b8-4ab6-8ef5-e06fcc1bda23\\scratchpad\\probe_erp\\sparse\\0",
+ "probe_conditions": "40 ERP frames @1 fps, crude v360 stitch, seams and operator UNMASKED, EQUIRECTANGULAR single camera, SIFT-CPU exhaustive",
+ "scripts": [
+  "probe_erp_scripts/run_probe.py",
+  "probe_erp_scripts/run_map.py"
+ ],
+ "metrics": {
+  "num_input_panos": 40,
+  "num_registered_panos": 40,
+  "registered_pct": 100.0,
+  "num_images": 40,
+  "num_reg_images": 40,
+  "num_frames": 40,
+  "num_reg_frames": 40,
+  "num_points3D": 13408,
+  "num_observations": 52887,
+  "mean_reproj_error_px": 1.224252,
+  "mean_track_length": 3.944436,
+  "mean_obs_per_reg_image": 1322.175
+ },
+ "trajectory": {
+  "n": 40,
+  "pca_extent_sorted": [
+   11.451302,
+   3.908417,
+   0.990795
+  ],
+  "pca_extent_ratio": [
+   1.0,
+   0.341308,
+   0.086522
+  ],
+  "bbox_extent_sorted": [
+   11.390473,
+   3.808203,
+   1.538581
+  ],
+  "bbox_axes_sorted": [
+   0,
+   2,
+   1
+  ],
+  "bbox_extent_ratio": [
+   1.0,
+   0.334332,
+   0.135076
+  ],
+  "step_median": 0.874603,
+  "step_mean": 0.857445,
+  "step_p90": 1.180039,
+  "step_max": 1.562838,
+  "step_p90_over_median": 1.349228,
+  "step_max_over_median": 1.786912,
+  "num_steps_gt_5x_median": 0,
+  "path_length": 33.440357,
+  "end_to_end_displacement": 6.924229,
+  "path_over_displacement": 4.82947,
+  "extent_over_median_step": 13.093146,
+  "up_world": [
+   -0.146888,
+   -0.977781,
+   0.149558
+  ],
+  "height_extent": 0.963102,
+  "height_std": 0.322179,
+  "floorplan_extent_sorted": [
+   11.414362,
+   3.915664
+  ],
+  "floorplan_aspect": 0.343047,
+  "height_over_floorplan_extent": 0.084376,
+  "upright": {
+   "tilt_deg_median": 5.6505,
+   "tilt_deg_p90": 9.983218,
+   "tilt_deg_max": 15.868918,
+   "n": 40
+  },
+  "plane_residual_rms": 0.24191,
+  "plane_residual_max": 0.61914,
+  "plane_normal_vs_up_deg": 5.4486
+ },
+ "plan360_quoted": {
+  "registered": "40/40",
+  "points": 13408,
+  "mean_reproj_px": 1.22,
+  "mean_track": 3.9,
+  "bbox": "11.4 x 1.5 x 3.8"
+ }
+}

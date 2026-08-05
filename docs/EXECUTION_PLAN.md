@@ -685,9 +685,27 @@ attention" against the sm_120 landmine before any use.
   `--operator_stream {0,1}` — **the lens/stream order is an ASSUMPTION verified on the
   2026-07-21 clips only; WP-O2 must spot-check one frame per stream for any new
   camera/firmware**. Tests 22→32 (suite **183**).
-- **WP-O2 — 360 SfM lane** (~2–3 d): COLMAP panorama rig pipeline (crop-rig arm) A/B
-  spherical-direct arm; watch colmap#3599 hang (fallback: own Equilib crops +
-  `apply_rig_config`). Gate: ≥95% registered, ≤1.5 px, trajectory sane, A/B persisted.
+- **WP-O2 — 360 SfM lane** (~2–3 d) — **✅ GATE PASSED 2026-08-04** on ARM A (crop-rig):
+  `core/sfm_360.py`, `--capture-type 360` default-OFF, two arms
+  (`--arm crop_rig|spherical`), WP-O1 masks composited into COLMAP's exclusive crop masks,
+  `--use_masks 0` no-priors path, colmap#3599 watchdog (heartbeat + `--timeout_s` → exit 3;
+  **the hang did not reproduce**, so the vendored-upstream path shipped). Gate on the 151-pano
+  `_077` dataset: **151/151 registered (100%)**, mean reproj **1.2313 px** (crop model) /
+  **1.3419 px** (after `convert_to_equirectangular()`), 1 reconstruction, corridor-shaped
+  track with **0** steps > 5× median. **A/B: ARM B spherical also hits 151/151 at 1.2694 px
+  ERP in 20.7 min vs ARM A's 4 h 14 m — accuracy is a dead heat and ARM B is nominally ahead
+  in the one comparable unit; what ARM A actually buys is 3.7× the points (622k vs 167k) and
+  training-ready pinhole crops.** ih_fov sweep = **negative result**: 196/198/200 differ by
+  less than COLMAP's own run-to-run noise (mapper is NOT bit-reproducible at fixed seed; sd
+  ≈0.003–0.008 px) and the 20-frame winner (198) FLIPS at 151 frames — WP-O1's default stays
+  200, but the delivered poses are on the 198 re-ingest, so **WP-O3 must use
+  `_dataset/360/flowershop_077_ihfov198`**. Other findings: panos are **not upright** (zenith
+  tilt median 11°/p90 27°/max 49° — PLAN_360 §6's Horizon-Lock rule now has a number); ceres
+  CHOLMAP-not-positive-definite warnings reproduce at scale in BOTH arms (157 ERP vs 36
+  crop-rig) with **no** quality cost; pycolmap wheel is **without CUDA** so all SIFT is CPU.
+  28 new tests (suite 183→**211**). Evidence `_infusion/wpo2_RECORD.md` + `_infusion/wpo2/`
+  (A/B scorecard, poses CSVs, rig JSON, trajectory plots, sweep + noise JSON); upstream
+  snapshots in `tools/reference_sources/colmap_panorama/`.
 - **WP-O3 — 360 training lane** (~2–3 d): rig crops → existing perspective trainer
   (masks plumbed); held-out = whole pano frames. Gate: trains to completion, baseline
   held-out masked-LPIPS recorded, no operator ghosts / seam phantoms.

@@ -1,0 +1,98 @@
+{
+ "ih_fov200_wpo1_gate": {
+  "dir": "_dataset\\360\\flowershop_077",
+  "n_images": 151,
+  "n_masks": 151,
+  "stems_pair_1to1": true,
+  "image_shape": [
+   1920,
+   3840,
+   3
+  ],
+  "mask_shapes": [
+   [
+    1920,
+    3840
+   ]
+  ],
+  "mask_values": [
+   0,
+   255
+  ],
+  "mean_excluded_frac": 0.15461,
+  "ih_fov": 200.0,
+  "iv_fov": 200.0,
+  "effective_pano_fps": 1.998,
+  "sharpness_all_median": 1690.7,
+  "operator_guards": [
+   0,
+   0
+  ],
+  "argv": [
+   "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\ingest_360.py",
+   "--capture-type",
+   "insta360",
+   "--input",
+   "D:/HYPERCLONE/FOOTAGE/FlowerShop/VID_20260721_133413_00_077.insv",
+   "--out_dir",
+   "_dataset/360/flowershop_077",
+   "--overwrite",
+   "--contact_sheet",
+   "20",
+   "--seed",
+   "0",
+   "--progress",
+   "5000"
+  ]
+ },
+ "ih_fov198_wpo2": {
+  "dir": "_dataset\\360\\flowershop_077_ihfov198",
+  "n_images": 151,
+  "n_masks": 151,
+  "stems_pair_1to1": true,
+  "image_shape": [
+   1920,
+   3840,
+   3
+  ],
+  "mask_shapes": [
+   [
+    1920,
+    3840
+   ]
+  ],
+  "mask_values": [
+   0,
+   255
+  ],
+  "mean_excluded_frac": 0.15422,
+  "ih_fov": 198.0,
+  "iv_fov": 198.0,
+  "effective_pano_fps": 1.998,
+  "sharpness_all_median": 1690.7,
+  "operator_guards": [
+   0,
+   0
+  ],
+  "argv": [
+   "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\ingest_360.py",
+   "--capture-type",
+   "insta360",
+   "--input",
+   "D:/HYPERCLONE/FOOTAGE/FlowerShop/VID_20260721_133413_00_077.insv",
+   "--out_dir",
+   "_dataset/360/flowershop_077_ihfov198",
+   "--overwrite",
+   "--ih_fov",
+   "198",
+   "--iv_fov",
+   "198",
+   "--contact_sheet",
+   "12",
+   "--seed",
+   "0",
+   "--progress",
+   "5000"
+  ]
+ }
+}

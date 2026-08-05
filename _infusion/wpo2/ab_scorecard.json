@@ -1,0 +1,611 @@
+{
+ "wp": "WP-O2",
+ "created": "2026-08-04T23:02:02",
+ "arms": {
+  "crop_rig": {
+   "argv": [
+    "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "-m",
+    "core.sfm_360",
+    "--capture-type",
+    "360",
+    "--arm",
+    "crop_rig",
+    "--dataset",
+    "_dataset/360/flowershop_077_ihfov198",
+    "--out_dir",
+    "_dataset/360/sfm/wpo2_crop_rig",
+    "--overwrite",
+    "--matcher",
+    "sequential",
+    "--overlap",
+    "10",
+    "--quadratic_overlap",
+    "1",
+    "--loop_detection",
+    "1",
+    "--seed",
+    "0",
+    "--timeout_s",
+    "21600",
+    "--heartbeat_s",
+    "300",
+    "--progress",
+    "50"
+   ],
+   "seed": 0,
+   "run_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\sfm\\wpo2_crop_rig",
+   "sparse_dir": "_dataset\\360\\sfm\\wpo2_crop_rig\\sparse\\0",
+   "equirect_dir": "_dataset\\360\\sfm\\wpo2_crop_rig\\sparse_equirectangular\\0",
+   "colmap": {
+    "version": "COLMAP 4.1.0",
+    "build": "Commit fa8e3b3 on 2026-06-26 without CUDA",
+    "has_cuda": false,
+    "use_gpu_requested": false,
+    "num_threads": -1
+   },
+   "options": {
+    "arm": "crop_rig",
+    "matcher": "sequential",
+    "render_type": "perspective_overlapping",
+    "max_panos": 0,
+    "timeout_s": 21600.0
+   },
+   "matching": {
+    "matcher": "sequential",
+    "overlap": 10,
+    "quadratic_overlap": true,
+    "loop_detection": true,
+    "expand_rig_images": true,
+    "seconds": 5696.3
+   },
+   "timings_s": {
+    "render": 3.99,
+    "extract": 92.2,
+    "match": 5696.3,
+    "mapping": 9392.98,
+    "total": 15213.31
+   },
+   "metrics_equirect": {
+    "num_input_panos": 151,
+    "num_registered_panos": 151,
+    "registered_pct": 100.0,
+    "num_images": 151,
+    "num_reg_images": 151,
+    "num_frames": 151,
+    "num_reg_frames": 151,
+    "num_points3D": 622325,
+    "num_observations": 2525083,
+    "mean_reproj_error_px": 1.341925,
+    "mean_track_length": 4.057499,
+    "mean_obs_per_reg_image": 16722.403974
+   },
+   "metrics_crop": {
+    "num_input_panos": 151,
+    "num_registered_panos": 151,
+    "registered_pct": 100.0,
+    "num_images": 1812,
+    "num_reg_images": 1812,
+    "num_frames": 151,
+    "num_reg_frames": 151,
+    "num_points3D": 622325,
+    "num_observations": 2525083,
+    "mean_reproj_error_px": 1.231252,
+    "mean_track_length": 4.057499,
+    "mean_obs_per_reg_image": 1393.533664
+   },
+   "trajectory": {
+    "n": 151,
+    "pca_extent_sorted": [
+     11.879078,
+     5.660893,
+     3.707033
+    ],
+    "pca_extent_ratio": [
+     1.0,
+     0.476543,
+     0.312064
+    ],
+    "bbox_extent_sorted": [
+     11.456301,
+     5.543925,
+     5.430543
+    ],
+    "bbox_axes_sorted": [
+     2,
+     1,
+     0
+    ],
+    "bbox_extent_ratio": [
+     1.0,
+     0.483919,
+     0.474022
+    ],
+    "step_median": 0.407898,
+    "step_mean": 0.492714,
+    "step_p90": 0.948648,
+    "step_max": 1.700192,
+    "step_p90_over_median": 2.3257,
+    "step_max_over_median": 4.16818,
+    "num_steps_gt_5x_median": 0,
+    "path_length": 73.90715,
+    "end_to_end_displacement": 3.157246,
+    "path_over_displacement": 23.408739,
+    "extent_over_median_step": 29.12267,
+    "up_world": [
+     -0.499275,
+     -0.800542,
+     0.331448
+    ],
+    "height_extent": 3.22825,
+    "height_std": 0.926192,
+    "floorplan_extent_sorted": [
+     11.925679,
+     5.410248
+    ],
+    "floorplan_aspect": 0.453664,
+    "height_over_floorplan_extent": 0.270697,
+    "upright": {
+     "tilt_deg_median": 11.003923,
+     "tilt_deg_p90": 27.008081,
+     "tilt_deg_max": 48.636747,
+     "n": 151
+    },
+    "plane_residual_rms": 0.88249,
+    "plane_residual_max": 2.429691,
+    "plane_normal_vs_up_deg": 10.0146
+   },
+   "trajectory_in_run_report": {
+    "n": 151,
+    "bbox_extent_sorted": [
+     11.456301,
+     5.543925,
+     5.430543
+    ],
+    "bbox_axes_sorted": [
+     2,
+     1,
+     0
+    ],
+    "bbox_extent_ratio": [
+     1.0,
+     0.483919,
+     0.474022
+    ],
+    "step_median": 0.407898,
+    "step_mean": 0.492714,
+    "step_p90": 0.948648,
+    "step_max": 1.700192,
+    "step_p90_over_median": 2.3257,
+    "step_max_over_median": 4.16818,
+    "num_steps_gt_5x_median": 0,
+    "path_length": 73.90715,
+    "end_to_end_displacement": 3.157246,
+    "path_over_displacement": 23.408739,
+    "extent_over_median_step": 28.086192
+   },
+   "mask_integrity": {
+    "images_checked": 40,
+    "keypoints_checked": 138102,
+    "keypoints_on_masked_out_pixels": 0,
+    "missing_masks": [],
+    "image_root": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\sfm\\wpo2_crop_rig\\images",
+    "mask_root": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\sfm\\wpo2_crop_rig\\masks"
+   },
+   "poses_csv": "poses_crop_rig.csv",
+   "trajectory_jpg": "trajectory_crop_rig.jpg",
+   "ceres_warnings": {
+    "log": "_dataset/360/sfm_armA.err",
+    "warning_lines": 37,
+    "ceres_cholmod_not_positive_definite": 36,
+    "other_warnings": [
+     "Your current options use the maximum number of threads on the machine to extract features. Extracting SIFT features on t"
+    ]
+   },
+   "sphere_coverage_frac": 0.980135,
+   "valid_frac_mean": 0.331159
+  },
+  "spherical": {
+   "argv": [
+    "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "-m",
+    "core.sfm_360",
+    "--capture-type",
+    "360",
+    "--arm",
+    "spherical",
+    "--dataset",
+    "_dataset/360/flowershop_077_ihfov198",
+    "--out_dir",
+    "_dataset/360/sfm/wpo2_spherical",
+    "--overwrite",
+    "--matcher",
+    "exhaustive",
+    "--seed",
+    "0",
+    "--timeout_s",
+    "21600",
+    "--heartbeat_s",
+    "300"
+   ],
+   "seed": 0,
+   "run_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\sfm\\wpo2_spherical",
+   "sparse_dir": "_dataset\\360\\sfm\\wpo2_spherical\\sparse\\0",
+   "equirect_dir": "_dataset\\360\\sfm\\wpo2_spherical\\sparse\\0",
+   "colmap": {
+    "version": "COLMAP 4.1.0",
+    "build": "Commit fa8e3b3 on 2026-06-26 without CUDA",
+    "has_cuda": false,
+    "use_gpu_requested": false,
+    "num_threads": -1
+   },
+   "options": {
+    "arm": "spherical",
+    "matcher": "exhaustive",
+    "render_type": null,
+    "max_panos": 0,
+    "timeout_s": 21600.0
+   },
+   "matching": {
+    "matcher": "exhaustive",
+    "seconds": 544.16
+   },
+   "timings_s": {
+    "render": 0.0,
+    "extract": 47.3,
+    "match": 544.16,
+    "mapping": 651.68,
+    "total": 1243.59
+   },
+   "metrics_equirect": {
+    "num_input_panos": 151,
+    "num_registered_panos": 151,
+    "registered_pct": 100.0,
+    "num_images": 151,
+    "num_reg_images": 151,
+    "num_frames": 151,
+    "num_reg_frames": 151,
+    "num_points3D": 166670,
+    "num_observations": 675169,
+    "mean_reproj_error_px": 1.269446,
+    "mean_track_length": 4.050933,
+    "mean_obs_per_reg_image": 4471.317881
+   },
+   "metrics_crop": null,
+   "trajectory": {
+    "n": 151,
+    "pca_extent_sorted": [
+     11.652589,
+     5.565607,
+     3.596218
+    ],
+    "pca_extent_ratio": [
+     1.0,
+     0.477628,
+     0.30862
+    ],
+    "bbox_extent_sorted": [
+     10.431247,
+     8.554874,
+     3.842371
+    ],
+    "bbox_axes_sorted": [
+     2,
+     0,
+     1
+    ],
+    "bbox_extent_ratio": [
+     1.0,
+     0.82012,
+     0.368352
+    ],
+    "step_median": 0.40651,
+    "step_mean": 0.484446,
+    "step_p90": 0.932093,
+    "step_max": 1.654268,
+    "step_p90_over_median": 2.292917,
+    "step_max_over_median": 4.069441,
+    "num_steps_gt_5x_median": 0,
+    "path_length": 72.666838,
+    "end_to_end_displacement": 3.22228,
+    "path_over_displacement": 22.55137,
+    "extent_over_median_step": 28.664966,
+    "up_world": [
+     0.158712,
+     -0.968529,
+     0.191735
+    ],
+    "height_extent": 3.114062,
+    "height_std": 0.912143,
+    "floorplan_extent_sorted": [
+     11.697474,
+     5.322752
+    ],
+    "floorplan_aspect": 0.455034,
+    "height_over_floorplan_extent": 0.266217,
+    "upright": {
+     "tilt_deg_median": 11.244122,
+     "tilt_deg_p90": 26.940792,
+     "tilt_deg_max": 48.335466,
+     "n": 151
+    },
+    "plane_residual_rms": 0.863757,
+    "plane_residual_max": 2.349399,
+    "plane_normal_vs_up_deg": 10.0211
+   },
+   "trajectory_in_run_report": {
+    "n": 151,
+    "pca_extent_sorted": [
+     11.652589,
+     5.565607,
+     3.596218
+    ],
+    "pca_extent_ratio": [
+     1.0,
+     0.477628,
+     0.30862
+    ],
+    "bbox_extent_sorted": [
+     10.431247,
+     8.554874,
+     3.842371
+    ],
+    "bbox_axes_sorted": [
+     2,
+     0,
+     1
+    ],
+    "bbox_extent_ratio": [
+     1.0,
+     0.82012,
+     0.368352
+    ],
+    "step_median": 0.40651,
+    "step_mean": 0.484446,
+    "step_p90": 0.932093,
+    "step_max": 1.654268,
+    "step_p90_over_median": 2.292917,
+    "step_max_over_median": 4.069441,
+    "num_steps_gt_5x_median": 0,
+    "path_length": 72.666838,
+    "end_to_end_displacement": 3.22228,
+    "path_over_displacement": 22.55137,
+    "extent_over_median_step": 28.664966,
+    "up_world": [
+     0.158712,
+     -0.968529,
+     0.191735
+    ],
+    "height_extent": 3.114062,
+    "height_std": 0.912143,
+    "floorplan_extent_sorted": [
+     11.697474,
+     5.322752
+    ],
+    "floorplan_aspect": 0.455034,
+    "height_over_floorplan_extent": 0.266217
+   },
+   "mask_integrity": {
+    "images_checked": 40,
+    "keypoints_checked": 454287,
+    "keypoints_on_masked_out_pixels": 0,
+    "missing_masks": [],
+    "image_root": "_dataset\\360\\flowershop_077_ihfov198\\images",
+    "mask_root": "_dataset\\360\\flowershop_077_ihfov198\\masks"
+   },
+   "poses_csv": "poses_spherical.csv",
+   "trajectory_jpg": "trajectory_spherical.jpg",
+   "ceres_warnings": {
+    "log": "_dataset/360/log_wpo2_spherical.log",
+    "warning_lines": 158,
+    "ceres_cholmod_not_positive_definite": 157,
+    "other_warnings": [
+     "Your current options use the maximum number of threads on the machine to extract features. Extracting SIFT features on t"
+    ]
+   },
+   "sphere_coverage_frac": null,
+   "valid_frac_mean": null
+  },
+  "spherical_ihfov200": {
+   "argv": [
+    "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "-m",
+    "core.sfm_360",
+    "--capture-type",
+    "360",
+    "--arm",
+    "spherical",
+    "--dataset",
+    "_dataset/360/flowershop_077",
+    "--out_dir",
+    "_dataset/360/sfm/wpo2_spherical_ihfov200",
+    "--overwrite",
+    "--matcher",
+    "exhaustive",
+    "--seed",
+    "0",
+    "--timeout_s",
+    "21600",
+    "--heartbeat_s",
+    "300"
+   ],
+   "seed": 0,
+   "run_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\sfm\\wpo2_spherical_ihfov200",
+   "sparse_dir": "_dataset\\360\\sfm\\wpo2_spherical_ihfov200\\sparse\\0",
+   "equirect_dir": "_dataset\\360\\sfm\\wpo2_spherical_ihfov200\\sparse\\0",
+   "colmap": {
+    "version": "COLMAP 4.1.0",
+    "build": "Commit fa8e3b3 on 2026-06-26 without CUDA",
+    "has_cuda": false,
+    "use_gpu_requested": false,
+    "num_threads": -1
+   },
+   "options": {
+    "arm": "spherical",
+    "matcher": "exhaustive",
+    "render_type": null,
+    "max_panos": 0,
+    "timeout_s": 21600.0
+   },
+   "matching": {
+    "matcher": "exhaustive",
+    "seconds": 541.86
+   },
+   "timings_s": {
+    "render": 0.0,
+    "extract": 47.47,
+    "match": 541.86,
+    "mapping": 643.1,
+    "total": 1232.87
+   },
+   "metrics_equirect": {
+    "num_input_panos": 151,
+    "num_registered_panos": 151,
+    "registered_pct": 100.0,
+    "num_images": 151,
+    "num_reg_images": 151,
+    "num_frames": 151,
+    "num_reg_frames": 151,
+    "num_points3D": 166459,
+    "num_observations": 662428,
+    "mean_reproj_error_px": 1.258778,
+    "mean_track_length": 3.979526,
+    "mean_obs_per_reg_image": 4386.940397
+   },
+   "metrics_crop": null,
+   "trajectory": {
+    "n": 151,
+    "pca_extent_sorted": [
+     11.587395,
+     5.572023,
+     3.602846
+    ],
+    "pca_extent_ratio": [
+     1.0,
+     0.480869,
+     0.310928
+    ],
+    "bbox_extent_sorted": [
+     10.328215,
+     8.581207,
+     3.749307
+    ],
+    "bbox_axes_sorted": [
+     2,
+     0,
+     1
+    ],
+    "bbox_extent_ratio": [
+     1.0,
+     0.830851,
+     0.363016
+    ],
+    "step_median": 0.417215,
+    "step_mean": 0.48579,
+    "step_p90": 0.88807,
+    "step_max": 1.639649,
+    "step_p90_over_median": 2.128568,
+    "step_max_over_median": 3.929988,
+    "num_steps_gt_5x_median": 0,
+    "path_length": 72.868464,
+    "end_to_end_displacement": 3.182017,
+    "path_over_displacement": 22.900088,
+    "extent_over_median_step": 27.773219,
+    "up_world": [
+     0.154655,
+     -0.970869,
+     0.183019
+    ],
+    "height_extent": 3.097742,
+    "height_std": 0.913,
+    "floorplan_extent_sorted": [
+     11.634838,
+     5.326694
+    ],
+    "floorplan_aspect": 0.457823,
+    "height_over_floorplan_extent": 0.266247,
+    "upright": {
+     "tilt_deg_median": 11.1965,
+     "tilt_deg_p90": 27.16105,
+     "tilt_deg_max": 48.699443,
+     "n": 151
+    },
+    "plane_residual_rms": 0.861969,
+    "plane_residual_max": 2.348944,
+    "plane_normal_vs_up_deg": 10.2001
+   },
+   "trajectory_in_run_report": {
+    "n": 151,
+    "pca_extent_sorted": [
+     11.587395,
+     5.572023,
+     3.602846
+    ],
+    "pca_extent_ratio": [
+     1.0,
+     0.480869,
+     0.310928
+    ],
+    "bbox_extent_sorted": [
+     10.328215,
+     8.581207,
+     3.749307
+    ],
+    "bbox_axes_sorted": [
+     2,
+     0,
+     1
+    ],
+    "bbox_extent_ratio": [
+     1.0,
+     0.830851,
+     0.363016
+    ],
+    "step_median": 0.417215,
+    "step_mean": 0.48579,
+    "step_p90": 0.88807,
+    "step_max": 1.639649,
+    "step_p90_over_median": 2.128568,
+    "step_max_over_median": 3.929988,
+    "num_steps_gt_5x_median": 0,
+    "path_length": 72.868464,
+    "end_to_end_displacement": 3.182017,
+    "path_over_displacement": 22.900088,
+    "extent_over_median_step": 27.773219,
+    "up_world": [
+     0.154655,
+     -0.970869,
+     0.183019
+    ],
+    "height_extent": 3.097742,
+    "height_std": 0.913,
+    "floorplan_extent_sorted": [
+     11.634838,
+     5.326694
+    ],
+    "floorplan_aspect": 0.457823,
+    "height_over_floorplan_extent": 0.266247
+   },
+   "mask_integrity": {
+    "images_checked": 40,
+    "keypoints_checked": 462963,
+    "keypoints_on_masked_out_pixels": 0,
+    "missing_masks": [],
+    "image_root": "_dataset\\360\\flowershop_077\\images",
+    "mask_root": "_dataset\\360\\flowershop_077\\masks"
+   },
+   "poses_csv": "poses_spherical_ihfov200.csv",
+   "trajectory_jpg": "trajectory_spherical_ihfov200.jpg",
+   "ceres_warnings": {
+    "log": "_dataset/360/log_wpo2_spherical_ihfov200.log",
+    "warning_lines": 221,
+    "ceres_cholmod_not_positive_definite": 220,
+    "other_warnings": [
+     "Your current options use the maximum number of threads on the machine to extract features. Extracting SIFT features on t"
+    ]
+   },
+   "sphere_coverage_frac": null,
+   "valid_frac_mean": null
+  }
+ }
+}
