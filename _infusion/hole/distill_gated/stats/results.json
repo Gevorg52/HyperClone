@@ -1,0 +1,11 @@
+{
+  "psnr": 15.881520623984123,
+  "ssim": 0.7468580295399921,
+  "num_gaussians": 1400000,
+  "steps": 4000,
+  "strategy": "mcmc",
+  "antialiased": true,
+  "pose_opt": false,
+  "data_factor": 2,
+  "coarse_factor": null
+}

@@ -11,7 +11,7 @@ Quality stack (June 2026):
   - Mip-Splatting anti-aliasing (rasterize_mode="antialiased")
   - Optional SE(3) camera pose refinement during training
   - Coarse-to-fine resolution schedule (densify at low res, finish at high res)
-  - Opacity/scale regularization (required for MCMC)
+  - Scale regularization; opacity regularization is opt-in (default 0 since 2026-10-17)
 
 Designed to be invoked as a subprocess from GsplatBackend.train().
 Progress is printed to stdout in a parseable format.
@@ -369,6 +369,8 @@ def append_extra_views(data: dict, extra_views_json: str) -> int:
     The JSON holds a list of ``{"image": path, "K": 3x3, "c2w": 4x4}`` with
     poses already in the trainer's NORMALIZED world space (as produced by
     core.enhancement.distill).  Views are added to train_indices only.
+    Optional ``"hole_mask"`` per entry points to an explicit per-pixel unobserved
+    mask (PNG or .npy, >0 = unobserved hole) for WP-R1 observed-preservation gating.
     """
     entries = json.loads(Path(extra_views_json).read_text(encoding="utf-8"))
     if not entries:
@@ -376,15 +378,23 @@ def append_extra_views(data: dict, extra_views_json: str) -> int:
 
     base = len(data["image_names"])
     extra_c2ws = []
+    extra_indices = set(data.get("extra_view_indices", set()))
+    extra_hole_masks = dict(data.get("extra_hole_masks", {}))
     for i, e in enumerate(entries):
         cid = f"extra_{i}"
+        idx = base + i
         data["Ks_dict"][cid] = np.array(e["K"], dtype=np.float64)
         data["params_dict"][cid] = np.empty(0, dtype=np.float32)
         data["camera_ids"].append(cid)
         data["image_paths"].append(e["image"])
         data["image_names"].append(Path(e["image"]).name)
         extra_c2ws.append(np.array(e["c2w"], dtype=np.float32))
+        extra_indices.add(idx)
+        if e.get("hole_mask"):
+            extra_hole_masks[idx] = str(e["hole_mask"])
 
+    data["extra_view_indices"] = extra_indices
+    data["extra_hole_masks"] = extra_hole_masks
     data["camtoworlds"] = np.concatenate(
         [data["camtoworlds"], np.stack(extra_c2ws)], axis=0,
     )
@@ -402,6 +412,119 @@ def append_extra_views(data: dict, extra_views_json: str) -> int:
           f"{len(data['train_indices'])}); extra-view weight "
           f"mean={w.mean():.2f} range=[{w.min():.2f},{w.max():.2f}]")
     return len(entries)
+
+
+def compute_extra_unobs_weight(
+    alpha_init: torch.Tensor,
+    tau_obs: float = 0.85,
+    gamma: float = 1.0,
+    hole_mask: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """WP-R1 spatial unobserved weight map w_unobs(u,v) in [0, 1] for an extra view.
+
+    Where the frozen initial checkpoint already has high opacity (alpha_init >= tau_obs),
+    the scene is observed and w_unobs = 0. Where alpha_init < tau_obs, w_unobs ramps up as
+    clamp((tau_obs - alpha_init) / tau_obs, 0, 1) ** gamma. If an explicit hole_mask is
+    also provided (e.g. OGGSplat unobserved mask in extra_views.json), w_unobs is gated by
+    hole_mask so semi-transparent observed fringes outside the hole receive zero weight.
+    """
+    tau = max(float(tau_obs), 1e-6)
+    w = ((tau - alpha_init.float()) / tau).clamp(0.0, 1.0)
+    if float(gamma) != 1.0:
+        w = w.pow(float(gamma))
+    if hole_mask is not None:
+        hm = hole_mask.to(device=w.device, dtype=w.dtype).clamp(0.0, 1.0)
+        w = w * hm
+    return w
+
+
+def blend_extra_view_target(
+    gt_pseudo: torch.Tensor,
+    render_init: torch.Tensor,
+    w_unobs: torch.Tensor,
+    anchor_strength: float = 1.0,
+) -> torch.Tensor:
+    """WP-R1 target replacement/blending on an extra view.
+
+    Blends observed pixels (1 - w_unobs) of the pseudo-view target toward the frozen
+    initial render I_init with strength `anchor_strength` in [0, 1]:
+      w_anchor = clamp(anchor_strength, 0, 1) * (1 - w_unobs)
+      I_target = (1 - w_anchor) * gt_pseudo + w_anchor * render_init
+    At anchor_strength == 1.0:
+      I_target = w_unobs * gt_pseudo + (1 - w_unobs) * render_init
+    so observed pixels (w_unobs == 0) are identical to render_init while unobserved
+    hole pixels (w_unobs == 1) pass gt_pseudo through untouched.
+    """
+    a = float(max(0.0, min(1.0, anchor_strength)))
+    if a <= 0.0:
+        return gt_pseudo
+    w_u = w_unobs.to(device=gt_pseudo.device, dtype=gt_pseudo.dtype)
+    if w_u.ndim == 2:
+        w_u = w_u.unsqueeze(-1)
+    w_anchor = a * (1.0 - w_u.clamp(0.0, 1.0))
+    return (1.0 - w_anchor) * gt_pseudo + w_anchor * render_init.to(
+        device=gt_pseudo.device, dtype=gt_pseudo.dtype)
+
+
+def precompute_extra_view_anchors(
+    splats,
+    data: dict,
+    sh_degree: int,
+    rasterize_mode: str,
+    device: torch.device,
+    tau_obs: float = 0.85,
+    gamma: float = 1.0,
+) -> dict[int, dict]:
+    """WP-R1: precompute frozen initial render I_init, alpha_init, and w_unobs
+    for every extra_views entry before the training loop begins."""
+    extra_indices = sorted(int(i) for i in data.get("extra_view_indices", ()))
+    if not extra_indices:
+        return {}
+    hole_masks = data.get("extra_hole_masks", {})
+    anchors: dict[int, dict] = {}
+    t0 = time.time()
+    bkgd = torch.zeros(3, device=device)
+    with torch.no_grad():
+        for idx in extra_indices:
+            b = load_image(data, idx)
+            H, W = b["image"].shape[:2]
+            K = b["K"].to(device)
+            c2w = b["c2w"].to(device)
+            w2c = torch.linalg.inv(c2w)
+            renders, alphas, _ = render_splats(
+                splats, w2c, K, W, H, sh_degree, bkgd, rasterize_mode,
+            )
+            render_init = renders[0][..., :3].clamp(0.0, 1.0).detach()
+            alpha_init = alphas[0, ..., 0].clamp(0.0, 1.0).detach()
+            hm_tensor = None
+            hm_path = hole_masks.get(idx)
+            if hm_path and os.path.isfile(hm_path):
+                if hm_path.lower().endswith(".npy"):
+                    hm_np = np.load(hm_path).astype(np.float32)
+                else:
+                    hm_raw = imageio.imread(hm_path)
+                    if hm_raw.ndim == 3:
+                        hm_raw = hm_raw[..., 0]
+                    hm_np = hm_raw.astype(np.float32) / (255.0 if hm_raw.max() > 1.0 else 1.0)
+                if hm_np.shape[:2] != (H, W):
+                    hm_np = cv2.resize(hm_np, (W, H), interpolation=cv2.INTER_LINEAR)
+                hm_tensor = torch.from_numpy(hm_np).to(device=device, dtype=torch.float32)
+            w_unobs = compute_extra_unobs_weight(
+                alpha_init, tau_obs=tau_obs, gamma=gamma, hole_mask=hm_tensor,
+            )
+            w_solid = ((alpha_init - 0.95) / 0.05).clamp(0.0, 1.0)
+            anchors[idx] = {
+                "render_init": render_init,
+                "alpha_init": alpha_init,
+                "w_unobs": w_unobs,
+                "w_solid": w_solid,
+            }
+    dt = time.time() - t0
+    mean_unobs = float(np.mean([a["w_unobs"].mean().item() for a in anchors.values()]))
+    print(f"[WP-R1] Precomputed {len(anchors)} extra-view anchors in {dt:.2f}s "
+          f"(tau_obs={tau_obs}, gamma={gamma}, mean w_unobs={mean_unobs:.4f})")
+    return anchors
+
 
 
 def compute_unseen_mask(means: torch.Tensor, data: dict, device) -> torch.Tensor:
@@ -444,7 +567,7 @@ def load_image(data: dict, index: int) -> dict:
     # stays pixel-aligned. Resize to the (possibly downsampled) image first.
     mask = None
     mpaths = data.get("mask_paths")
-    if mpaths is not None and mpaths[index] and os.path.isfile(mpaths[index]):
+    if mpaths is not None and index < len(mpaths) and mpaths[index] and os.path.isfile(mpaths[index]):
         m = imageio.imread(mpaths[index])
         if m.ndim == 3:
             m = m[..., 0]
@@ -469,6 +592,7 @@ def load_image(data: dict, index: int) -> dict:
         "K": torch.from_numpy(K).float(),
         "c2w": torch.from_numpy(c2w).float(),
         "loss_weight": float(lw[index]) if lw is not None else 1.0,
+        "is_extra_view": bool(index in data.get("extra_view_indices", ())),
     }
     if mask is not None:
         out["mask"] = torch.from_numpy(mask).float()  # (H, W) in [0,1]
@@ -1087,8 +1211,18 @@ def train(args):
     # Init Gaussians: from checkpoint (distill/refine rounds) or SfM points
     if args.init_ckpt:
         ckpt = torch.load(args.init_ckpt, map_location=device, weights_only=True)
+        raw_splats = {k: v.to(device) for k, v in ckpt["splats"].items()}
+        _repo_root = str(Path(__file__).resolve().parents[2])
+        if _repo_root not in sys.path:
+            sys.path.insert(0, _repo_root)
+        from core.sh_utils import resize_shN, sh_degree_of
+        ckpt_deg = sh_degree_of(raw_splats)
+        if ckpt_deg != args.sh_degree:
+            raw_splats["shN"] = resize_shN(raw_splats["shN"], args.sh_degree)
+            print(f"[Init] Resized checkpoint SH degree {ckpt_deg} -> {args.sh_degree} "
+                  f"(shN: {raw_splats['shN'].shape[1]} rest coeffs/ch)")
         splats = torch.nn.ParameterDict({
-            k: torch.nn.Parameter(v.to(device)) for k, v in ckpt["splats"].items()
+            k: torch.nn.Parameter(v) for k, v in raw_splats.items()
         })
         print(f"[Init] {splats['means'].shape[0]} Gaussians from checkpoint "
               f"{Path(args.init_ckpt).name}")
@@ -1098,6 +1232,18 @@ def train(args):
             data_fine["points"], data_fine["points_rgb"], data_fine["scene_scale"],
             device, sh_degree=args.sh_degree,
             init_opacity=0.5 if use_mcmc else 0.1,
+        )
+
+    # WP-R1: Precompute frozen anchor render + alpha + unobserved weight map for extra_views
+    extra_anchors = {}
+    if args.extra_views and (
+        getattr(args, "extra_unobserved_only", False)
+        or getattr(args, "extra_anchor_observed", 0.0) > 0.0
+    ):
+        extra_anchors = precompute_extra_view_anchors(
+            splats, data_fine, args.sh_degree, rasterize_mode, device,
+            tau_obs=getattr(args, "extra_obs_tau", 0.85),
+            gamma=getattr(args, "extra_obs_gamma", 1.0),
         )
 
     # Optimizers (same LR as gsplat defaults)
@@ -1193,6 +1339,55 @@ def train(args):
         bil_opt = torch.optim.Adam(bil_grids.parameters(), lr=2e-3, eps=1e-15)
         train_pos = {int(g): i for i, g in enumerate(train_indices)}
         print(f"[Train] Bilateral grid ON ({num_train} views, 16x16x8)")
+
+    # Optional PPISP (WP-F5; NVIDIA nv-tlabs/ppisp, arXiv 2601.18336) — a physically
+    # plausible ISP applied to the RENDER: per-frame exposure + colour (white balance)
+    # homography, per-camera vignetting + camera response curve. Like the bilateral grid
+    # it only touches the image, never the Gaussians, so the exported PLY stays a standard
+    # 3DGS PLY holding the canonical (ISP-free) radiance. Default OFF. Mutually exclusive
+    # with --bilateral_grid (both absorb the same per-view photometric drift).
+    ppisp_mod = ppisp_opts = ppisp_scheds = None
+    ppisp_cam_of = {}
+    ppisp_act_step = None        # controller distillation start (0-based scheduler epoch)
+    splats_frozen = False
+    running_ppisp = None         # EMA of the PPISP regularizer, for per-loss logging
+    if args.ppisp:
+        if args.bilateral_grid:
+            raise SystemExit("[Train] ERROR: --ppisp and --bilateral_grid are mutually "
+                             "exclusive (both model per-view photometric drift).")
+        if args.extra_views:
+            raise SystemExit("[Train] ERROR: --ppisp does not support --extra_views "
+                             "(pseudo views have no PPISP frame).")
+        try:
+            from ppisp import PPISP, PPISPConfig
+        except ImportError as e:
+            raise SystemExit(
+                f"[Train] ERROR: --ppisp needs the `ppisp` package ({e}). It is built into "
+                f"the gsplat-main venv only: D:/REPOS/HYPERclone/venvs/gsplat_main "
+                f"(tools/blackwell_session_2026-06/build_ppisp.bat).")
+        # PPISP camera = physical camera (vignetting/CRF); frame = training image.
+        ppisp_cam_of = {cid: k for k, cid in enumerate(
+            sorted({int(c) for c in data_fine["camera_ids"]}))}
+        train_pos = {int(g): i for i, g in enumerate(train_indices)}
+        ppisp_cfg = PPISPConfig(
+            use_controller=bool(args.ppisp_controller),
+            controller_distillation=True,
+            controller_activation_ratio=float(args.ppisp_controller_start),
+            scheduler_decay_max_steps=int(args.max_steps),
+        )
+        ppisp_mod = PPISP(num_cameras=len(ppisp_cam_of), num_frames=num_train,
+                          config=ppisp_cfg)
+        ppisp_opts = ppisp_mod.create_optimizers()
+        # create_schedulers is MANDATORY: forward() reads the scheduler's last_epoch to
+        # decide when the controller takes over.
+        ppisp_scheds = ppisp_mod.create_schedulers(ppisp_opts, args.max_steps)
+        if args.ppisp_controller:
+            ppisp_act_step = int(args.ppisp_controller_start * args.max_steps)
+        ctrl_txt = ("OFF" if ppisp_act_step is None else
+                    f"ON, distillation from step {ppisp_act_step + 1} "
+                    f"(splats frozen, MCMC stopped)")
+        print(f"[Train] PPISP ON: {len(ppisp_cam_of)} camera(s), {num_train} frames, "
+              f"controller={ctrl_txt}")
 
     # Optional Wasserstein-Distortion (WD-R) perceptual loss (texture-statistic;
     # alternative to LPIPS). Warm-up shares --lpips_start; ungated, own random crop.
@@ -1404,14 +1599,33 @@ def train(args):
         K = batch["K"].to(device)  # (3, 3)
         c2w = batch["c2w"].to(device)  # (4, 4)
 
+        # PPISP controller distillation (faithful to upstream): from the activation step on,
+        # freeze the splats (and poses) and STOP MCMC relocation + noise injection — freezing
+        # grads alone does not stop MCMC noise (EXECUTION_PLAN WP-F5).
+        if (ppisp_act_step is not None and not splats_frozen
+                and (step - 1) >= ppisp_act_step):
+            for p_ in splats.values():
+                p_.requires_grad_(False)
+            if pose_module is not None:
+                for p_ in pose_module.parameters():
+                    p_.requires_grad_(False)
+            splats_frozen = True
+            print(f"[Train] PPISP controller distillation from step {step}: splats + poses "
+                  f"frozen, densification/MCMC noise stopped")
+            sys.stdout.flush()
+
         if pose_module is not None:
             c2w = pose_module(c2w, int(idx))
 
         H, W = gt_image.shape[:2]
         w2c = torch.linalg.inv(c2w)  # (4, 4)
 
-        # Random background for masked scenes
-        if args.random_bkgd:
+        is_extra_view = bool(batch.get("is_extra_view", False))
+        extra_anchor = extra_anchors.get(int(idx)) if is_extra_view else None
+
+        # Random background for masked scenes (keep black on gated extra_views so random
+        # background colour never pollutes semi-transparent hole pixels)
+        if args.random_bkgd and extra_anchor is None:
             bkgd = torch.rand(3, device=device)
         else:
             bkgd = torch.zeros(3, device=device)
@@ -1432,12 +1646,23 @@ def train(args):
         prn_on = (args.prior_normal_lambda > 0 and step >= args.prior_normal_start
                   and "prior_plane_mask" in batch and "prior_normal" in batch
                   and "prior_conf" in batch and "prior_edge" in batch)
+        sh_deg_step = (min((step - 1) // args.sh_degree_interval, args.sh_degree)
+                       if args.sh_degree_interval > 0 else args.sh_degree)
         renders, alphas, info = render_splats(
-            splats, w2c, K, W, H, args.sh_degree, bkgd, rasterize_mode,
+            splats, w2c, K, W, H, sh_deg_step, bkgd, rasterize_mode,
             render_mode="RGB+ED" if (geo_on or depth_on or mono_on
                                      or planar_on or prd_on or prn_on) else "RGB",
         )
-        rendered = renders[0][..., :3].clamp(0.0, 1.0)  # (H, W, 3)
+        if ppisp_mod is not None:
+            # PPISP takes the UNCLAMPED radiance (its exposure may darken values > 1;
+            # the CRF clamps internally) — the canonical radiance is what the PLY holds.
+            rendered = ppisp_mod(
+                renders[0][..., :3], resolution=(W, H),
+                camera_idx=ppisp_cam_of[int(data_fine["camera_ids"][int(idx)])],
+                frame_idx=train_pos[int(idx)],
+            ).clamp(0.0, 1.0)
+        else:
+            rendered = renders[0][..., :3].clamp(0.0, 1.0)  # (H, W, 3)
 
         # Bilateral-grid color correction (training-only) — match this view's
         # exposure/WB so photometric loss doesn't drive exposure floaters.
@@ -1473,6 +1698,56 @@ def train(args):
         if args.loss_mask and "mask" in batch:
             loss_mask = batch["mask"].to(device, non_blocking=True)          # (H,W) [0,1]
 
+        # WP-R1 observed-preservation gate on extra_views pseudo-views:
+        #   (1) --extra_anchor_observed > 0 blends observed pixels (1 - w_unobs) of gt_image
+        #       with the frozen initial checkpoint render I_init so generator drift / boundary
+        #       feathers cannot corrupt observed targets.
+        #   (2) --extra_unobserved_only restricts pixelwise L1/SSIM supervision to w_unobs
+        #       AND replaces unsupervised pixels in window/crop targets (11x11 SSIM, 512x512
+        #       LPIPS) with rendered.detach() so window/receptive-field bleed into observed or
+        #       partially-carved fringe regions is identically zero.
+        gt_window = gt_image
+        extra_w_unobs = None
+        extra_lp_scale = 1.0
+        if extra_anchor is not None:
+            extra_w_unobs = extra_anchor["w_unobs"].to(device, non_blocking=True)
+            extra_w_solid = extra_anchor["w_solid"].to(device, non_blocking=True)
+            a_str = float(max(0.0, min(1.0, getattr(args, "extra_anchor_observed", 0.0))))
+            unobs_only = bool(getattr(args, "extra_unobserved_only", False))
+            w_ext = float(max(0.0, getattr(args, "extra_loss_weight", 1.0)))
+            if unobs_only:
+                # Three-zone target:
+                #   1. Unobserved hole (w_unobs): supervised by gt_pseudo with weight min(1, w_ext) * w_unobs
+                #   2. Solid observed (w_solid, alpha_init >= 0.99): anchored to render_init with weight a_str
+                #   3. Partially-carved fringe (tau_obs <= alpha_init <= 0.95): replaced with rendered.detach()
+                #      so broken semi-transparent fringe renders exert identically zero gradient.
+                w_u = (min(1.0, w_ext) * extra_w_unobs).unsqueeze(-1)
+                w_a = (a_str * extra_w_solid * (1.0 - extra_w_unobs)).unsqueeze(-1)
+                w_free = (1.0 - w_u - w_a).clamp(0.0, 1.0)
+                gt_image = (
+                    w_u * gt_image
+                    + w_a * extra_anchor["render_init"].to(device, non_blocking=True)
+                    + w_free * rendered.detach()
+                )
+                gt_window = gt_image
+                extra_lp_scale = float((w_u + w_a).mean().item())
+            else:
+                if a_str > 0.0:
+                    gt_image = blend_extra_view_target(
+                        gt_image, extra_anchor["render_init"], extra_w_unobs,
+                        anchor_strength=a_str,
+                    )
+                if w_ext != 1.0:
+                    w_e = min(1.0, w_ext)
+                    gt_image = w_e * gt_image + (1.0 - w_e) * rendered.detach()
+                    extra_lp_scale = w_e
+                gt_window = gt_image
+        elif is_extra_view and float(getattr(args, "extra_loss_weight", 1.0)) != 1.0:
+            w_e = float(max(0.0, min(1.0, getattr(args, "extra_loss_weight", 1.0))))
+            gt_image = w_e * gt_image + (1.0 - w_e) * rendered.detach()
+            gt_window = gt_image
+            extra_lp_scale = w_e
+
         # L1 + SSIM loss
         if loss_mask is not None:
             w = loss_mask.unsqueeze(-1)
@@ -1483,7 +1758,7 @@ def train(args):
 
         if ssim_lambda > 0:
             rendered_bchw = rendered.permute(2, 0, 1).unsqueeze(0)
-            gt_bchw = gt_image.permute(2, 0, 1).unsqueeze(0)
+            gt_bchw = gt_window.permute(2, 0, 1).unsqueeze(0)
             if loss_mask is not None:
                 smap = ssim(rendered_bchw, gt_bchw, return_map=True)[0]      # (C,H,W)
                 ssim_val = ((smap * loss_mask).sum()
@@ -1674,22 +1949,27 @@ def train(args):
         # over-texturing at full 4K).
         if (args.lpips_lambda > 0 or args.gram_lambda > 0) and step >= args.lpips_start:
             lp, crop_l1, r_crop, g_crop = lpips_patch_loss(
-                rendered, gt_image, args.lpips_patch, device)
+                rendered, gt_window, args.lpips_patch, device)
             # Gram/style term shares the same crop (Difix3D+ texture-baking lever)
             gram = gram_loss(r_crop, g_crop, device) if args.gram_lambda > 0 else 0.0
+            lp_scale = extra_lp_scale
             if args.lpips_gated:
-                if running_crop_l1 is None:
-                    running_crop_l1 = crop_l1
-                else:
-                    running_crop_l1 = 0.99 * running_crop_l1 + 0.01 * crop_l1
+                if not is_extra_view:
+                    if running_crop_l1 is None:
+                        running_crop_l1 = crop_l1
+                    else:
+                        running_crop_l1 = 0.99 * running_crop_l1 + 0.01 * crop_l1
                 # gate ~0 on below-average-error (well-resolved) crops, ~1 on
                 # above-average-error (under-resolved) crops
+                ref_l1 = running_crop_l1 if running_crop_l1 is not None else crop_l1
                 gate = torch.sigmoid(
-                    (crop_l1 - running_crop_l1) / (0.25 * running_crop_l1 + 1e-6)
+                    (crop_l1 - ref_l1) / (0.25 * ref_l1 + 1e-6)
                 )
-                loss = loss + gate * (args.lpips_lambda * lp + args.gram_lambda * gram)
+                loss = loss + lp_scale * gate * (
+                    args.lpips_lambda * lp + args.gram_lambda * gram)
             else:
-                loss = loss + args.lpips_lambda * lp + args.gram_lambda * gram
+                loss = loss + lp_scale * (
+                    args.lpips_lambda * lp + args.gram_lambda * gram)
 
         # Wasserstein Distortion (WD-R) — texture-statistic VGG loss (own crop,
         # ungated). Compares LOCAL mean+std of features (vs LPIPS pointwise).
@@ -1699,7 +1979,7 @@ def train(args):
             top = int(np.random.randint(0, Hc - ph + 1))
             left = int(np.random.randint(0, Wc - pw + 1))
             rc = rendered[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
-            gc = gt_image[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
+            gc = gt_window[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
             d_wd = _wd_fn(rc, gc, device)
             if args.wd_gated:
                 # gate WD by the GT crop's TEXTURE energy: full WD where there is
@@ -1720,6 +2000,11 @@ def train(args):
         # Bilateral-grid total-variation smoothness (keeps the grid well-behaved)
         if bil_grids is not None:
             loss = loss + 10.0 * _bil_tv(bil_grids.grids)
+        if ppisp_mod is not None:
+            ppisp_reg = ppisp_mod.get_regularization_loss()
+            loss = loss + ppisp_reg
+            running_ppisp = (ppisp_reg.item() if running_ppisp is None
+                             else 0.95 * running_ppisp + 0.05 * ppisp_reg.item())
 
         # PSNR for logging (over the valid pixels when --loss_mask is on, so the logged
         # number is comparable to the held-out masked PSNR instead of being inflated by
@@ -1736,20 +2021,20 @@ def train(args):
             running_psnr = 0.95 * running_psnr + 0.05 * psnr
 
         # Confidence-gated prior fusion (Phase 1): scale this view's gradient by its
-        # loss weight — 1.0 for captured views, <1 for extra/pseudo views in
-        # well-observed regions so the prior never overrides real data.
+        # per-entry JSON loss weight (1.0 for captured views).
         view_w = float(batch.get("loss_weight", 1.0))
         if view_w != 1.0:
             loss = loss * view_w
 
         # Densification hooks (strategies gate internally on refine windows)
-        strategy.step_pre_backward(
-            params=splats,
-            optimizers=optimizers,
-            state=strategy_state,
-            step=step,
-            info=info,
-        )
+        if not splats_frozen:
+            strategy.step_pre_backward(
+                params=splats,
+                optimizers=optimizers,
+                state=strategy_state,
+                step=step,
+                info=info,
+            )
 
         # Backward
         loss.backward()
@@ -1764,9 +2049,17 @@ def train(args):
         if bil_opt is not None:
             bil_opt.step()
             bil_opt.zero_grad(set_to_none=True)
+        if ppisp_mod is not None:
+            for opt in ppisp_opts:
+                opt.step()
+                opt.zero_grad(set_to_none=True)
+            for sch in ppisp_scheds:
+                sch.step()
         means_scheduler.step()
 
-        if use_mcmc:
+        if splats_frozen:
+            pass  # PPISP controller distillation: no relocation, no MCMC noise
+        elif use_mcmc:
             strategy.step_post_backward(
                 params=splats,
                 optimizers=optimizers,
@@ -1801,6 +2094,11 @@ def train(args):
                        if running_prd is not None else "")
             prn_str = (f" | Lrn={running_prn:.4f}"
                        if running_prn is not None else "")
+            if running_ppisp is not None:
+                with torch.no_grad():
+                    ev = ppisp_mod.exposure_params
+                    prn_str += (f" | ppisp_reg={running_ppisp:.2e} exp_sd={ev.std().item():.3f}"
+                                f" exp_rng=[{ev.min().item():.2f},{ev.max().item():.2f}]")
             print(
                 f"step={step} | loss={running_loss:.6f} | psnr={running_psnr:.2f} "
                 f"| #GS={n_gs} | mem={mem:.0f}MB | {steps_per_sec:.1f} it/s | eta={eta:.0f}s"
@@ -1817,6 +2115,17 @@ def train(args):
             }
             if pose_module is not None:
                 ckpt_payload["pose_embeds"] = pose_module.embeds.weight.data
+            if ppisp_mod is not None:
+                # Side-car state (consumers that read ckpt["splats"] are unaffected).
+                ckpt_payload["ppisp"] = {k: v.detach().cpu() for k, v in
+                                         ppisp_mod.state_dict().items()}
+                ckpt_payload["ppisp_meta"] = {
+                    "camera_of": {int(k): int(v) for k, v in ppisp_cam_of.items()},
+                    "train_indices": [int(i) for i in train_indices],
+                    "use_controller": bool(args.ppisp_controller),
+                    "controller_start_step": (None if ppisp_act_step is None
+                                              else int(ppisp_act_step) + 1),
+                }
             torch.save(ckpt_payload, str(ckpt_path))
             print(f"[Checkpoint] Saved {ckpt_path.name}")
 
@@ -1853,6 +2162,8 @@ def train(args):
         sys.stdout.flush()
         test_psnrs = []
         test_ssims = []
+        isp_psnrs = []   # PPISP novel-view render (camera_idx real, frame_idx=-1)
+        isp_ssims = []
 
         with torch.no_grad():
             for idx in test_indices:
@@ -1878,9 +2189,24 @@ def train(args):
                 test_ssim = ssim(r_bchw, g_bchw).item()
                 test_ssims.append(test_ssim)
 
+                if ppisp_mod is not None:
+                    # frame_idx=-1: controller prediction if trained, else identity
+                    # per-frame corrections (per-camera vignetting + CRF still applied).
+                    isp = ppisp_mod(
+                        renders[0][..., :3], resolution=(W, H),
+                        camera_idx=ppisp_cam_of[int(data_fine["camera_ids"][int(idx)])],
+                        frame_idx=-1,
+                    ).clamp(0, 1)
+                    mse_i = F.mse_loss(isp, gt_image)
+                    isp_psnrs.append(10.0 * math.log10(1.0 / (mse_i.item() + 1e-10)))
+                    isp_ssims.append(ssim(isp.permute(2, 0, 1).unsqueeze(0), g_bchw).item())
+
         avg_psnr = np.mean(test_psnrs)
         avg_ssim = np.mean(test_ssims)
         print(f"[Eval] PSNR={avg_psnr:.2f} SSIM={avg_ssim:.4f}")
+        if isp_psnrs:
+            print(f"[Eval] PPISP novel-view (frame_idx=-1) PSNR={np.mean(isp_psnrs):.2f} "
+                  f"SSIM={np.mean(isp_ssims):.4f}  (the line above is the raw PLY render)")
 
         # Write results JSON
         results = {
@@ -1894,6 +2220,11 @@ def train(args):
             "data_factor": args.data_factor,
             "coarse_factor": args.coarse_factor if coarse_until > 0 else None,
         }
+        if isp_psnrs:
+            results["ppisp"] = True
+            results["ppisp_controller"] = bool(args.ppisp_controller)
+            results["psnr_ppisp_novel"] = float(np.mean(isp_psnrs))
+            results["ssim_ppisp_novel"] = float(np.mean(isp_ssims))
         stats_dir = result_dir / "stats"
         stats_dir.mkdir(exist_ok=True)
         (stats_dir / "results.json").write_text(json.dumps(results, indent=2))
@@ -1929,7 +2260,11 @@ def main():
                              "set instead of the every-Nth --test_every rule. For captures "
                              "whose views come in inseparable GROUPS (e.g. the 12 rig crops "
                              "of one 360 pano). Default off.")
-    parser.add_argument("--sh_degree", type=int, default=3)
+    parser.add_argument("--sh_degree", type=int, default=3, choices=[0, 1, 2, 3, 4],
+                        help="Spherical-harmonic degree (0..4; gsplat kernel max is 4)")
+    parser.add_argument("--sh_degree_interval", type=int, default=0,
+                        help="Progressive SH schedule interval in steps (0 = full --sh_degree "
+                             "from step 1; >0 = min((step-1)//interval, sh_degree))")
     parser.add_argument("--ssim_lambda", type=float, default=0.2)
     parser.add_argument("--normalize_world_space",
                         action=argparse.BooleanOptionalAction, default=True)
@@ -1942,7 +2277,11 @@ def main():
                         help="MCMC Gaussian budget (VRAM control)")
     parser.add_argument("--refine_stop_iter", type=int, default=0,
                         help="0 = strategy default (MCMC 25000, default 15000)")
-    parser.add_argument("--opacity_reg", type=float, default=0.01)
+    parser.add_argument("--opacity_reg", type=float, default=0.0,
+                        help="Opacity L1 regularizer weight (opt-in). Default 0 since "
+                             "2026-10-17: 0.01 AND 0.001 silently destroy many-view "
+                             "MCMC scenes (WP-O3/O5, DEVELOPER_NOTES section 6). "
+                             "Pre-2026-10 runs used 0.01.")
     parser.add_argument("--scale_reg", type=float, default=0.01)
     parser.add_argument("--vis_reg", type=float, default=0.0,
                         help="Visibility loss: push opacity->0 for Gaussians seen by "
@@ -2058,6 +2397,24 @@ def main():
                         help="Resume Gaussians from a checkpoint instead of SfM init")
     parser.add_argument("--extra_views", type=str, default=None,
                         help="JSON of additional train views (normalized poses)")
+    # WP-R1: Observed-Preservation Gate for Generative Supervision (default OFF)
+    parser.add_argument("--extra_unobserved_only",
+                        action=argparse.BooleanOptionalAction, default=False,
+                        help="WP-R1: Mask photometric/SSIM/LPIPS loss on extra_views "
+                             "to unobserved/under-converged pixels only (default OFF)")
+    parser.add_argument("--extra_anchor_observed", type=float, default=0.0,
+                        help="WP-R1: Blend extra_views target with frozen init_ckpt "
+                             "render on observed pixels (0 = off, 1 = pure anchor on "
+                             "observed region)")
+    parser.add_argument("--extra_loss_weight", type=float, default=1.0,
+                        help="WP-R1: Scalar weight multiplier for total loss on "
+                             "extra_views steps (default 1.0 = unweighted)")
+    parser.add_argument("--extra_obs_tau", type=float, default=0.95,
+                        help="WP-R1: Initial alpha threshold tau_obs above which an "
+                             "extra_view pixel is considered observed (default 0.95)")
+    parser.add_argument("--extra_obs_gamma", type=float, default=1.0,
+                        help="WP-R1: Exponent gamma on ((tau_obs - alpha)/tau_obs)^gamma "
+                             "for unobserved weight map (default 1.0)")
     # Edge-aware geometric regularization (textureless/flat-surface "mush" fix)
     parser.add_argument("--geo_reg", action="store_true", default=False,
                         help="Enable edge-aware 2nd-order depth smoothness")
@@ -2092,6 +2449,21 @@ def main():
                         default=False,
                         help="Per-view BilaRF color grid (training-only) to absorb "
                              "exposure/WB drift; dropped at inference")
+    # PPISP (WP-F5) — needs the ppisp package (gsplat-main venv). Default OFF.
+    parser.add_argument("--ppisp", action=argparse.BooleanOptionalAction, default=False,
+                        help="NVIDIA PPISP post-render ISP (per-frame exposure + white "
+                             "balance, per-camera vignetting + response curve; arXiv "
+                             "2601.18336). Training-time only: the PLY keeps canonical "
+                             "radiance. Mutually exclusive with --bilateral_grid.")
+    parser.add_argument("--ppisp_controller", action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help="Also train PPISP's per-camera controller (predicts exposure/"
+                             "colour for novel views) by distillation: from "
+                             "--ppisp_controller_start the splats are FROZEN and MCMC "
+                             "relocation/noise is stopped (upstream recipe).")
+    parser.add_argument("--ppisp_controller_start", type=float, default=0.8,
+                        help="Fraction of --max_steps at which controller distillation "
+                             "starts (PPISP default 0.8)")
     args = parser.parse_args()
 
     train(args)

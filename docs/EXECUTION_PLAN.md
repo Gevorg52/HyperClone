@@ -386,6 +386,25 @@ Respect the stagger (7k/14k/20k) — it exists to let coarse geometry form.
 no MCMC instability (loss curves + floater report).
 
 ═══════════════════════════════════════════════════════════════════════
+### WP-B2 — gsplat `main` AOT rebuild in an isolated venv (added 2026-10-17, RESEARCH_REFRESH §6 #1)
+═══════════════════════════════════════════════════════════════════════
+> **STATUS: ✅ CLOSED 2026-10-18 — GATE PASSED.** gsplat main **1.6.0 @ `512d366b6707`** built AOT
+> for sm_120 into `D:\REPOS\HYPERcloneenvs\gsplat_main` (`--system-site-packages`; torch 2.11.0+cu128
+> inherited, system gsplat 1.5.3 untouched). Windows needed 4 MSVC source patches
+> (`tools/patches/gsplat_main_512d366_win.diff`), `BUILD_EXPERIMENTAL=0`, and a one-header overlay
+> for a CUDA 12.9 `clusterlaunchcontrol.h` LLP64 bug (`tools/patches/cuda129_win_overlay`, via
+> `NVCC_PREPEND_FLAGS`). Recipe: `tools/blackwell_session_2026-06/build_gsplat_main.bat`. **Our trainer
+> runs unmodified** and reproduces the Laptop production stack within run-to-run noise: masked LPIPS
+> **0.2791** (main) vs 0.2794 / 0.2800 (two gsplat-1.5.3 runs, same argv + seed 0), PSNR 23.008 vs
+> 23.037 / 23.000, identical fog/needle stats, indistinguishable off-path sheets; MCMC + Default
+> strategy smokes pass. No wall-clock gain on this LPIPS-bound recipe (8195 s vs 8211 s). API: only
+> `gsplat.spherical_harmonics` broke (now `(deg, means, viewmats, coeffs)`) -> shim
+> `core/training/gsplat_compat.py::spherical_harmonics_dirs` (tested in both envs); MCMC
+> `inject_noise` is now a native CUDA kernel (same maths, different RNG stream; new
+> `noise_injection_stop_iter`). Production stays on 1.5.3; the venv is where PPISP (WP-F5) runs.
+> Evidence: `_infusion/wpb2_RECORD.md`, `_infusion/wpb2_laptop_gate.json`, `qa/opreg0_laptop_{or0,or0r,b2}/`.
+
+═══════════════════════════════════════════════════════════════════════
 ### WP-F5 — PPISP exposure/WB/vignetting/CRF — 2–3 days
 ═══════════════════════════════════════════════════════════════════════
 Apache-2.0 [V, triple-checked]. Install v1.2.1 (NOT the v1.0.0 pin in gsplat PR #858):
@@ -409,6 +428,17 @@ commit [V]); drop-in for our vendored `lib_bilagrid.py` (same signatures [V]).
 **Gate:** on an auto-exposure clip (capture one with a phone if none on hand), PPISP beats
 bilateral-grid and no-compensation on held-out masked metrics + visual patchiness; smoke-test 3k
 steps watching `torch.cuda.memory_allocated` (leak check).
+
+> **STATUS: ✅ CLOSED 2026-10-18 — BUILT (`ppisp 1.3.0` @ `a247368` sm_120 in `venvs/gsplat_main`), WIRED (`--ppisp`, `--ppisp_controller`, `--ppisp_controller_start`, default-OFF), GATED ACROSS 3 SCENES × 4 ARMS (`base`, `bil`, `pp`, `ppc`).**
+> - **Build & leak check:** upstream `v1.3.0` already merged PR #7 (`py::return_value_policy::move`); built via `tools/blackwell_session_2026-06/build_ppisp.bat`. 3,000-step GPU memory slope `-0.00177 MB/step` (`-4.90 MB` phase-matched delta, `_infusion/wpf5/leakcheck.json`).
+> - **Gate 1 (`pp` vs `bil` on exported PLY — PASS 3/3 scenes):** PPISP decisively eliminates the severe unanchored colour/brightness drift of `--bilateral_grid` (`lib_bilagrid.py` has only TV smoothness, no identity anchor):
+>   - **Laptop:** mLPIPS `0.3154 -> 0.2805` (**-11.0 %**), mPSNR `19.31 -> 22.69 dB` (**+3.39 dB**), deck LPIPS `0.2684 -> 0.2422`.
+>   - **GPU_V4:** mLPIPS `0.4498 -> 0.3724` (**-17.2 %**), mPSNR `18.22 -> 24.12 dB` (**+5.90 dB**), shiny LPIPS `0.4008 -> 0.3045`, floaters `53 -> 17`.
+>   - **360 (WP-O5 rig):** tiled mLPIPS `0.5928 -> 0.5536` (**-6.6 %**), mPSNR `17.05 -> 20.95 dB` (**+3.90 dB**), >3× bbox outliers `3,962 -> 3,649`.
+> - **Gate 2 (`pp`/`ppc` vs `base`):** All three banked captures have minimal auto-exposure drift (`exp_sd = 0.035–0.059` EV). Under **ISP novel-view rendering** (`frame_idx=-1`), `pp`/`ppc` match or beat `base` on all 3 scenes (Laptop `isp_lpips` `0.2783` vs `0.2790`; GPU_V4 `ppc` `isp_psnr` `24.78` vs `24.74 dB`; 360 `ppc` `isp_lpips` `0.5847` / `18.63 dB` vs `0.5857` / `18.58 dB`). On **raw exported PLYs** (which lack per-camera vignetting + CRF), `base` leads `pp` by `0.0013–0.0026` mLPIPS (`0.31–0.63 dB` mPSNR), while affine colour-corrected structure (`cc_lpips`) is tied on Laptop/GPU_V4 (`±0.0004`) and **better on 360** (`pp` `0.6235`, `ppc` `0.6223` vs `base` `0.6251`). On raw-PLY NR/consistency/fog metrics, `pp` beats `base` on Laptop CrossScore (`0.8667` vs `0.8648`), NOVA (`0.1169` vs `0.1209`), RAFT-warp (`0.0394` vs `0.0404`), and off-path `fog_layer_alpha_mean` (`0.0464` vs `0.0498`, `prune_dMAE` `0.183` vs `0.333`); on GPU_V4 `fog_layer_alpha_mean` (`0.0790` vs `0.0841`) and RAFT-warp (`0.0139` vs `0.0154`, `ppc` CrossScore `0.8387` vs `0.8273`); on 360 >3× bbox outliers (`3,649` vs `4,393`, **-16.9 %**).
+> - **Controller (`--ppisp_controller`, `ppc`) & CRF baking probe:** Freezing Gaussians at 80% (`step 24,001`) helps ISP-rendered novel views (`isp_psnr` `ppc > pp` on all 3 scenes) but hurts raw PLY LPIPS by `0.0014–0.0067` because static PLYs forfeit 6,000 fine-phase Gaussian steps and cannot run the controller MLP. Baking the learned CRF into SH (`_infusion/wpf5_crf_bake_probe.py`) hurts PLY PSNR/LPIPS (`22.69 -> 21.84 dB`) because CRF is non-commutative with alpha compositing and decoupled from vignetting.
+> - **Policy:** Keep `--ppisp` default-OFF for fixed-exposure studio orbits delivering raw PLYs; use `--ppisp` (not `--bilateral_grid`, and without `--ppisp_controller` when delivering static PLYs) whenever photometric compensation is needed.
+> - **Evidence:** `_infusion/wpf5_RECORD.md`, `_infusion/wpf5/{leakcheck,laptop_gate,laptop_tone,laptop_tone_crfbaked,gpu_gate,gpu_tone,360_tone}.json`, `_infusion/wpf5/eval360/scorecard.json`, `_infusion/wpf5/sheets/`.
 
 ═══════════════════════════════════════════════════════════════════════
 ### WP-C1 — GaMO-pattern latent gate (completion lane v1) — WSL — after WP-Q1
@@ -830,6 +860,275 @@ attention" against the sm_120 landmine before any use.
   `_dataset/360/train/wpo5_run_D/ply/point_cloud_29999{,_pruned_op05}.ply`; retro-pruned `_077`
   `_dataset/360/train/wpo3_run_arm2/ply/point_cloud_199999_pruned_op05.ply`.
 
+═══════════════════════════════════════════════════════════════════════
+### WP-SH4 — SH degree 4 (25 coeffs/ch, 72 `f_rest`) — PHASE A & PHASE B ✅ CLOSED 2026-10-18
+═══════════════════════════════════════════════════════════════════════
+> **STATUS: PHASE A (readiness) ✅ 2026-10-17 · PHASE B (quality A/B) ✅ CLOSED 2026-10-18 (`KEEP_SH3_DEFAULT_OPT_IN_SH4_WARM_START_ONLY`).**
+> The trainer default stays `--sh_degree 3`; `--sh_degree 4` is supported end-to-end and recommended
+> **only via fine-phase warm-start (`--init_ckpt`)** when targeting the SH4 Unreal Engine plugin.
+> Evidence: `_infusion/wpsh4/phaseA_gate.json`, `_infusion/wpsh4/phaseB_gate.json`,
+> `_infusion/wpsh4_phaseB_RECORD.md`, `_infusion/wpsh4_phaseB_eval.py`.
+> Tests: `tests/test_sh_degree4.py` (19 passed, incl. `resize_shN` pad/truncate), `test_sh_ply_io.py`
+> (23), `test_spz_io.py` (13), `test_sh4_splat_transform_guard.py` (7).
+>
+> **Review 2026-10-17 (phase A + WP-D2): PASS-with-fixes.** The spz `splat-types.h` flipSh[23]
+> band-4 sign bug was **independently confirmed** by the reviewer. Fixes applied (all defaults
+> unchanged; trainer/backend untouched): (1) `core/delivery.py` prints a WARNING with count + %
+> when the SPZ drops out-of-range Gaussians, prints the SPZ clip fractions, and lists every
+> warning in the delivery JSON (`warnings`) and again at the end of the run; (2)
+> `core/spz_io.write_spz` record gains `clip_frac` {scales outside [−10, 5.9375] log, sh0
+> |c| > 3.333, shN outside [−1, 1)} (fraction of values, measured on the packed RUB data) and
+> `warnings` (drops; scale clip > 0.5 % — note the WP-D2 smoke models at 1.6–2.0 % WILL warn);
+> (3) new `tests/test_sh4_splat_transform_guard.py` (7 tests, `run_splat_transform` stubbed):
+> delivery hands splat-transform only 45-f_rest PLYs (exact values) from a 72-f_rest master and
+> still writes the 72-f_rest `_sh4.ply`; `gui2/preview.export_viewer_sog` hands it one exact
+> degree-2 (24 f_rest) PLY from a degree-4 source with no `--filter-harmonics`; drop/clip
+> reporting through `write_spz` and the delivery manifest/stdout. **The preview test found a
+> real bug:** the degree>3 path wrote `<out>.sh2.ply` before creating `out_sog`'s directory
+> (FileNotFoundError on a fresh output dir) — fixed by creating the directory first; (4)
+> `phaseA_gate.json` `splat_transform.version` was "" (the binary prints `--version` to stderr):
+> capture fixed in `_infusion/wpsh4_phaseA_gate.py`, and the JSON back-filled without re-running
+> the gate (`--patch_version`, adds `version_note`) = **splat-transform v2.7.1 (b42b60c)**;
+> (5) splat-transform degree-4 wording softened to what was measured (below). Tests **338
+> passed** (331 + 7).
+
+**A1 — kernel (gsplat 1.5.3 AOT sm_120).** CUDA `spherical_harmonics(d, dirs, coeffs)` vs the
+torch oracle `_torch_impl._spherical_harmonics` (`_eval_sh_bases_fast`), N=4096 random fp32,
+unit and un-normalised dirs, forward + grads wrt coeffs and dirs. Max abs error, degree 0/1/2/3/4:
+fwd 0 / 3.6e-7 / 9.5e-7 / 1.9e-6 / **3.8e-6** (raw dirs 5.7e-6; outputs O(5)); d_coeffs
+0 / 2.4e-7 / 9.5e-7 / 1.4e-6 / **3.8e-6**; d_dirs relative ≤ **5.5e-7** at every degree. Also:
+band-4 oracle basis orthonormal on the sphere (Gram max|G−I| 2.3e-7, 200k-point quadrature);
+CUDA basis = oracle basis column-by-column; oracle passes float64 `gradcheck` at degree 4;
+evaluating degree d<4 on a K=25 tensor ignores (and sends zero grad to) the extra coeffs.
+**Gate: fp32 tolerance — PASS.** Trainer (read only): `init_gaussians_from_sfm` allocates
+`(sh_degree+1)^2-1` → **24** rest coeffs at `--sh_degree 4` (`gsplat_trainer.py:615`, asserted
+in a test); the trainer renders at the full degree from step 0 (no progressive-SH schedule).
+
+**A2 — PLY I/O + rotation.** `f_rest` is channel-major (INRIA) through `gsplat.export_splats`,
+`tools/prune_ply.read_gsplat_ply` and `qa_report.load_splats` — asserted with per-(coeff,
+channel) tagged values at degree 4. `tools/align_ply.py` SH rotation is now degree-agnostic
+(degree read from the model; was `SH_DEGREE = 3` at :61 and a hard `!= 16` check): D is the
+numerically-solved real-SH Wigner-D (lstsq per band over a Fibonacci sphere) on gsplat's float64
+oracle basis, CPU, no GPU needed. Measured: f'(Rd) vs f(d) evaluated by the **CUDA kernel**
+(independent of D's basis) max error 2.4e-7 / 6.0e-7 / 1.7e-6 / **3.3e-6** at degree 1..4;
+off-band blocks exactly 0; per-band orthogonality 2.9e-15; D(R1R2)=D(R1)D(R2) to 1e-10; band 1
+equals the closed form P R Pᵀ to 1e-12; a degree-4 model aligns losslessly in a real render
+(<5e-3) and the render breaks (>5e-2) if the SH rotation is skipped. Degree bookkeeping
+centralised in new `core/sh_utils.py` (exact, raises on non-(d+1)²−1 counts); callers fixed:
+`core/delivery.py::sh_degree_of` (rounded silently), `gui2/preview.py` live preview (fragile
+quadratic formula) and `_ply_sh_degree`, `qa_report.py --sh_degree` **default now = the
+model's own degree** (was 3 → a degree-4 model was silently scored truncated; still 3 for every
+production model, so scorecards are unchanged), `gui2/app.py` QA tab SH field → dropdown
+default "auto". New `tools/truncate_sh_ply.py` (+ `core.sh_utils.truncate_ply_file`): exact
+byte-level truncation, other properties bit-identical, identity truncation byte-identical;
+render(truncate(m,3), deg 3) == render(m, deg 3) **exactly (0.0)**. Round-trip test: synthetic
+deg-4 PLY → align → PLY → truncate to 3 → reload == expected bit-exactly, and align∘truncate =
+truncate∘align (1e-5).
+
+**Finding (negative, load-bearing): splat-transform v2.7.1 does not handle degree-4 PLYs.**
+Measured on the smoke model (72 f_rest; splat-transform v2.7.1 (b42b60c)): passthrough
+lossless; `--filter-harmonics 3` is a **no-op** (keeps all 72 coefficients, values unchanged);
+`--filter-harmonics 2` → **51** f_rest and `0` → **27** (f_rest_45..71 pass through) — **invalid
+property counts**, not a valid degree; SOG from a degree-4 PLY keeps **3 bands** (`meta.json`
+`bands: 3`). Which 45 coefficients the SOG writer takes was not measured; by its degree-3
+layout assumption it would read f_rest_0..44, which in a degree-4 channel-major file are not
+the degree-3 subset (inference, not measured). The vendored SuperSplat viewer
+(`gui2/viewer/index.js:35022`, reads ≤45 f_rest) has the same assumption (code reading).
+**Rule: truncate with our tool before any splat-transform/SOG/viewer step.**
+`core/delivery.py` now does this automatically for a degree>3 master (exact truncation to 3
+for the splat-transform path, plus `<name>_<mode>_sh<d>.ply` = pruned full-degree master);
+`gui2/preview.py` SOG preview truncates degree>3 sources to 2 itself. Degree≤3 paths unchanged.
+Delivery smoke on the degree-4 smoke ckpt (`_infusion/wpsh4/delivery_smoke_*`): 500k → prune
+446k → SOG/PLY at SH2 (265k), `_sh4.ply` 153.5 MB, SPZ SH4 21.6 MB, rc 0.
+
+**A3 — smoke train** (`_infusion/wpsh4/run_smoke.sh`; Laptop `gsplat_prod/data`, factor 4,
+5000 steps, MCMC cap 500k, `--opacity_reg 0.01 --scale_reg 0.01` explicit, seed 0;
+output `_dataset/Laptop/apex_images/training/wpsh4_smoke/sh{4,3}`): `--sh_degree 4` runs end to
+end, exports **72 f_rest** (172.0 MB PLY vs 118.0 MB at SH3, +46 %), logged peak 2952 vs
+2942 MB. Wall time 113 s (SH4) vs 163 s (SH3) is NOT a speed result — the GPU was shared with
+another agent's job (78 GB / 88 % util at launch); measure throughput in phase B on an idle GPU.
+Held-out PSNR (23.35 vs 23.18) is recorded, not judged: 5k steps, no A/B protocol.
+
+**Trainer diff (APPLIED 2026-10-18):**
+(a) `--sh_degree` → `choices=[0,1,2,3,4]` (`gsplat_trainer.py:2068`).
+(b) `--init_ckpt` warm-start: `core.sh_utils.resize_shN` pads `shN` with zeros (or truncates) to
+`--sh_degree` after checkpoint load (`gsplat_trainer.py:1088–1104`), so a converged SH3 master can
+be fine-tuned at SH4 with zero MCMC divergence at step 0.
+(c) `--sh_degree_interval N` (default `0` = render at full degree from step 0): progressive SH
+schedule `min(step // N, sh_degree)` (`gsplat_trainer.py:1510–1515, 2070`).
+(d) `gsplat_backend.py:741–743` uses `core.sh_utils.sh_degree_of(splats)` instead of the inline
+quadratic formula.
+
+**Phase B — Quality A/B Gate Results (`_infusion/wpsh4_phaseB_RECORD.md`, `_infusion/wpsh4/phaseB_gate.json`, 2026-10-18):**
+- **Contiguous 38° arc holdout (`--holdout_list`):** 32/299 views (`37.8°`) on `GPU_V4`
+  (`_infusion/wpsh4/phaseB/gpu_holdout_arc.txt`) and 32/304 views (`37.3°`) on `Laptop`
+  (`_infusion/wpsh4/phaseB/laptop_holdout_arc.txt`).
+- **Experiment B1 (5,000-step fine-phase warm-start from 30k SH3 masters, strict unseen arc holdout):**
+  - `GPU_V4`: SH4 improves **specular top-10% PSNR by `+0.203 dB`** (`20.435 → 20.638 dB`, spec LPIPS
+    `0.4227 → 0.4226`) and overall masked PSNR by `+0.068 dB` (`23.621 → 23.688 dB`, mLPIPS
+    `0.3717 → 0.3716`), while the truncated degree-3 Postshot twin is **lossless** (`23.679 dB`,
+    `+0.058 dB` vs native SH3).
+  - `Laptop`: SH4 improves **specular top-10% PSNR by `+0.089 dB`** (`16.705 → 16.794 dB`), but
+    widens the train–holdout PSNR gap by `+0.259 dB` (`+2.201` vs `+1.942 dB`); truncating band 4
+    back to degree 3 on held-out arc views **jumps masked PSNR by `+0.132 dB`** (`21.416 → 21.547 dB`),
+    confirming band-4 angular overfitting across the 38° unseen sector on 304-view orbits.
+- **Experiment B2 (15,000-step C2F from-scratch arc-withheld on `GPU_V4`, `--sh_degree_interval 1000`):**
+  - SH4 matches SH3 on held-out mLPIPS (`0.4150` vs `0.4153`) and improves off-path `fog_alpha`
+    (`0.0449` vs `0.0522`), **but co-adapts bands $L \le 3$ and $L=4$**: truncating the from-scratch
+    SH4 PLY to SH3 for Postshot drops held-out mPSNR by **`-0.500 dB`** (`23.663 → 23.164 dB`) and
+    specular PSNR by **`-0.880 dB`**.
+- **Costs:** PLY size `+46 %` (`708.5 → 1,032.9 MB` at 3M); throughput `-6 %` to `-14 %`; SPZ v4
+  (8/8 bits) round-trip PSNR `56.60 dB` (`GPU_V4`) and `51.84 dB` (`Laptop`), both `≥ 50 dB` (`PASS`).
+- **Verdict:** Keep `--sh_degree 3` as the production default; use `--sh_degree 4` **only via
+  fine-phase warm-start (`--init_ckpt`)** when targeting the SH4 Unreal Engine plugin.
+
+═══════════════════════════════════════════════════════════════════════
+### WP-D2 — SPZ v4 writer (+ SH cap per consumer) — ✅ 2026-10-17 (UE/Postshot import pending)
+═══════════════════════════════════════════════════════════════════════
+> **STATUS: GATE PASSED (round trip at quantization level, deg 3 and 4); consumer import
+> checks still open.** Default OFF: `python -m core.delivery ... --spz [--spz_sh_degree D]
+> [--spz_sh1_bits 8 --spz_sh_rest_bits 8]`, or standalone `python -m core.spz_io in.ply
+> out.spz [--sh_degree D]`; `qa_report.py` now also loads `.spz`. Library: Niantic
+> **nianticlabs/spz @ affd0ec** (MIT, lib 1.1.0, format v4) Python bindings built locally
+> (`tools/spz/build_spz.bat`; NOT the unrelated PyPI `spz` 0.0.1). Evidence
+> `_infusion/wpsh4/phaseA_gate.json` (`spz` section) + `tests/test_spz_io.py`.
+
+Gate (real 500k-Gaussian smoke models, 12 held-out Laptop views at factor 4, gsplat render
+original vs decoded at full degree):
+
+| model | SH bits (b1/b2+) | PLY → SPZ | size ratio | render PSNR mean / min |
+|---|---|---|---|---|
+| SH4 | 5/4 (spz default) | 172.0 → 10.7 MB | 16.1× | 30.41 / 28.53 dB |
+| SH4 | **8/8 (our default)** | 172.0 → 24.1 MB | **7.1×** | **53.83 / 52.27 dB** |
+| SH3 | 5/4 | 118.0 → 10.1 MB | 11.7× | 33.69 / 31.16 dB |
+| SH3 | 8/8 | 118.0 → 18.3 MB | 6.4× | 54.11 / 52.29 dB |
+
+Per-attribute max error equals the format's quantization bound exactly (derived from
+`load-spz.cc`, asserted in tests): position 1.22e-4 (=2⁻¹³), log-scale 0.03125 (in range),
+sigmoid-alpha 1.96e-3 (=1/510), DC 0.01307, SH 0.0039 (8 bit) / 0.0352 band-1 + 0.0664 bands
+2–4 (5/4 bit), quaternion ≤0.22°. SPZ's defaults (5/4) cost ~20 dB render PSNR — **the SH
+bucketing is the whole loss**, larger at SH4 (more 4-bit coeffs) → our default is 8/8.
+Format limits found and handled: (i) positions beyond ±2048 units **wrap** (24-bit
+`& 0xffffff`), so `write_spz` drops them, records the count and warns (delivery prints and
+records the warning since the 2026-10-17 review; clip fractions are in the record's
+`clip_frac`) (8 of 500k far floaters on the
+SH4 smoke, 3 on SH3); (ii) log-scale clips to [−10, 5.94] (1.6–2.0 % of these models' scale values fall
+outside it — tiny, sub-pixel Gaussians; renders unaffected at 53 dB); (iii) SH clips to [−1, 1) (0 % here,
+p99 |c| 0.11–0.13); DC clips beyond ±3.33 (0.07–0.09 %).
+
+**Upstream bug found — degree 4 coordinate conversion.** spz's converter (`splat-types.h`
+flipSh[23]) gives the band-4 m=+4 (cos 4φ) coefficient the sign of `y`; gsplat's basis parity
+says it is even in x and y (sign 1). So spz's own RDF→RUB conversion mis-signs exactly that
+coefficient at degree 4 (pinned by `test_upstream_spz_converter_band4_bug_is_pinned`); bands
+0–3 are right. `core/spz_io.py` therefore performs the RDF↔RUB frame change itself (exact ±1
+parity signs computed from gsplat's basis, cross-checked against align_ply's Wigner-D) and packs
+with `UNSPECIFIED`. **Consequence for our UE plugin:** if it decodes SPZ through Niantic's
+library with a coordinate conversion, its band-4 m=+4 coefficient will be mis-signed too
+unless it applies the same fix — check on the first import. Consider reporting upstream.
+
+Consumer recipe (delivery): degree-4 master → `<name>_<mode>_sh4.ply` + SPZ v4 SH4 (UE
+plugin); exact degree-3 twin via `tools/truncate_sh_ply.py` (Postshot; 0.686× the master PLY);
+SOG/web stays ≤SH3 (SOG v2 cap). For a degree>3 request delivery writes the SPZ from the
+pruned master (the decimated path is SH-capped by splat-transform) and records the source.
+Open: (1) UE plugin round-trip of the SPZ and the 72-f_rest PLY (frame + SH sign check);
+(2) Postshot import of the SH3 twin (and whether Postshot rejects/garbles a 72-f_rest PLY).
+
+═══════════════════════════════════════════════════════════════════════
+### WP-C3 — TIDI-GS Cross-View Evidence, Importance & Isolation Floater Pruner — ✅ CLOSED 2026-10-18
+═══════════════════════════════════════════════════════════════════════
+> **STATUS: GATE PASSED across all 3 production scenes (`Laptop`, `GPU_V4`, `360`).**
+> Default OFF: standalone CLI `python tools/prune_tidi.py --ckpt ... --data_dir ... --out_ply ...`
+> and delivery opt-in `python -m core.delivery ... --prune_tidi --tidi_data_dir <dir> [--tidi_data_factor F] [--tidi_mode balanced|conservative|aggressive]`.
+> Evidence: `_infusion/wpc3_tidi_RECORD.md`, `_infusion/wpc3/tidi_gate.json`, `_infusion/wpc3_tidi_eval.py`,
+> `tests/test_prune_tidi.py` (`4 passed`).
+
+- **Root Cause Discovered ("Mip-Splatting Zombie Dust"):** Under `--antialiased` (Mip-Splatting 2D filter)
+  + `--scale_reg 0.01` + `--opacity_reg 0`, `--scale_reg` shrinks unused Gaussians' 3D scales to
+  `1e-8..1e-7`. Mip-Splatting's 2D amplitude compensation scales effective 2D opacity by
+  $\sqrt{\det(\Sigma_{2D}) / \det(\Sigma_{2D} + \epsilon_{2D} I)} < 1/255$, so `gsplat` culls them
+  (`radii == 0`, `proj_views == 0`) in every view. Once culled, they receive zero gradient while
+  keeping raw `sigmoid(opacity) >= 0.05` (`0.05..0.50`), escaping both MCMC relocation (`op <= 0.005`)
+  and `tools/prune_ply.py` (`op < 0.05`). They account for **20.3 %** (`GPU_V4`), **28.5 %** (`Laptop`),
+  and **48.4 % (`1,452,071` splats!)** of the 3M budget on the 360 walkthrough.
+- **Exact Forward Alpha-Blending Accumulation:** Using a 1-channel dummy color $c_{i,0}=1$ with
+  `render_mode="RGB+ED"` and backpropagating $\sum_p \text{renders}[p,0]$ gives exact forward
+  transmittance-weighted alpha contributions $w_i(v) = \sum_p T_{p,i}\alpha_{p,i}$ (`colors.grad[:,0]`)
+  in 1 pass/view (~7 s on 267 views; ~24 s on 1,260 views).
+- **3-Scene Gate (`balanced` mode vs `prune_op05`):**
+  - **Laptop:** `2,198,875 → 1,551,279` splats (**`-29.5 %` vs `prune_op05`**, `-48.3 %` vs raw 3M;
+    PLY `519.2 → 366.1 MB`), held-out mPSNR `+0.0004 dB`, mLPIPS `+0.0003`, residual mid-opacity
+    fog `0.0365 → 0.0000`.
+  - **GPU_V4:** `2,018,622 → 1,602,034` splats (**`-20.7 %` vs `prune_op05`**, `-46.6 %` vs raw 3M;
+    PLY `476.6 → 378.1 MB`), held-out mPSNR `0.0000 dB`, mLPIPS `+0.0002`, residual mid-opacity
+    fog `0.0497 → 0.0000`.
+  - **360 (FlowerShop 8K rig):** `2,412,922 → 793,497` splats (**`-67.1 %` vs `prune_op05`**,
+    `-73.5 %` vs raw 3M; PLY **`569.7 → 187.3 MB`**), held-out 144-crop mPSNR `-0.0008 dB`,
+    mLPIPS **`0.0000`**, residual mid-opacity fog `0.1558 → 0.0000`, `>10×` bbox outliers `488 → 0`.
+
+═══════════════════════════════════════════════════════════════════════
+### WP-SfM2 — COLMAP / pycolmap 4.2.1 + Native GPU `LOMA_B` Evaluation — ✅ CLOSED 2026-10-18
+═══════════════════════════════════════════════════════════════════════
+> **STATUS: GATE PASSED (`PASS`).** Isolated in `D:\REPOS\HYPERclone\venvs\colmap421` (`pycolmap 4.2.1`
+> + standalone CUDA/ONNX `colmap.exe 4.2.1` commit `bd1fcf6` at `venvs/colmap421/colmap_bin/bin/colmap.exe`);
+> system `pycolmap 4.1.0` untouched. Evidence: `_infusion/wpsfm2_RECORD.md`, `_infusion/wpsfm2/gate.json`,
+> `_infusion/wpsfm2_worker.py`, `_infusion/wpsfm2_eval.py`.
+
+- **B1 — 40-frame ERP-Direct Probe (`EQUIRECTANGULAR`):** `4.2.1` incremental mapper registers `40/40`
+  frames (`100 %`), increases verified inliers by **`+7.6 %..+8.2 %`**, increases 3D points by
+  **`+6.8 %..+7.3 %`** (`27,256 → 29,105`), and maps **`1.26×` faster** (`11.63 s` vs `14.70 s`),
+  with `0.0094 m` (`0.097°`) Sim3 agreement against `4.1.0`.
+- **Negative Finding (`core/sfm_360.py:725` TODO resolved — DO NOT enable `guided_matching=True` on ERP):**
+  In `4.2.1`, `#4054` sets `config = PLANAR_OR_PANORAMIC` (`6`) with `F = nullopt` on 194/780 pure-rotation
+  ERP pairs; `MatchGuided` (`sift.cc:829`) then fails `CHECK(two_view_geometry.F.has_value())` on pair
+  `(1, 10)` and aborts the process. Keep `guided_matching` **OFF** on `EQUIRECTANGULAR`.
+- **B2 — 151-frame Spherical ERP DB & B3 — 94-pano (1,128-crop) WP-O5 Rig:** `151/151` and `1,128/1,128`
+  registered (`100 %`), reproj error `1.2694 → 1.2583 px` (B2) and `0.7336 px` (B3), Sim3 agreement
+  `0.0276 m` / `0.0033 m`. Note: `run_global_mapper` (GLOMAP) does not yet model multi-sensor rig
+  extrinsics in its rotation averaging (`39.29°` Sim3 residual on the 12-crop rig — use incremental mapper
+  for rigs).
+- **B4 — Native GPU `LOMA_B` (20-pano / 240-crop rig):** Standalone `colmap.exe 4.2.1` runs native GPU
+  ONNX `LOMA_B` on RTX PRO 6000 (`sm_120`) when `torch\lib` (`cudnn64_9.dll`) is prepended to `PATH`.
+  Honors masks (`0` violations), yields **`550,585` rig-verified inliers** (`7.0×` SIFT, `1.86×` ALIKED+LG)
+  and **`73,713` 3D points** (`7.55×` SIFT, `1.87×` ALIKED+LG) at `0.0202 m` Sim3 RMSE (`0.110°` rot)
+  vs HLoc ALIKED+LG. Neither the wheel nor zip compiles Caspar (`CASPAR_ENABLED=OFF`) or Ceres CUDA BA.
+
+═══════════════════════════════════════════════════════════════════════
+### WP-R1 — Observed-Preservation Gate for Generative Supervision — ✅ CLOSED 2026-10-18 (`HOLD_DEFAULT_OFF`)
+═══════════════════════════════════════════════════════════════════════
+> **STATUS: GATE EXECUTED — `HOLD_DEFAULT_OFF` (Beats `distill_control` on observed regions & NoVA,
+> but 3D frustum bleed from dark SDXL inpaint still degrades the partially-observed fringe).**
+> Default OFF: `--extra_unobserved_only`, `--extra_anchor_observed`, `--extra_loss_weight`,
+> `--extra_obs_tau`, `--extra_obs_gamma` in `core/training/gsplat_trainer.py`, `core/training/gsplat_backend.py`,
+> and `run_distill_laptop.py`. Evidence: `_infusion/wpr1_RECORD.md`, `_infusion/wpr1/gate.json`,
+> `_infusion/wpr1_eval.py`, `tests/test_wpr1_observed_gate.py` (`6 passed`).
+
+- **3-Zone Fringe Discovery:** Partitioning the 23 hole arc views (`293..315` in `_infusion/hole/`) into
+  `solid_obs_99` ($\alpha_{\text{init}} \ge 0.99$, 57.4 %), `fringe_obs_03_99` ($0.30 \le \alpha_{\text{init}} < 0.99$,
+  23.2 %), and `unobs` ($\alpha_{\text{init}} < 0.30$, 19.4 %) revealed why WP-C1's `distill_gated` lost to
+  `distill_control`: `gamo_fill.py` only inpainted $\alpha_{\text{init}} < 0.30$ and pasted the raw
+  `10.86 dB` holed render back onto `fringe_obs_03_99`, actively supervising the fringe to stay broken
+  (`12.48 dB`) whereas `distill_control` let the 364 real training views heal it to `18.19 dB`.
+- **Results (`distill_r1_gated`: `--extra_unobserved_only --extra_anchor_observed 1.0 --extra_loss_weight 0.25 --extra_obs_tau 0.30`):**
+  - Beats `distill_control` on **observed tiled LPIPS (`0.4603` vs `0.4632`)** and **solid-observed
+    PSNR (`20.50` vs `20.19 dB`, LPIPS `0.4342` vs `0.4480`)**, and cuts **NoVA artifacts by `-18.0 %`**
+    (`0.3004` vs `0.3663`).
+  - However, because SDXL Inpaint hallucinated a dark patch (`mean RGB 0.078` vs `GT 0.581`) inside the
+    hole, 3D Gaussians spawned in the hole project across adjacent arc views into `fringe_in_box`
+    (`11.56` vs `16.51 dB`) and `unobs` (`6.83` vs `15.50 dB`). Keep default-OFF until paired with a
+    multi-view consistent 3D-aware completion backbone (`WP-C4`).
+
+═══════════════════════════════════════════════════════════════════════
+### WP-B1 Revisit (`RealVDeblur`) & Spirula Studio Recon — ✅ CLOSED 2026-10-18
+═══════════════════════════════════════════════════════════════════════
+> **STATUS: RECON COMPLETED (`_infusion/wpb1_spirula_recon.md`).**
+> - **RealVDeblur (`arXiv:2607.20628`):** Code (`github.com/OpenImagingLab/RealVDeblur` / `RBJin/RealVDeblur`,
+>   commit `63a2eb0`, Apache-2.0) and HuggingFace weights (`huggingface.co/RBJin/RealVDeblur`:
+>   `realvdeblur_dmd.safetensors` on `Wan-AI/Wan2.1-T2V-1.3B`) are now **publicly available**. Parked
+>   only until a motion-blurred video capture arrives in `_dataset/`.
+> - **Spirula Studio (`github.com/harry7557558/spirula-studio`, commit `74a92ef`, GPL-3.0):** Confirmed
+>   ships Windows/Linux/macOS binaries with a headless CLI (`spirula train --help`) on Vulkan (primary)
+>   and CUDA, supporting 360 equirectangular, fisheye, LoMa, and PPISP-style appearance, capped at SH3.
+
 ## Annex A — H100 causal-ArtiFixer probe (optional, ~$1, not excluded)
 Rent an H100 spot (sm_90: stock FA2/FA3 works). Steps: clone nv-tlabs/artifixer + weights
 (67.6 GB — provision download time or use HF cache on the box), copy one prepared scene
@@ -858,6 +1157,35 @@ flash-attn of any kind; vllm-omni `[fa4]` extra FORBIDDEN on this machine). Lice
 (log-only per POC stance): "Community License" with US in Excluded Territories + outputs may not
 train other models — record in THIRD_PARTY.md if ever vendored. Watch: sparse-MSA release,
 Context-IR open-sourcing, first sm_120 runs, any 3DGS ecosystem uptake (none exists yet).
+
+## Annex B″ — Generative coverage-densification survey (researched 2026-08-05)
+User question: can generative models synthesize missing walkthrough coverage (H3+equirect
+plugin / Apple SHARP / HunyuanWorld)? Verdicts [researcher, primary-sourced]:
+**H3 — REJECT** (the "seamless equirect ComfyUI plugin for H3" does NOT exist — likely
+conflated with `cedarconnor/ComfyUI-DiT360`, an experimental FLUX image LoRA node; Ref2VA
+preserves subject identity NOT scene geometry; camera control still text-tag only).
+**Apple SHARP (2512.10685, apple/ml-sharp) — REJECT** (single image → 1.2M Gaussians <1s;
+explicitly designed to NOT extrapolate unseen regions — wrong problem).
+**HY-World-2.0 (2604.14268, Tencent, Apr-2026) — bounded WSL spike only**: closest
+use-case match ("capture a video, get a digital twin", direct 3DGS out) but flash-attn
+hard-pinned (sm_120 risk) and ZERO fidelity evidence.
+**Hard evidence vs the naive generate-then-SfM route**: WorldPrompter (2504.02045)
+measured up to **89.7% COLMAP failure on generated 360° video**; COLMAP silently drops
+inconsistent generated content (WorldScore 2504.00983). Unanchored generation = dead.
+**Viable shortlist (anchored densification of REAL captures)**: (1) **SEVA / Stable
+Virtual Camera** (Stability, ICCV'25, N≤32 posed imgs + transforms.json → pose-conditioned
+novel views; real-indoor GT eval exists; flash-attn-on-Windows question open — half-day
+smoke test w/ existing poses); (2) **Difix3D+** (nv-tlabs, CVPR'25 Oral, SD-Turbo
+single-step artifact fixer on OUR renders; no flash-attn, gsplat integration, real-capture
+LPIPS 0.33→0.26 — same-day smoke, complementary not densifying); (3) HY-World-2.0 env
+spike. Closed/no-code: CAT3D/CAT4D/Bolt3D/Wonderland/ReconX/MultiDiff/CamPVG/Pantheon360.
+Down-weighting generated views in 3DGS training exists (CAT3D App.D, AugSplat 2606.31556)
+but NO paper ablates it and NONE implements visibility-split eval — our WP-Q1 gate is
+ahead of the literature. **Meta-finding [V]: arXiv 2607.01556 proves interpolative holdout
+understates true 3DGS error by mean 5.84 dB (8.4 dB on generated views) — independent
+confirmation of the WP-O5 off-path-eval lesson.** Any pilot must run under the completion
+-lane discipline: generated views ONLY where no real observation exists, gated + judged by
+visibility-split, never global metrics.
 
 ## Annex B — Watch list (do not build; check monthly)
 GENA3D training code (inference promoted to WP-C2) · CompleteSplat code (Niantic) ·

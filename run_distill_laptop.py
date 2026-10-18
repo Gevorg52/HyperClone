@@ -35,6 +35,18 @@ def main():
     ap.add_argument("--v3", action="store_true",
                     help="v3: v2 + Gram/style loss + cap_max 3M->4M (grow into "
                          "holes) + stronger scale_reg. Writes to distill_v3/.")
+    # WP-R1: Observed-preservation gate levers (default OFF)
+    ap.add_argument("--extra_unobserved_only",
+                    action=argparse.BooleanOptionalAction, default=False,
+                    help="WP-R1: Restrict extra_views loss to unobserved pixels")
+    ap.add_argument("--extra_anchor_observed", type=float, default=0.0,
+                    help="WP-R1: Blend extra_views target with init_ckpt render on observed pixels")
+    ap.add_argument("--extra_loss_weight", type=float, default=1.0,
+                    help="WP-R1: Scalar weight multiplier for extra_views steps")
+    ap.add_argument("--extra_obs_tau", type=float, default=0.95,
+                    help="WP-R1: Alpha threshold tau_obs for observed pixels")
+    ap.add_argument("--extra_obs_gamma", type=float, default=1.0,
+                    help="WP-R1: Exponent gamma for unobserved weight map")
     args = ap.parse_args()
     if args.v3:
         args.aggressive = True   # v3 builds on the v2 recipe
@@ -60,7 +72,7 @@ def main():
             "lpips_gated": True,                    # protect the well-resolved subject
             "geo_reg": True,                        # keep relocated splats on surfaces
             "geo_reg_start": 200,
-            "opacity_reg": 0.01,
+            "opacity_reg": 0.0,                     # was 0.01 pre-2026-10 (WP-O3/O5)
             "scale_reg": 0.01,
         }
     if args.v3:
@@ -68,6 +80,17 @@ def main():
         train_extra["gram_lambda"] = 0.5           # Difix3D+ texture-baking term
         train_extra["cap_max"] = 4_000_000         # grow new Gaussians into holes
         train_extra["scale_reg"] = 0.02            # stronger anti-giant-blob for growth
+
+    # Forward WP-R1 observed-preservation levers when active
+    if (args.extra_unobserved_only or args.extra_anchor_observed > 0.0
+            or args.extra_loss_weight != 1.0):
+        if train_extra is None:
+            train_extra = {}
+        train_extra["extra_unobserved_only"] = bool(args.extra_unobserved_only)
+        train_extra["extra_anchor_observed"] = float(args.extra_anchor_observed)
+        train_extra["extra_loss_weight"] = float(args.extra_loss_weight)
+        train_extra["extra_obs_tau"] = float(args.extra_obs_tau)
+        train_extra["extra_obs_gamma"] = float(args.extra_obs_gamma)
 
     ckpts = sorted(CKPT_DIR.glob("ckpt_*_rank0.pt"))
     if not ckpts:

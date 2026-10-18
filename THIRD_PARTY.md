@@ -810,3 +810,121 @@ Also 100 % our own code. Notable reuse and provenance:
   thread that Postshot-exported PLYs have "positive Y axis go into the ground", consistent
   with the INRIA/gsplat/COLMAP convention we already emit. Cited in
   `_infusion/wpo5/README_POSTSHOT.md`; nothing was copied.
+
+## WP-SH4 phase A (SH degree 4 readiness) + WP-D2 (SPZ v4 writer) — added 2026-10-17
+
+### New dependency: Niantic SPZ (WP-D2)
+- **nianticlabs/spz** — https://github.com/nianticlabs/spz, commit `affd0ec`
+  (`affd0ecea7fbb4c265ee119475af7ee5b2997482`, library v1.1.0, SPZ format v4), **MIT**
+  (Copyright (c) 2024 Niantic Labs). Cloned to `D:\REPOS\HYPERclone\spz`; Python bindings
+  (nanobind) built locally into system Python 3.11 with `tools/spz/build_spz.bat`
+  (VS2022 vcvars64 + VS-bundled CMake, `pip install --no-build-isolation --no-deps .`).
+  Used by `core/spz_io.py` for pack/unpack only (`GaussianCloud`, `PackOptions`,
+  `save_spz`, `load_spz`). NOT the PyPI package named `spz` (0.0.1 — an unrelated Rust port).
+  - Transitive, statically fetched by spz's CMake FetchContent (hash-pinned upstream):
+    **zstd 1.5.6** (BSD-3-Clause / GPLv2 dual), **zlib 1.3.2** (zlib license; built as a
+    shared `z.dll` that the build script copies next to the `.pyd`).
+  - Build-only pip deps (installed with the constraints file): **scikit-build-core**
+    (Apache-2.0), **nanobind** (BSD-3-Clause). pyproject's `python_devtools` build
+    requirement was skipped (`--no-build-isolation`) — unused by the CMake build.
+  - **Upstream bug found (not patched; worked around):** `src/cc/splat-types.h` flipSh[23]
+    (degree-4, m=+4 coefficient) is `y` but gsplat's basis parity requires `1`, so spz's own
+    coordinate converter mis-signs that coefficient at degree 4. `core/spz_io.py` therefore
+    does the RDF<->RUB frame change itself and packs with `UNSPECIFIED`;
+    `tests/test_spz_io.py::test_upstream_spz_converter_band4_bug_is_pinned` pins the bug.
+  - SPZ format semantics used in tests (quantization steps, coefficient order, RUB storage)
+    are read from spz's README + `load-spz.cc`; nothing vendored.
+
+### Components reused (previously logged)
+- **gsplat v1.5.3** AOT sm_120 (Apache-2.0): `spherical_harmonics` (CUDA) and the torch oracle
+  `gsplat.cuda._torch_impl._spherical_harmonics` / `_eval_sh_bases_fast` (Sloan JCGT-2013
+  closed form) — the degree-4 unit-test oracle and now the float64 basis for
+  `tools/align_ply.py`'s SH rotation; `export_splats` for every PLY.
+- **splat-transform v2.7.1** (PlayCanvas, MIT; logged under WP-D1) — measured, not changed:
+  it assumes the degree-3 f_rest layout (see EXECUTION_PLAN WP-SH4).
+
+### New code, all ours
+`core/sh_utils.py` (degree bookkeeping, header reader, exact PLY SH truncation),
+`tools/truncate_sh_ply.py`, `core/spz_io.py`, degree-agnostic edits in `tools/align_ply.py`,
+`core/delivery.py`, `qa_report.py`, `gui2/preview.py`, `gui2/app.py`; tests
+`tests/test_sh_degree4.py`, `tests/test_sh_ply_io.py`, `tests/test_spz_io.py`; gate script
+`_infusion/wpsh4_phaseA_gate.py`, smoke runner `_infusion/wpsh4/run_smoke.sh`. The SH parity
+signs for the RUB flip are computed numerically from gsplat's basis (no hand table copied).
+torch untouched.
+
+---
+
+## WP-B2 — gsplat `main` in an isolated venv (2026-10-18)
+- **gsplat main 1.6.0 (unreleased)** — github.com/nerfstudio-project/gsplat @
+  `512d366b67073d77ca099ede742683c165dfc23b` (+ submodules glm `2d4c4b4`, googletest `d72f9c8`) —
+  **Apache-2.0**. Built AOT for sm_120 into `D:\REPOS\HYPERclone\venvs\gsplat_main` only; production
+  stays on the logged v1.5.3. Used as-is through its public API (rasterization, MCMC/Default
+  strategy, export_splats).
+  - **Local Windows patches (ours, `tools/patches/gsplat_main_512d366_win.diff`):** MSVC device
+    `std::isfinite` -> `fabsf(x) <= FLT_MAX`; host `__builtin_clzll` -> bit-length loop;
+    `at::cuda::cub::radix_sort_pairs<int64,int32>` (not exported by torch_cuda.dll on Windows) ->
+    direct `cub::DeviceRadixSort::SortPairs` via gsplat's own `CUB_WRAPPER`; zero-size
+    `std::array` -> C array; header/definition `const bool` mangling mismatch. All in 3DGUT /
+    sparse paths we do not call. Upstreamable; the funded port re-applies or upstreams them.
+- **CUDA 12.9 header overlay** — `tools/patches/cuda129_win_overlay/cuda/__ptx/instructions/generated/clusterlaunchcontrol.h`
+  is a copy of NVIDIA's CUDA-12.9 / CCCL-2.8.2 header (CCCL: **Apache-2.0 WITH LLVM-exception**;
+  shipped inside the CUDA Toolkit under the CUDA EULA) with one change: `long2` -> `longlong2`
+  in 10 asm operand casts (the upstream CCCL fix; Windows `long` is 32-bit). Injected with
+  `NVCC_PREPEND_FLAGS=-I<overlay>`; the installed toolkit is not modified.
+- **Our shim:** `core/training/gsplat_compat.py` (version-agnostic `spherical_harmonics_dirs`) — ours.
+
+## WP-F5 — PPISP photometric compensation (2026-10-18)
+- **PPISP** ("Physically-Plausible Compensation and Control of Photometric Variations in Radiance
+  Field Reconstruction", NVIDIA, **arXiv 2601.18336**, CVPR'26) — github.com/nv-tlabs/ppisp @
+  `a247368047651db2e03e6f97a36e4f5bebbe5c5f` (v1.3.0 + 5 fixes; includes the v1.2.x per-forward GPU
+  leak fix — measured flat over 3 000 steps, `_infusion/wpf5/leakcheck.json`) — **Apache-2.0**.
+  Built AOT sm_120 into the gsplat-main venv only (`tools/blackwell_session_2026-06/build_ppisp.bat`,
+  same CUDA header overlay). Used as a library: `PPISP`, `PPISPConfig`, `create_optimizers`,
+  `create_schedulers`, `get_regularization_loss`, `from_state_dict`. Nothing vendored.
+  - **Integration (ours), `core/training/gsplat_trainer.py` `--ppisp/--ppisp_controller/--ppisp_controller_start`:**
+    modelled on gsplat main `examples/simple_trainer.py` (Apache-2.0) — ISP on the render before
+    the loss, regularizer added to the loss, controller distillation that freezes the splats and
+    skips the strategy hooks (stops MCMC relocation + noise). Camera = COLMAP camera id, frame =
+    training-image position. Side-car `ppisp`/`ppisp_meta` in the checkpoint; the exported PLY
+    is untouched (standard 3DGS, canonical radiance).
+- **gsplat `color_correct_affine`** (gsplat main, Apache-2.0, adapted by gsplat from Google
+  multinerf) — used as-is in `_infusion/wpf5_tone_eval.py` for the tone-vs-structure diagnostic.
+
+## WP-C3 — TIDI-GS cross-view evidence, importance & isolation floater pruner (2026-10-18)
+- **Idea/source:** "TIDI-GS: Temporally and Spatially Consistent Floater Pruning for 3D Gaussian
+  Splatting", **arXiv:2601.09291** (no upstream code published) + our existing SplatSuRe
+  view-support machinery (`core/qa/visibility.py`, logged under WP-Q1).
+- **Adoption:** **100 % OUR OWN CODE** (`tools/prune_tidi.py`, `core/delivery.py --prune_tidi`,
+  `_infusion/wpc3_tidi_eval.py`, `tests/test_prune_tidi.py`). Computes exact per-view forward
+  alpha-blending weights $w_i(v) = \sum_p T_{p,i}\alpha_{p,i}$ via a single 1-channel `RGB+ED`
+  backward pass on `gsplat.rasterization` (Apache-2.0, already logged) and combines multi-view
+  transmittance-weighted support with 3D spatial kNN isolation (`torch.cdist`). No external code
+  copied or vendored. **Re-license: none needed.**
+
+## WP-SfM2 — COLMAP / pycolmap 4.2.1 + LoMa (`LOMA_B`) in an isolated venv (2026-10-18)
+- **pycolmap 4.2.1 & standalone `colmap.exe 4.2.1`** — https://github.com/colmap/colmap/releases/tag/4.2.1,
+  commit `bd1fcf6` (2026-09-29), **BSD-3-Clause** (Copyright ETH Zurich and UNC Chapel Hill).
+  Installed ONLY into `D:\REPOS\HYPERclone\venvs\colmap421` (`pip install pycolmap==4.2.1` +
+  `colmap-x64-windows-cuda.zip` unpacked to `venvs\colmap421\colmap_bin\`); system `pycolmap 4.1.0`
+  untouched.
+- **LoMa (`LOMA_B` feature extractor + matcher)** — "LoMa: Local Feature Matching with Transformers",
+  **arXiv:2604.04931**, integrated upstream into COLMAP 4.2.x via ONNX Runtime (`aliked-n16rot` +
+  `loma_b-aliked-n16rot` ONNX weights auto-downloaded by COLMAP into `%USERPROFILE%\.cache\colmap\`).
+  Check upstream LoMa model license before commercial redistribution; COLMAP integration code itself
+  is BSD-3-Clause.
+- **Our code:** `_infusion/wpsfm2_worker.py`, `_infusion/wpsfm2_eval.py`.
+
+## WP-R1 — Observed-preservation gate for generative supervision (2026-10-18)
+- **Idea/source:** Convergence of three papers' abstract/method descriptions — GSComplete preservation
+  loss, Filling-the-Unseen QA-Mask, and ArtiFixer opacity mixing (`docs/RESEARCH_REFRESH_2026-10.md` §3).
+- **Adoption:** **100 % OUR OWN CODE** (`core/training/gsplat_trainer.py::compute_extra_unobs_weight`,
+  `blend_extra_view_target`, `precompute_extra_view_anchors`, `core/training/gsplat_backend.py`,
+  `run_distill_laptop.py`, `_infusion/wpr1_eval.py`, `tests/test_wpr1_observed_gate.py`). No external
+  code copied or vendored. **Re-license: none needed.**
+
+## WP-SH4 Phase B — SH degree 4 warm-start & quality A/B (2026-10-18)
+- **New code, all ours:** `core/sh_utils.py::resize_shN`, `--sh_degree_interval` and `--init_ckpt`
+  SH warm-start padding/truncation in `core/training/gsplat_trainer.py`, `_infusion/wpsh4_phaseB_eval.py`,
+  `tests/test_sh_degree4.py::test_resize_shN_pad_and_truncate`. Reuses `gsplat` (Apache-2.0) and
+  `nianticlabs/spz` (MIT), both already logged under WP-SH4 Phase A / WP-D2.
+

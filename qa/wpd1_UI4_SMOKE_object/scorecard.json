@@ -1,0 +1,81 @@
+{
+  "alpha_thresh": 0.3,
+  "ckpt": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI4_SMOKE\\deliverables\\UI4_SMOKE_object.ply",
+  "corruption": {},
+  "data_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\UI4_SMOKE\\apex_UI4_SMOKE\\training\\gsplat\\data",
+  "factor": 4,
+  "masked_lpips": 0.541727,
+  "masked_psnr": 15.754903,
+  "masked_ssim": 0.562971,
+  "n_views": 5,
+  "normalize": "true",
+  "observed_area_pct": 27.877137,
+  "render_sanity": "suspect",
+  "scene": "UI4_SMOKE",
+  "scorers": {
+    "crossscore": null,
+    "flicker": null,
+    "nova": null,
+    "nvs_sqa": null,
+    "raft_warp": null,
+    "tsed": null
+  },
+  "split": "every8",
+  "views": [
+    {
+      "gt": "views/v0000_gt.jpg",
+      "index": 0,
+      "masked_lpips": 0.416506,
+      "masked_psnr": 20.026148,
+      "masked_ssim": 0.71169,
+      "name": "frame_0001.jpg",
+      "observed_pct": 17.699521,
+      "overlay": "views/v0000_overlay.png",
+      "render": "views/v0000_render.jpg"
+    },
+    {
+      "gt": "views/v0008_gt.jpg",
+      "index": 8,
+      "masked_lpips": 0.673992,
+      "masked_psnr": 6.725635,
+      "masked_ssim": 0.194591,
+      "name": "frame_0065.jpg",
+      "observed_pct": 5.223244,
+      "overlay": "views/v0008_overlay.png",
+      "render": "views/v0008_render.jpg"
+    },
+    {
+      "gt": "views/v0016_gt.jpg",
+      "index": 16,
+      "masked_lpips": 0.522939,
+      "masked_psnr": 17.500742,
+      "masked_ssim": 0.649929,
+      "name": "frame_0129.jpg",
+      "observed_pct": 48.627687,
+      "overlay": "views/v0016_overlay.png",
+      "render": "views/v0016_render.jpg"
+    },
+    {
+      "gt": "views/v0024_gt.jpg",
+      "index": 24,
+      "masked_lpips": 0.578022,
+      "masked_psnr": 14.786697,
+      "masked_ssim": 0.551276,
+      "name": "frame_0201.jpg",
+      "observed_pct": 28.941906,
+      "overlay": "views/v0024_overlay.png",
+      "render": "views/v0024_render.jpg"
+    },
+    {
+      "gt": "views/v0032_gt.jpg",
+      "index": 32,
+      "masked_lpips": 0.517175,
+      "masked_psnr": 19.735292,
+      "masked_ssim": 0.707369,
+      "name": "frame_0265.jpg",
+      "observed_pct": 38.893328,
+      "overlay": "views/v0032_overlay.png",
+      "render": "views/v0032_render.jpg"
+    }
+  ]
+}

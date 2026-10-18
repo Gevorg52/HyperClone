@@ -1,0 +1,53 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>QA scorecard — hole_r1_gated</title>
+<style>
+ body{margin:0;background:#141414;color:#ddd;font:14px system-ui}
+ header{padding:14px 18px;background:#1d1d1d;border-bottom:1px solid #333}
+ h1{margin:0 0 6px;font-size:18px}
+ .kv{color:#9ad;} .mut{color:#888}
+ table{border-collapse:collapse;width:100%}
+ th,td{border-bottom:1px solid #2a2a2a;padding:6px 8px;vertical-align:top}
+ th{position:sticky;top:0;background:#1d1d1d;text-align:left}
+ img{max-width:300px;height:auto;display:block;background:#000;image-rendering:auto}
+ td.num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+ .nm{color:#777;font-size:11px}
+ .legend{margin-top:6px;color:#c66}
+</style></head><body>
+<header>
+ <h1>QA scorecard — hole_r1_gated</h1>
+ <div class=mut>ckpt <span class=kv>_infusion/wpr1/distill_r1_gated/ckpts/ckpt_3999_rank0.pt</span> · split <span class=kv>wedge:293:316</span>
+  · factor <span class=kv>2</span> · views <span class=kv>23</span>
+  · alpha&lt;0.3 = unobserved · corruption <span class=kv>none</span></div>
+ <div style="margin-top:8px">
+  observed area <b>99.4%</b> &nbsp;|&nbsp;
+  masked PSNR <b>12.657</b> &nbsp; SSIM <b>0.6948</b> &nbsp;
+  LPIPS <b>0.5364</b> <span class=mut>(observed region only; lower LPIPS = better)</span></div>
+ <div class=legend>overlay: red tint = UNOBSERVED (excluded from masked metrics)</div>
+</header>
+<table>
+<tr><th>view</th><th>render</th><th>mask overlay</th><th>GT</th>
+ <th>obs%</th><th>PSNR</th><th>SSIM</th><th>LPIPS</th></tr>
+<tr><td>293<br><span class=nm>DSC01023.JPG</span></td><td><img src='views/v0293_render.jpg'></td><td><img src='views/v0293_overlay.png'></td><td><img src='views/v0293_gt.jpg'></td><td class=num>100.0%</td><td class=num>16.048</td><td class=num>0.7826</td><td class=num>0.4983</td></tr>
+<tr><td>294<br><span class=nm>DSC01024.JPG</span></td><td><img src='views/v0294_render.jpg'></td><td><img src='views/v0294_overlay.png'></td><td><img src='views/v0294_gt.jpg'></td><td class=num>100.0%</td><td class=num>14.314</td><td class=num>0.7504</td><td class=num>0.5162</td></tr>
+<tr><td>295<br><span class=nm>DSC01025.JPG</span></td><td><img src='views/v0295_render.jpg'></td><td><img src='views/v0295_overlay.png'></td><td><img src='views/v0295_gt.jpg'></td><td class=num>100.0%</td><td class=num>13.003</td><td class=num>0.7242</td><td class=num>0.5330</td></tr>
+<tr><td>296<br><span class=nm>DSC01026.JPG</span></td><td><img src='views/v0296_render.jpg'></td><td><img src='views/v0296_overlay.png'></td><td><img src='views/v0296_gt.jpg'></td><td class=num>100.0%</td><td class=num>12.357</td><td class=num>0.7033</td><td class=num>0.5439</td></tr>
+<tr><td>297<br><span class=nm>DSC01027.JPG</span></td><td><img src='views/v0297_render.jpg'></td><td><img src='views/v0297_overlay.png'></td><td><img src='views/v0297_gt.jpg'></td><td class=num>99.9%</td><td class=num>12.427</td><td class=num>0.7049</td><td class=num>0.5440</td></tr>
+<tr><td>298<br><span class=nm>DSC01028.JPG</span></td><td><img src='views/v0298_render.jpg'></td><td><img src='views/v0298_overlay.png'></td><td><img src='views/v0298_gt.jpg'></td><td class=num>99.9%</td><td class=num>12.629</td><td class=num>0.7089</td><td class=num>0.5401</td></tr>
+<tr><td>299<br><span class=nm>DSC01029.JPG</span></td><td><img src='views/v0299_render.jpg'></td><td><img src='views/v0299_overlay.png'></td><td><img src='views/v0299_gt.jpg'></td><td class=num>100.0%</td><td class=num>12.191</td><td class=num>0.7067</td><td class=num>0.5383</td></tr>
+<tr><td>300<br><span class=nm>DSC01030.JPG</span></td><td><img src='views/v0300_render.jpg'></td><td><img src='views/v0300_overlay.png'></td><td><img src='views/v0300_gt.jpg'></td><td class=num>99.9%</td><td class=num>12.066</td><td class=num>0.6918</td><td class=num>0.5427</td></tr>
+<tr><td>301<br><span class=nm>DSC01031.JPG</span></td><td><img src='views/v0301_render.jpg'></td><td><img src='views/v0301_overlay.png'></td><td><img src='views/v0301_gt.jpg'></td><td class=num>99.9%</td><td class=num>12.577</td><td class=num>0.7047</td><td class=num>0.5333</td></tr>
+<tr><td>302<br><span class=nm>DSC01032.JPG</span></td><td><img src='views/v0302_render.jpg'></td><td><img src='views/v0302_overlay.png'></td><td><img src='views/v0302_gt.jpg'></td><td class=num>99.8%</td><td class=num>12.569</td><td class=num>0.6993</td><td class=num>0.5288</td></tr>
+<tr><td>303<br><span class=nm>DSC01033.JPG</span></td><td><img src='views/v0303_render.jpg'></td><td><img src='views/v0303_overlay.png'></td><td><img src='views/v0303_gt.jpg'></td><td class=num>99.6%</td><td class=num>12.191</td><td class=num>0.6713</td><td class=num>0.5368</td></tr>
+<tr><td>304<br><span class=nm>DSC01034.JPG</span></td><td><img src='views/v0304_render.jpg'></td><td><img src='views/v0304_overlay.png'></td><td><img src='views/v0304_gt.jpg'></td><td class=num>99.4%</td><td class=num>12.672</td><td class=num>0.6827</td><td class=num>0.5176</td></tr>
+<tr><td>305<br><span class=nm>DSC01035.JPG</span></td><td><img src='views/v0305_render.jpg'></td><td><img src='views/v0305_overlay.png'></td><td><img src='views/v0305_gt.jpg'></td><td class=num>99.4%</td><td class=num>12.635</td><td class=num>0.6872</td><td class=num>0.5128</td></tr>
+<tr><td>306<br><span class=nm>DSC01036.JPG</span></td><td><img src='views/v0306_render.jpg'></td><td><img src='views/v0306_overlay.png'></td><td><img src='views/v0306_gt.jpg'></td><td class=num>98.6%</td><td class=num>13.139</td><td class=num>0.7094</td><td class=num>0.5174</td></tr>
+<tr><td>307<br><span class=nm>DSC01037.JPG</span></td><td><img src='views/v0307_render.jpg'></td><td><img src='views/v0307_overlay.png'></td><td><img src='views/v0307_gt.jpg'></td><td class=num>97.9%</td><td class=num>12.991</td><td class=num>0.7030</td><td class=num>0.5284</td></tr>
+<tr><td>308<br><span class=nm>DSC01038.JPG</span></td><td><img src='views/v0308_render.jpg'></td><td><img src='views/v0308_overlay.png'></td><td><img src='views/v0308_gt.jpg'></td><td class=num>99.3%</td><td class=num>11.569</td><td class=num>0.6419</td><td class=num>0.5510</td></tr>
+<tr><td>309<br><span class=nm>DSC01039.JPG</span></td><td><img src='views/v0309_render.jpg'></td><td><img src='views/v0309_overlay.png'></td><td><img src='views/v0309_gt.jpg'></td><td class=num>99.7%</td><td class=num>11.547</td><td class=num>0.6527</td><td class=num>0.5464</td></tr>
+<tr><td>310<br><span class=nm>DSC01040.JPG</span></td><td><img src='views/v0310_render.jpg'></td><td><img src='views/v0310_overlay.png'></td><td><img src='views/v0310_gt.jpg'></td><td class=num>99.4%</td><td class=num>11.791</td><td class=num>0.6537</td><td class=num>0.5504</td></tr>
+<tr><td>311<br><span class=nm>DSC01041.JPG</span></td><td><img src='views/v0311_render.jpg'></td><td><img src='views/v0311_overlay.png'></td><td><img src='views/v0311_gt.jpg'></td><td class=num>98.9%</td><td class=num>12.246</td><td class=num>0.6733</td><td class=num>0.5485</td></tr>
+<tr><td>312<br><span class=nm>DSC01042.JPG</span></td><td><img src='views/v0312_render.jpg'></td><td><img src='views/v0312_overlay.png'></td><td><img src='views/v0312_gt.jpg'></td><td class=num>98.8%</td><td class=num>12.384</td><td class=num>0.6743</td><td class=num>0.5522</td></tr>
+<tr><td>313<br><span class=nm>DSC01043.JPG</span></td><td><img src='views/v0313_render.jpg'></td><td><img src='views/v0313_overlay.png'></td><td><img src='views/v0313_gt.jpg'></td><td class=num>98.1%</td><td class=num>12.658</td><td class=num>0.6876</td><td class=num>0.5548</td></tr>
+<tr><td>314<br><span class=nm>DSC01044.JPG</span></td><td><img src='views/v0314_render.jpg'></td><td><img src='views/v0314_overlay.png'></td><td><img src='views/v0314_gt.jpg'></td><td class=num>98.4%</td><td class=num>12.745</td><td class=num>0.6939</td><td class=num>0.5449</td></tr>
+<tr><td>315<br><span class=nm>DSC01045.JPG</span></td><td><img src='views/v0315_render.jpg'></td><td><img src='views/v0315_overlay.png'></td><td><img src='views/v0315_gt.jpg'></td><td class=num>99.0%</td><td class=num>12.361</td><td class=num>0.6730</td><td class=num>0.5564</td></tr>
+</table></body></html>

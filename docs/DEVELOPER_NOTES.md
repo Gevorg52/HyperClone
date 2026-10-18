@@ -44,6 +44,22 @@ is a self-contained subprocess (`core/training/gsplat_trainer.py`).
 > - **Installed + verified:** pycolmap **4.1.0**, hloc 1.5 (+lightglue, editable from `../Hierarchical-Localization`), kornia, imageio, torchmetrics+lpips (gated-LPIPS VGG cached), tensorly, opencv 4.13, gradio 6.11.
 > - **Native 24 MP training validated**: `--data_factor 1` (our loader reads full-res `images/` directly — NO stock-3DGS 1600px cap exists in our code). GPU_V4 24 MP: ~6.3 GB at 123k GS, headroom huge.
 > - **WSL2 Ubuntu-24.04 present** (for ArtiFixer's Linux/Docker env). **Docker NOT installed.**
+> - **gsplat `main` 1.6.0 (WP-B2, 2026-10-18) lives ONLY in `D:\REPOS\HYPERclone\venvs\gsplat_main`**
+>   (`--system-site-packages` -> inherits torch 2.11.0+cu128; system gsplat 1.5.3 untouched). Commit
+>   `512d366`, recipe `tools/blackwell_session_2026-06/build_gsplat_main.bat`. Needs 4 MSVC source
+>   patches (`tools/patches/gsplat_main_512d366_win.diff`), `BUILD_EXPERIMENTAL=0`, and a one-header
+>   overlay for a **CUDA 12.9 Windows bug that hits ANY sm_120 TU including `<cub/cub.cuh>`**
+>   (`clusterlaunchcontrol.h` binds 32-bit `long2` to a 64-bit asm constraint -> "asm operand type
+>   size(4)"): `NVCC_PREPEND_FLAGS=-I...\tools\patches\cuda129_win_overlay`. Reuse that overlay for any
+>   future CUDA extension. The trainer runs unmodified on both versions; the one breaking API is
+>   `gsplat.spherical_harmonics` (now `(deg, means, viewmats, coeffs)`) -> use
+>   `core/training/gsplat_compat.py::spherical_harmonics_dirs`. PPISP (WP-F5) is installed in this
+>   venv only. Evidence: `_infusion/wpb2_RECORD.md`.
+> - **COLMAP / pycolmap 4.2.1 + native GPU `LOMA_B` (WP-SfM2, 2026-10-18) lives in `D:\REPOS\HYPERclone\venvs\colmap421`**
+>   (system `pycolmap 4.1.0` untouched). Includes standalone Windows CUDA/ONNX binary at
+>   `venvs\colmap421\colmap_bin\bin\colmap.exe` (`4.2.1` @ `bd1fcf6`). Prepend `torch\lib` (`cudnn64_9.dll`)
+>   to `PATH` so `onnxruntime_providers_cuda.dll` runs `LOMA_B` on RTX PRO 6000 (`sm_120`). Evidence:
+>   `_infusion/wpsfm2_RECORD.md`.
 
 - **(OLD 4090 box — historical)** There is NO named conda env. The whole stack lives in the **anaconda `base`
   env** (`C:\Users\gevor\anaconda3`, **Python 3.11.5**). Activate:
@@ -81,7 +97,7 @@ is a self-contained subprocess (`core/training/gsplat_trainer.py`).
 - GUI: `python run.py`.
 - Headless SfM (stages 1-7): see `run_pipeline_laptop.py` for a worked example —
   drives the real stage handlers with a no-op `progress` stub.
-- Training is a subprocess; flags below. Tests: `pytest tests` (134 passing;
+- Training is a subprocess; flags below. Tests: `pytest tests` (355 passing as of 2026-10-18;
   `tests/smoke_gsplat.py` needs a VS dev shell for first JIT).
 
 ---
@@ -98,7 +114,8 @@ is a self-contained subprocess (`core/training/gsplat_trainer.py`).
 | `--antialiased` | on | Mip-Splatting (`rasterize_mode`). Keep on. |
 | `--pose_opt` | off→on(GUI) | SE(3) per-camera refinement, lr 1e-5. |
 | `--coarse_factor`/`--coarse_until` | — | coarse-to-fine: densify at lower res, finish at full. |
-| `--opacity_reg`/`--scale_reg` | 0.01 | MCMC regularizers. **On a many-view walkthrough `opacity_reg` must be exactly 0 — 0.01 AND 0.001 both destroy the model (WP-O3, WP-O5); "small" is not safe, see §6.** `scale_reg` is harmless — keep it. |
+| `--opacity_reg` | **0** (was 0.01 until 2026-10-17) | Opt-in only. **Default changed to 0 on 2026-10-17 (STEP 0, `_infusion/opreg0_RECORD.md`).** 0.01 AND 0.001 destroy many-view walkthroughs (WP-O3, WP-O5), and 0.01 also cost the object-orbit production stack ~10 % LPIPS (Laptop: masked LPIPS 0.3098 -> 0.2794, +1.08 dB, 71 % -> 27 % of Gaussians below opacity 0.05). Every run before 2026-10-17 that did not pass `--opacity_reg 0` used 0.01. |
+| `--scale_reg` | 0.01 | MCMC scale regularizer. Harmless (WP-O3 isolated it) — keep it. |
 | `--erank_lambda`/`--erank_start` | 0/7000 | Anti-needle hinge (WP-Q2). On the WP-O5 8K walkthrough `0.01 @ 7k` cut needles (erank<2) **43.8 % → 9.7 %** at identical held-out PSNR/SSIM/LPIPS, identical opacity health and +3 % wall clock, and was the **only** arm that improved free-viewpoint stability (8/8 sweeps). Cheap; consider it default-ON for walkthroughs. |
 | `--holdout_list` | off | File of COLMAP image names to use as the test set instead of the every-`--test_every` rule. For captures whose views come in inseparable GROUPS (the 12 rig crops of one 360 pano). WP-O3. |
 | `--loss_mask` | off | Average L1 **and the per-pixel SSIM map** over the VALID mask only. Use when the mask removes a large part of the frame; `--rgb_object_masked` (which composites over black) is the WP-D1 object-refit lever and is the wrong tool there — §6. WP-O3. |
@@ -106,6 +123,10 @@ is a self-contained subprocess (`core/training/gsplat_trainer.py`).
 | `--lpips_lambda` | 0 | perceptual loss weight. 0=off. ~0.2 at factor≥2, gated (below). |
 | `--lpips_gated` | on | **gate LPIPS toward under-resolved (high-error) crops** so it doesn't over-texture well-resolved regions. Makes LPIPS safe at any resolution. |
 | `--lpips_start`/`--lpips_patch` | 3000/512 | start step / random-crop size (bounds 4K VRAM). |
+| `--ppisp` / `--ppisp_controller` | off | Per-camera + per-frame physical ISP (exposure, WB, vignetting, CRF; `nv-tlabs/ppisp` v1.3.0 in `venvs/gsplat_main`, WP-F5). **Replaces `--bilateral_grid`** (beats bilagrid by 11–17 % mLPIPS and +3.4 to +5.9 dB on exported PLYs because PPISP's zero-mean regularizer anchors canonical radiance to identity). Leave off on fixed-exposure captures delivering raw PLYs (unbaked vignetting+CRF costs ~0.001–0.003 raw-PLY LPIPS vs uncompensated, though affine-CC structure `cc_lpips` and off-path fog/CrossScore/RAFT improve); leave `--ppisp_controller` off when delivering static PLYs (`_infusion/wpf5_RECORD.md`). |
+| `--sh_degree` / `--sh_degree_interval` | 3 / 0 | SH degree `0..4` (`choices=[0,1,2,3,4]`, WP-SH4). Keep `3` default; use `4` **only via fine-phase warm-start (`--init_ckpt`)** when targeting the SH4 UE plugin (`resize_shN` zero-pads band 4 on load; `+0.203 dB` unseen-arc specular PSNR on `GPU_V4` with lossless SH3 twin, whereas training SH4 from scratch co-adapts bands and costs `-0.50 dB` on the truncated SH3 twin — `_infusion/wpsh4_phaseB_RECORD.md`). |
+| `--extra_unobserved_only` / `--extra_anchor_observed` | off / 0.0 | 3-zone observed-preservation gate for `--extra_views` generative distillation (WP-R1, `_infusion/wpr1_RECORD.md`). Replaces pseudo-view pixels where $\alpha_{\text{init}} \ge \tau_{\text{obs}}$ with the frozen anchor render $I_{\text{init}}$ so L1/SSIM/LPIPS cannot corrupt observed regions. |
+| `tools/prune_tidi.py` / `core/delivery.py --prune_tidi` | off | Cross-view evidence, transmittance-weighted importance ($w_i(v) = \sum_p T_{p,i}\alpha_{p,i}$), and isolation pruner (WP-C3, `_infusion/wpc3_tidi_RECORD.md`). Removes Mip-Splatting `radii==0` zombie dust (`20–48 %` of 3M splats) + unverified fog: cuts `prune_op05` splats by **`-29.5 %` (`Laptop`), `-20.7 %` (`GPU_V4`), and `-67.1 %` (`360`: `569.7 → 187.3 MB`)** with `0.0000..0.0003` mLPIPS delta and `0.0000` residual mid-opacity fog. |
 
 **Recommended by scenario:**
 - **Object/scene, 24MP stills:** factor 2, mcmc, cap 1-3M, antialiased, pose_opt,
@@ -168,6 +189,41 @@ verification drop unregisterable frames).
 asserts that a globally dark/low-texture stretch still contributes frames. Stage-1's
 own cull is still unfixed — see §7.
 
+### 5.1 Pre-training AI upscaling, cleanup & Topaz Video AI / Photo AI (2026-10-18)
+
+**Rule of thumb: DO NOT spatially upscale (`2×`/`4×`) or run generative detail synthesis on 4K input frames before 3DGS training.**
+
+1. **Why 2D/video AI upscalers hurt 3DGS (Epipolar vs. Temporal Consistency):**
+   - Even "faithful" CNN/Transformer upscalers (Topaz *Proteus*/*Iris*/*Gaia*) and diffusion enhancers (*Starlight*, *Rhea*, *SeedVR2*, *SwiftVR*, *GeoQuery*) operate per-frame or across a short 3–8 frame temporal sliding window — they have **zero long-range 3D epipolar constraint** between a frame at $t=10\text{s}$ and a frame looking at the same surface from $45^\circ$ away at $t=180\text{s}$.
+   - Any sub-pixel phase shift (`0.5–1.5 px`) in sharpened edges or synthesized micro-texture across orbit views forces 3DGS (whose Gaussians are rigidly locked in 3D space) into two failure modes:
+     - **Regression-to-the-mean blur:** L1/SSIM averages the conflicting sub-pixel high frequencies into a softer surface than the raw optical frames.
+     - **View-dependent SH / needle floaters:** MCMC spawns thin anisotropic needles in front of the surface to explain view-to-view texture changes via high-order SH lobes.
+   - **Empirically proven in WP-P1 (`_infusion/wpp1_RECORD.md`):** running video/3DGS enhancers (`SwiftVR` Wan2.2-5B and `GeoQuery`) degraded frame LPIPS by `+10% to +59%` and regressed the distilled splat's masked LPIPS (`0.3096 → 0.3245`).
+   - **Resolution ceiling:** For a 4K (`3840×2160`, `8.3 MP`) video capture, training at **`--data_factor 1` (native 4K, coarse-to-fine `--coarse_factor 2 --coarse_until 7000`)** already provides sub-millimeter multi-view sampling that saturates the 3M Gaussian budget.
+
+2. **When Topaz Video AI *IS* worth using (and the safe protocol):**
+   - **Use case:** Only when the source footage suffers from **high-ISO sensor noise** (`ISO ≥ 1600`), **heavy H.264/HEVC compression macroblocking** (`<20 Mbps`), or **motion blur** on a `<1080p` proxy clip.
+   - **Safe Topaz Video AI settings (`1×` cleanup, NO spatial upscale):**
+     - Scale: **`1×` (Original Resolution)**.
+     - Model: **Proteus** or **Nyx** in **Manual (Fixed) mode** — **NEVER "Auto"** (Auto dynamically varies sharpening/denoising per frame, which causes brightness/sharpness pumping across the orbit).
+     - Sliders: *Revert Compression* `20–40`, *Reduce Noise* `15–30`, *Recover Original Detail* `80–100`, **Sharpen = `0`**, **Dehalo = `0`**, **Anti-Alias/Deblur = `0..10`**. Avoid *Rhea*, *Starlight*, and *Iris* face/detail synthesis.
+   - **Mandatory 2-Stage SfM Isolation Rule:**
+     1. **Always run SfM (ALIKED + LightGlue + COLMAP) on the untouched original camera frames first** so keypoints and bundle adjustment solve on true optical geometry.
+     2. Only substitute the `1×` denoised frames into `export/images/` **after** Stage 7 COLMAP export, prior to 3DGS training.
+
+### 5.2 Object-only splat pipeline (WP-S2 + WP-D1 + WP-C3 synthesis)
+
+When the goal is a clean, standalone 3DGS asset of **just the scanned object** (with zero background environment, table, or room):
+1. **Extract sharpest frames using window-relative Tenengrad selection** (`~300–350` frames around the orbit, no absolute sharpness cull).
+2. **Generate foreground object masks (BiRefNet / SAM 2.1)** for every frame (`export/masks/`).
+3. **Train 3DGS on the FULL SCENE (`WP-S2` rule):**
+   - Do **not** black out the background before training: WP-S2 proved (`_infusion/wps2_RECORD.md`) that training on pre-masked black backgrounds degrades object-region PSNR by `-2.6 dB` (`23.5 → 20.9 dB`), worsens object LPIPS by `+24%` (`0.2277 → 0.2824`), and increases camera pose drift by `+33%` because background features anchor `--pose_opt` and prevent hard black silhouette edges from corrupting boundary Gaussians.
+   - Instead, train the master splat on the full scene with our best stack (`--strategy mcmc --cap_max 3000000 --opacity_reg 0 --scale_reg 0.01 --erank_lambda 0.01 --erank_start 7000 --lpips_lambda 0.2 --lpips_gated --pose_opt`).
+4. **Carve & refit the object at delivery time (`core.delivery --extract_object --prune_tidi`, `WP-D1` + `WP-C3`):**
+   - Multi-view mask voting projects every Gaussian into all training views and keeps only Gaussians whose centers project inside the object mask in $\ge 50\%$ of observing views (`vote_object`).
+   - Spatial cluster filtering (`splat-transform --filter-cluster`) + `tools/prune_tidi.py` strips any detached background/table islands and Mip-Splatting zombie dust (`99.98%` spatial compactness).
+   - **Object-masked self-refit (`--refit_steps 3000` with `--rgb_object_masked` + `--alpha_loss_lambda 0.1` with densification OFF):** refines the boundary and appearance of the carved object Gaussians against the masked object views, improving object-region PSNR by `+2.4 to +4.2 dB` and object LPIPS by `-0.0105` over the raw master!
+
 ---
 
 ## 6. What was tried and did NOT work (do not repeat)
@@ -219,6 +275,18 @@ own cull is still unfixed — see §7.
   - **How to detect it:** the training log will NOT tell you. Check the checkpoint:
     `sigmoid(opacities).mean()` (healthy ≈0.3–0.6) and `means.norm(dim=1).median()`
     (healthy ≈1–2 in normalised units). `_infusion/wpo3_diag_collapse.py::ckpt_stats` does it.
+  - **It also hurt object orbits — the default is now 0 (STEP 0, 2026-10-17).** On the gui2
+    production stack (WP-S1 Laptop STACK, seed 0, only the flag varied) 0.01 -> 0 gave held-out
+    masked LPIPS **0.3098 -> 0.2794 (-9.8 %)**, **+1.08 dB**, deck-region LPIPS -12.3 %, and the
+    fraction of Gaussians below opacity 0.05 fell **70.9 % -> 26.7 %** (mean opacity 0.07 -> 0.54;
+    off-path fog-layer alpha 0.58 -> 0.05). The seed-0 repeat of the 0.01 config reproduced the
+    July WP-S1 bank to 0.0002 LPIPS. **Replicated on GPU_V4** (WP-F5 base arm vs the WP-S1 bank):
+    masked LPIPS 0.4071 -> 0.3698 (-9.2 %), +1.81 dB, shiny-region LPIPS -13.7 %. Only raft-warp moved
+    the wrong way on Laptop (+5 %). So the opacity
+    pressure was not "needed for MCMC" here either: with 0.01 the 3 M budget was ~70 % near-dead
+    fog. All banked object-orbit numbers before this date carry 0.01 in both A/B arms (deltas
+    stand; absolutes are ~10 % LPIPS pessimistic). Evidence: `_infusion/opreg0_RECORD.md`,
+    `_infusion/opreg0_laptop_gate.json`, `qa/opreg0_laptop_*`.
   - **Scope caveat (review 2026-08-05):** the many-view generalization is a mechanism-based
     inference from ONE scene under `--strategy mcmc`; the MCMC noise-injection step is
     load-bearing in the runaway. Not yet replicated on a second capture or under
@@ -277,6 +345,71 @@ own cull is still unfixed — see §7.
   directions with the basis evaluated by **gsplat's own `spherical_harmonics`** (convention
   matches by construction). `tools/align_ply.py::sh_rotation_matrix`, and
   `tests/test_align_ply.py` asserts the render CHANGES if you drop it.
+  **Degree-agnostic since WP-SH4 (2026-10-17):** the degree is read from the model and D is
+  built on gsplat's float64 torch basis (proven equal to the CUDA kernel at degrees 0..4,
+  `tests/test_sh_degree4.py`); band 4 verified against CUDA-evaluated rotated directions.
+- **SH degree 4 (72 `f_rest`) through PlayCanvas tooling: not supported (WP-SH4, measured).**
+  splat-transform v2.7.1 `--filter-harmonics 3` is a no-op on a degree-4 PLY (keeps all 72
+  coefficients), `2`/`0` leave 51/27 f_rest (invalid property counts), and its SOG writer keeps
+  3 bands — by its degree-3 layout assumption presumably from f_rest_0..44, which is not the
+  degree-3 subset of a channel-major degree-4 file (inferred, not measured; our vendored
+  SuperSplat viewer has the same ≤45-f_rest assumption by code reading). Always truncate first with
+  `tools/truncate_sh_ply.py` (exact); `core/delivery.py` and `gui2/preview.py` now do it for any
+  degree>3 source. `qa_report.py --sh_degree` now defaults to the model's own degree (it used to
+  score degree-4 models truncated to 3).
+- **SPZ (Niantic, WP-D2) gotchas:** default SH bits 5/4 cost ~20 dB render PSNR vs the PLY — use
+  8/8 (our default, still 6–7× smaller); positions beyond ±2048 units WRAP (we drop them);
+  log-scales clip at −10; spz's own coordinate converter mis-signs the degree-4 m=+4 SH
+  coefficient (upstream flipSh[23]) — `core/spz_io.py` does the RDF↔RUB flip itself. Build:
+  `tools/spz/build_spz.bat` (zlib ships as `z.dll` next to the `.pyd`, else "DLL load failed").
+- **`--bilateral_grid` for exported PLYs (WP-F5, 2026-10-18):** `lib_bilagrid.py` has only a TV
+  smoothness penalty (`10 * _bil_tv`) and **no identity/mean anchor**, so the 3D affine grid absorbs
+  a large global brightness/WB shift during training and is then discarded at PLY export — costing
+  3.4–5.9 dB mPSNR and 6.6–17.2 % mLPIPS across Laptop, GPU_V4, and 360 (`_infusion/wpf5_RECORD.md`).
+  Use `--ppisp` instead whenever photometric compensation is needed.
+- **Baking PPISP's learned CRF into PLY SH (`_infusion/wpf5_crf_bake_probe.py`, WP-F5):** even when
+  fitted on the exact sigmoid-activated Gaussian RGB range (`R² > 0.9999`), baking the image-space
+  CRF into per-Gaussian SH (`f_dc` + `f_rest`) degrades raw-PLY PSNR (`22.69 -> 21.84 dB` on Laptop)
+  because non-linear tone mapping does not commute with alpha compositing and PPISP's CRF was co-adapted
+  to compensate for its vignetting step (absent in raw PLYs). Similarly, `--ppisp_controller` freezes
+  Gaussians for the final 20% of steps (`24,001..30,000`), which helps ISP-rendered novel views
+  (`frame_idx=-1`) but costs `0.0014–0.0067` LPIPS on static PLYs.
+- **`torchmetrics` `LearnedPerceptualImagePatchSimilarity` without `.reset()`:** accumulates every
+  per-call tensor in `lp.all_scores`, turning long tiled evaluations (144 crops × 900 windows in
+  `wpo5_eval.py`) $O(N^2)$ (4,021 s → 64 s after adding `lp.reset()` inside
+  `core/qa/masked_metrics.py::_lpips_window`).
+- **Mip-Splatting `radii == 0` "zombie dust" escapes both MCMC relocation and `prune_ply.py` (`op < 0.05`)
+  (WP-C3, 2026-10-18, `_infusion/wpc3_tidi_RECORD.md`):** under `--antialiased` + `--scale_reg 0.01` +
+  `--opacity_reg 0`, `--scale_reg` shrinks unused Gaussians' 3D scales to `1e-8..1e-7`. Mip-Splatting's
+  2D amplitude compensation multiplies their effective 2D opacity by
+  $\sqrt{\det(\Sigma_{2D})/\det(\Sigma_{2D} + \epsilon_{2D} I)} < 1/255$, so `gsplat` culls them
+  (`radii == 0`, `proj_views == 0`) in every view. Once culled, they receive zero gradient while keeping
+  raw `sigmoid(opacity) >= 0.05` (`0.05..0.50`), so neither MCMC (`op <= 0.005`) nor `prune_ply.py`
+  (`op < 0.05`) touches them — wasting **20.3 % (`GPU_V4`), 28.5 % (`Laptop`), and 48.4 % (`1.45M` on
+  `360`)** of the 3M Gaussian budget. Use `tools/prune_tidi.py` (`core/delivery.py --prune_tidi`), which
+  accumulates exact forward alpha-blending weights $w_i(v) = \sum_p T_{p,i}\alpha_{p,i}$ across all
+  training views in 1 pass/view and removes both zombie dust and unverified mid-opacity fog (`-67.1 %`
+  splat count on `360`, `569.7 → 187.3 MB`, `0.0000` mLPIPS delta).
+- **`guided_matching=True` on `EQUIRECTANGULAR` cameras in COLMAP 4.2.1 (`core/sfm_360.py:725` TODO,
+  WP-SfM2, `_infusion/wpsfm2_RECORD.md`):** DO NOT enable. In COLMAP 4.2.1, `#4054` sets
+  `config = PLANAR_OR_PANORAMIC` (`6`) with `F = nullopt` on pure-rotation ERP pairs (194/780 pairs on
+  the 40-frame probe); `MatchGuided` (`sift.cc:829`) then fails `CHECK(two_view_geometry.F.has_value())`
+  and aborts the process. Also do not use `pycolmap.run_global_mapper` (GLOMAP) on multi-sensor panorama
+  rigs (`39.29°` Sim3 rotation error because GLOMAP's rotation averaging ignores rig extrinsics).
+- **Training `--sh_degree 4` from scratch vs warm-start (WP-SH4 Phase B, `_infusion/wpsh4_phaseB_RECORD.md`):**
+  training SH4 from scratch co-adapts bands $L \le 3$ and $L=4$, so truncating the PLY to SH3 for
+  Postshot drops held-out mPSNR by **`-0.500 dB`** (`-0.880 dB` on specular regions). Conversely,
+  warm-starting SH4 from a converged 30k SH3 checkpoint (`--init_ckpt`, zero-padded band 4 via
+  `resize_shN`) improves strict-unseen 38°-arc specular PSNR (`+0.203 dB` on `GPU_V4`) while keeping the
+  truncated SH3 twin **lossless** (`+0.058 dB` vs native SH3).
+- **Pasting holed renders onto partially-observed fringe pixels ($0.30 \le \alpha_{\text{init}} < 0.99$)
+  during generative distillation (WP-R1, `_infusion/wpr1_RECORD.md`):** explains why WP-C1's
+  `distill_gated` lost to `distill_control`. `gamo_fill.py` only inpainted $\alpha_{\text{init}} < 0.30$
+  and pasted the broken `10.86 dB` holed render back onto the partially-observed fringe (`23.2 %` of
+  frame), actively supervising the fringe to stay broken (`12.48 dB`) instead of letting the 364 real
+  views heal it (`18.19 dB`). WP-R1's 3-zone target (`--extra_unobserved_only --extra_anchor_observed 1.0`)
+  fixes observed preservation (`0.4603` vs `0.4632` mLPIPS; `-18 %` NoVA), though single-view SDXL
+  hallucinations inside the 3D void still bleed across adjacent frustums into the fringe.
 - **Edge-aware depth-smoothness (`--geo_reg`):** zero effect on textureless mush —
   it's a *geometry* lever, the mush is lost *appearance* detail. Gradients verified
   to flow (not a no-op); just the wrong lever. Kept off by default.
@@ -422,6 +555,9 @@ was deliberately NOT used — it down-weights under-reconstructed regions, which
 
 ---
 
-## 8. Versions (June 2026)
-gsplat 1.5.3 (AOT) · pycolmap 4.0.4 · torch 2.3.0+cu121 · HLoc (ALIKED-n16 +
-LightGlue) · BiRefNet + SAM 2.1 · Gradio 5.x · Python 3.11.5 (anaconda base).
+## 8. Versions (October 2026 — RTX PRO 6000 Blackwell sm_120)
+- **Main env (`C:\Users\gevor\AppData\Local\Programs\Python\Python311\python.exe`, Python 3.11.9):**
+  `torch 2.11.0+cu128` · `gsplat 1.5.3` (AOT sm_120) · `pycolmap 4.1.0` · `hloc 1.5` (ALIKED-n16 + LightGlue + RoMa v2) · `MoGe-2` (`Ruicheng/moge-2-vitl-normal`) · `nianticlabs/spz 1.1.0` (`affd0ec`, SPZ v4) · `BiRefNet` + `SAM 2.1` · `Gradio 6.11` · `CUDA 12.9` · `MSVC 14.44`.
+- **`D:\REPOS\HYPERclone\venvs\gsplat_main`:** `gsplat 1.6.0` (`512d366`, AOT sm_120) · `ppisp 1.3.0` (`a247368`, AOT sm_120).
+- **`D:\REPOS\HYPERclone\venvs\colmap421`:** `pycolmap 4.2.1` + standalone CUDA/ONNX `colmap.exe 4.2.1` (`bd1fcf6`, native GPU `LOMA_B`).
+- **`D:\REPOS\HYPERclone\venvs\qa`:** CrossScore (`01cc66c`), NOVA (`e01be9a`), NVS-SQA (`8565fc1`).

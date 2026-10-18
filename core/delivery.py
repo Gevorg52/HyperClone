@@ -33,6 +33,14 @@ Usage:
         --factor 2 [--extract_object --mask_dir <masks> [--gen_masks]] \
         [--decimate 60%|--no_decimate] [--refit_steps 3000|--no_refit] \
         [--filter_harmonics 2] [--gpu 0] [--out deliverables]
+        [--spz [--spz_sh_degree 4] [--spz_sh1_bits 8 --spz_sh_rest_bits 8]]   # WP-D2
+
+SH degree 4 (WP-SH4): splat-transform v2.7.1 assumes the degree-3 f_rest layout — on a
+72-f_rest PLY `--filter-harmonics 3` is a no-op (keeps 72), 2/0 give invalid property counts,
+and SOG keeps 3 bands under the degree-3 layout assumption. So a degree>3 master is
+truncated EXACTLY to 3 (core.sh_utils) before any splat-transform stage; the full-degree model
+is kept and delivered as `<name>_<mode>_sh<d>.ply` (pruned, not decimated) and, with --spz, as
+SPZ v4 (the only compact format that carries degree 4). Degree<=3 masters: unchanged.
 """
 from __future__ import annotations
 
@@ -76,11 +84,14 @@ def load_splats(path: str, device: str) -> dict:
 
 
 def sh_degree_of(splats: dict) -> int:
-    """SH degree implied by shN band count: (deg+1)^2 - 1 rest coeffs."""
-    k = int(splats["shN"].shape[1])          # number of rest bands
-    total = k + 1                            # + DC
-    deg = int(round(total ** 0.5)) - 1
-    return max(0, deg)
+    """SH degree implied by shN band count: (deg+1)^2 - 1 rest coeffs. Exact for 0..4;
+    raises on a count that is not a valid band layout (WP-SH4: used to round silently)."""
+    from core.sh_utils import sh_degree_of as _exact
+    return _exact(splats)
+
+
+# splat-transform v2.7.1 (and SOG v2) handle SH degree <= 3 only — see module docstring.
+SPLAT_TRANSFORM_MAX_SH = 3
 
 
 def save_ckpt(splats: dict, path: str, step: int = 0):
@@ -612,6 +623,15 @@ def main():
     ap.add_argument("--opacity_min", type=float, default=0.01)
     ap.add_argument("--sor_k", type=int, default=8)
     ap.add_argument("--sor_std", type=float, default=2.0)
+    ap.add_argument("--prune_tidi", action="store_true", default=False,
+                    help="run TIDI cross-view evidence + isolation pruner instead of basic "
+                         "opacity+SOR prune (WP-C3, default OFF)")
+    ap.add_argument("--tidi_data_dir", type=str, default=None,
+                    help="COLMAP data dir for TIDI cross-view scoring (default: --data_dir)")
+    ap.add_argument("--tidi_data_factor", type=int, default=4,
+                    help="image downsample factor for TIDI scoring (default: 4)")
+    ap.add_argument("--tidi_mode", choices=["conservative", "moderate"], default="moderate",
+                    help="TIDI prune preset ('conservative' or 'moderate', default: 'moderate')")
     # splat-transform filters
     ap.add_argument("--gpu", default="0", help="splat-transform GPU adapter idx or 'cpu'")
     ap.add_argument("--filter_floaters", action=argparse.BooleanOptionalAction, default=True)
@@ -642,6 +662,20 @@ def main():
     ap.add_argument("--alpha_loss_lambda", type=float, default=0.1,
                     help="object-refit background-alpha killer (extract mode)")
     ap.add_argument("--sog_iterations", type=int, default=15, help="SOG SH compression iters")
+    # SPZ v4 (WP-D2) — default OFF
+    ap.add_argument("--spz", action="store_true",
+                    help="also write <name>_<mode>.spz (Niantic SPZ v4, SH degree 0..4; the "
+                         "compact carrier for our degree-4 UE plugin). Default OFF.")
+    ap.add_argument("--spz_sh_degree", type=int, default=None, choices=[0, 1, 2, 3, 4],
+                    help="SH cap for the SPZ consumer (default: the master's degree). <= the "
+                         "delivered degree -> written from the delivered model; higher (e.g. "
+                         "4 when the SOG/PLY path is capped at 3) -> from the PRUNED master "
+                         "(not decimated), recorded as such.")
+    ap.add_argument("--spz_sh1_bits", type=int, default=8,
+                    help="SPZ quantization bits for SH band 1 (1-8). Default 8: spz's own "
+                         "default 5/4 cost 20+ dB render PSNR vs the PLY (WP-D2)")
+    ap.add_argument("--spz_sh_rest_bits", type=int, default=8,
+                    help="SPZ quantization bits for SH bands 2-4 (1-8; spz's default is 4)")
     # qa
     ap.add_argument("--no_qa", action="store_true")
     args = ap.parse_args()
@@ -697,12 +731,57 @@ def main():
                             keep.to(device))
 
     # ---- prune ---------------------------------------------------------------
-    splats, pstats = prune_dict(splats, opacity_min=args.opacity_min,
-                                sor_k=args.sor_k, sor_std=args.sor_std, device=device)
-    print(f"[prune] {pstats['n_before']:,} -> {pstats['n_after']:,} "
-          f"(low-opa {pstats['removed_low_opacity']:,}, outliers {pstats['removed_outliers']:,})")
-    rec["stages"]["prune"] = pstats
+    tidi_dir = args.tidi_data_dir or args.data_dir
+    if args.prune_tidi and tidi_dir:
+        from tools.prune_tidi import TidiConfig, prune_ckpt_tidi
+        tidi_cfg = TidiConfig.from_preset(args.tidi_mode)
+        tidi_src = args.ckpt
+        if args.extract_object:
+            tidi_src = str(work / "voted_ckpt.pt")
+            save_ckpt(splats, tidi_src)
+        kept_splats, tidi_reasons, tidi_payload = prune_ckpt_tidi(
+            source_path=tidi_src,
+            data_dir=tidi_dir,
+            factor=args.tidi_data_factor,
+            cfg=tidi_cfg,
+            device=device,
+        )
+        splats = {k: v.to(device) for k, v in kept_splats.items()}
+        pstats = {
+            "mode": f"tidi_{args.tidi_mode}",
+            "tidi_mode": args.tidi_mode,
+            "tidi_data_dir": str(tidi_dir),
+            "tidi_data_factor": int(args.tidi_data_factor),
+            "n_before": int(tidi_payload["before"]["num_gaussians"]),
+            "n_after": int(tidi_reasons["kept"]),
+            **tidi_reasons,
+            "isolation_diagnostics": tidi_payload.get("isolation_diagnostics", {}),
+        }
+        print(f"[prune_tidi] ({args.tidi_mode}) {pstats['n_before']:,} -> {pstats['n_after']:,} "
+              f"(dropped {tidi_reasons['dropped_total']:,}: "
+              f"low_op={tidi_reasons['dropped_low_opacity']:,}, "
+              f"bbox={tidi_reasons['dropped_bbox_outlier']:,}, "
+              f"low_ev={tidi_reasons['dropped_low_crossview_evidence']:,}, "
+              f"infront={tidi_reasons['dropped_infront_depth_floater']:,}, "
+              f"iso3d={tidi_reasons['dropped_3d_isolated_floater']:,})")
+        rec["stages"]["prune"] = pstats
+        rec["stages"]["prune_tidi"] = pstats
+    else:
+        splats, pstats = prune_dict(splats, opacity_min=args.opacity_min,
+                                    sor_k=args.sor_k, sor_std=args.sor_std, device=device)
+        print(f"[prune] {pstats['n_before']:,} -> {pstats['n_after']:,} "
+              f"(low-opa {pstats['removed_low_opacity']:,}, outliers {pstats['removed_outliers']:,})")
+        rec["stages"]["prune"] = pstats
     pruned_ply = str(work / "pruned.ply")
+    pruned_full = splats                     # full SH degree, kept for the sh>3 deliverables
+    if sh_master > SPLAT_TRANSFORM_MAX_SH:
+        from core.sh_utils import truncate_shN
+        splats = dict(splats, shN=truncate_shN(splats["shN"], SPLAT_TRANSFORM_MAX_SH))
+        print(f"[sh] master is SH degree {sh_master}: truncated EXACTLY to "
+              f"{SPLAT_TRANSFORM_MAX_SH} for the splat-transform/SOG path (it corrupts "
+              f"degree>3 PLYs); the degree-{sh_master} model is delivered separately")
+        rec["stages"]["sh_truncate_for_splat_transform"] = {
+            "from": sh_master, "to": SPLAT_TRANSFORM_MAX_SH}
     export_ply(splats, pruned_ply)
 
     # ---- splat-transform filters + decimate (keeps SH for refit) -------------
@@ -790,6 +869,38 @@ def main():
         "ply": delivered_ply, "ply_mb": _mb(delivered_ply),
         "n_gaussians": n_deliv, "sh_degree": sh_deliv}
 
+    # ---- degree>3 master PLY (WP-SH4) + optional SPZ v4 (WP-D2) --------------
+    if sh_master > SPLAT_TRANSFORM_MAX_SH:
+        hi_ply = str(out_dir / f"{args.name}_{mode}_sh{sh_master}.ply")
+        export_ply(pruned_full, hi_ply)
+        rec["deliverable"]["ply_full_sh"] = {
+            "ply": hi_ply, "ply_mb": _mb(hi_ply), "sh_degree": sh_master,
+            "n_gaussians": int(pruned_full["means"].shape[0]),
+            "source": "pruned master (opacity + SOR prune; no splat-transform reduce/refit)"}
+        print(f"[deliver] SH{sh_master} master -> {hi_ply} ({_mb(hi_ply)} MB)")
+    if args.spz:
+        from core.spz_io import write_spz
+        spz_deg = sh_master if args.spz_sh_degree is None else args.spz_sh_degree
+        if spz_deg > sh_master:
+            raise SystemExit(f"--spz_sh_degree {spz_deg} > master SH degree {sh_master}")
+        if spz_deg <= sh_deliv:
+            spz_src, src_name = deliv, "delivered"
+        else:
+            spz_src, src_name = pruned_full, "pruned master (delivered path is SH-capped)"
+        spz_path = str(out_dir / f"{args.name}_{mode}.spz")
+        srec = write_spz(spz_src, spz_path, spz_deg, sh1_bits=args.spz_sh1_bits,
+                         sh_rest_bits=args.spz_sh_rest_bits)
+        srec.update({"mb": _mb(spz_path), "source": src_name})
+        rec["deliverable"]["spz"] = srec
+        print(f"[deliver] SPZ v4 SH{spz_deg} ({src_name}) -> {spz_path} ({_mb(spz_path)} MB)")
+        cf = srec["clip_frac"]
+        print(f"[deliver] SPZ 8-bit clipping: log-scale {100*cf['scales']:.3f}% of values, "
+              f"sh0 {100*cf['sh0']:.3f}%, shN {100*cf['shN']:.3f}%; dropped (|pos| >= "
+              f"{srec['position_limit']}) {srec['dropped_out_of_range']:,}")
+        for w in srec["warnings"]:
+            print(f"[deliver] WARNING: {w}")
+            rec.setdefault("warnings", []).append(w)
+
     # ---- QA ------------------------------------------------------------------
     if not args.no_qa:
         print("[qa] scoring ...", flush=True)
@@ -866,6 +977,8 @@ def main():
     rec_path.write_text(json.dumps(rec, indent=2), encoding="utf-8")
     print(f"\n[delivery] done in {rec['seconds_total']}s. record -> {rec_path}")
     print(f"[delivery] SOG: {delivered_sog}")
+    for w in rec.get("warnings", []):
+        print(f"[delivery] WARNING: {w}")
 
 
 if __name__ == "__main__":

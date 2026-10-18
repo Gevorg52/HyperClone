@@ -247,7 +247,7 @@ class GsplatBackend(TrainingBackend):
             # June 2026 quality stack
             "strategy": "mcmc",            # mcmc | default
             "cap_max": 1_000_000,          # MCMC Gaussian budget
-            "opacity_reg": 0.01,
+            "opacity_reg": 0.0,            # was 0.01 until 2026-10-17 (WP-O3/O5: destroys many-view MCMC)
             "scale_reg": 0.01,
             "vis_reg": 0.0,                # visibility loss (kill empty-space floaters)
             "erank_lambda": 0.0,           # effective-rank anti-needle hinge (2406.11672; ~0.01)
@@ -302,6 +302,18 @@ class GsplatBackend(TrainingBackend):
             "wd_lambda": 0.0,              # Wasserstein-Distortion (WD-R) perceptual
             "wd_gated": True,             # gate WD by GT texture (no grain on flats)
             "bilateral_grid": False,       # per-view BilaRF color grid (exposure/WB)
+            # PPISP (WP-F5) — mutually exclusive with bilateral_grid. Needs the ppisp package,
+            # which is installed ONLY in the gsplat-main venv: set trainer_python to
+            # D:/REPOS/HYPERclone/venvs/gsplat_main/Scripts/python.exe when enabling it.
+            "ppisp": False,
+            "ppisp_controller": False,     # + controller distillation (splats frozen at 80 %)
+            "trainer_python": None,        # interpreter for the trainer subprocess (None = this one)
+            # WP-R1: Observed-Preservation Gate for Generative Supervision (all OFF by default)
+            "extra_unobserved_only": False,
+            "extra_anchor_observed": 0.0,
+            "extra_loss_weight": 1.0,
+            "extra_obs_tau": 0.95,
+            "extra_obs_gamma": 1.0,
         }
 
     # -----------------------------------------------------------------------
@@ -434,7 +446,7 @@ class GsplatBackend(TrainingBackend):
         extra = {**defaults, **config.extra}
 
         args = [
-            sys.executable, _TRAINER_SCRIPT,
+            extra.get("trainer_python") or sys.executable, _TRAINER_SCRIPT,
             "--data_dir", data_dir,
             "--result_dir", result_dir,
             "--data_factor", str(config.data_factor),
@@ -533,6 +545,12 @@ class GsplatBackend(TrainingBackend):
         if extra.get("bilateral_grid"):
             args.append("--bilateral_grid")
 
+        # PPISP post-render ISP (WP-F5; default OFF)
+        if extra.get("ppisp"):
+            args.append("--ppisp")
+            if extra.get("ppisp_controller"):
+                args.append("--ppisp_controller")
+
         # Gram/style loss (texture baking; shares LPIPS crop/gate/start)
         if extra.get("gram_lambda", 0):
             args.extend(["--gram_lambda", str(extra["gram_lambda"])])
@@ -550,6 +568,19 @@ class GsplatBackend(TrainingBackend):
             args.extend(["--extra_views", str(extra["extra_views"])])
         if extra.get("refine_stop_iter"):
             args.extend(["--refine_stop_iter", str(extra["refine_stop_iter"])])
+        # WP-R1: Observed-Preservation Gate levers (only passed when non-default)
+        if extra.get("extra_unobserved_only", False):
+            args.append("--extra_unobserved_only")
+        if float(extra.get("extra_anchor_observed", 0.0) or 0.0) > 0.0:
+            args.extend(["--extra_anchor_observed", str(extra["extra_anchor_observed"])])
+        if float(extra.get("extra_loss_weight", 1.0) if extra.get("extra_loss_weight") is not None else 1.0) != 1.0:
+            args.extend(["--extra_loss_weight", str(extra["extra_loss_weight"])])
+        if (extra.get("extra_unobserved_only", False)
+                or float(extra.get("extra_anchor_observed", 0.0) or 0.0) > 0.0):
+            args.extend([
+                "--extra_obs_tau", str(extra.get("extra_obs_tau", 0.95)),
+                "--extra_obs_gamma", str(extra.get("extra_obs_gamma", 1.0)),
+            ])
 
         # save_steps. NOTE: the trainer's --save_steps is nargs="*", so passing a
         # separate --save_steps flag per step makes argparse keep only the LAST one
@@ -726,8 +757,9 @@ class GsplatBackend(TrainingBackend):
         if max_images > 0:
             test_indices = test_indices[:max_images]
 
+        from core.sh_utils import sh_degree_of
         rendered_paths = []
-        sh_degree = int((-1 + (1 + 4 * (1 + splats["shN"].shape[1])) ** 0.5) / 2)
+        sh_degree = sh_degree_of(splats)
 
         with torch.no_grad():
             for idx in test_indices:

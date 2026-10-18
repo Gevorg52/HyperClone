@@ -1,0 +1,160 @@
+{
+  "n": 304,
+  "factor": 2,
+  "ckpt": "_dataset/Laptop/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+  "data_dir": "_dataset/Laptop/apex_images/training/gsplat_prod/data",
+  "heldout": [
+    {
+      "seq": 0,
+      "stem": "frame_0001"
+    },
+    {
+      "seq": 8,
+      "stem": "frame_0009"
+    },
+    {
+      "seq": 16,
+      "stem": "frame_0017"
+    },
+    {
+      "seq": 24,
+      "stem": "frame_0025"
+    },
+    {
+      "seq": 32,
+      "stem": "frame_0033"
+    },
+    {
+      "seq": 40,
+      "stem": "frame_0041"
+    },
+    {
+      "seq": 48,
+      "stem": "frame_0049"
+    },
+    {
+      "seq": 56,
+      "stem": "frame_0057"
+    },
+    {
+      "seq": 64,
+      "stem": "frame_0065"
+    },
+    {
+      "seq": 72,
+      "stem": "frame_0073"
+    },
+    {
+      "seq": 80,
+      "stem": "frame_0081"
+    },
+    {
+      "seq": 88,
+      "stem": "frame_0089"
+    },
+    {
+      "seq": 96,
+      "stem": "frame_0097"
+    },
+    {
+      "seq": 104,
+      "stem": "frame_0105"
+    },
+    {
+      "seq": 112,
+      "stem": "frame_0113"
+    },
+    {
+      "seq": 120,
+      "stem": "frame_0121"
+    },
+    {
+      "seq": 128,
+      "stem": "frame_0129"
+    },
+    {
+      "seq": 136,
+      "stem": "frame_0137"
+    },
+    {
+      "seq": 144,
+      "stem": "frame_0145"
+    },
+    {
+      "seq": 152,
+      "stem": "frame_0153"
+    },
+    {
+      "seq": 160,
+      "stem": "frame_0161"
+    },
+    {
+      "seq": 168,
+      "stem": "frame_0169"
+    },
+    {
+      "seq": 176,
+      "stem": "frame_0177"
+    },
+    {
+      "seq": 184,
+      "stem": "frame_0185"
+    },
+    {
+      "seq": 192,
+      "stem": "frame_0193"
+    },
+    {
+      "seq": 200,
+      "stem": "frame_0201"
+    },
+    {
+      "seq": 208,
+      "stem": "frame_0209"
+    },
+    {
+      "seq": 216,
+      "stem": "frame_0217"
+    },
+    {
+      "seq": 224,
+      "stem": "frame_0226"
+    },
+    {
+      "seq": 232,
+      "stem": "frame_0234"
+    },
+    {
+      "seq": 240,
+      "stem": "frame_0242"
+    },
+    {
+      "seq": 248,
+      "stem": "frame_0250"
+    },
+    {
+      "seq": 256,
+      "stem": "frame_0258"
+    },
+    {
+      "seq": 264,
+      "stem": "frame_0266"
+    },
+    {
+      "seq": 272,
+      "stem": "frame_0274"
+    },
+    {
+      "seq": 280,
+      "stem": "frame_0282"
+    },
+    {
+      "seq": 288,
+      "stem": "frame_0290"
+    },
+    {
+      "seq": 296,
+      "stem": "frame_0298"
+    }
+  ]
+}
