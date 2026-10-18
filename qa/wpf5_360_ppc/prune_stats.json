@@ -1,0 +1,152 @@
+{
+ "tool": "tools/prune_ply.py",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\tools\\prune_ply.py",
+  "--ckpt",
+  "_dataset/360/train/wpf5_ppc/output/ckpts/ckpt_29999_rank0.pt",
+  "--opacity_min",
+  "0.05",
+  "--out",
+  "_dataset/360/train/wpf5_ppc/output/ply/point_cloud_29999_pruned_op05.ply",
+  "--stats_json",
+  "qa/wpf5_360_ppc/prune_stats.json"
+ ],
+ "created": "2026-10-18T09:57:12",
+ "source": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpf5_ppc\\output\\ckpts\\ckpt_29999_rank0.pt",
+ "opacity_min": 0.05,
+ "bbox_scale": 0.0,
+ "erank_min": 0.0,
+ "before": {
+  "num_gaussians": 3000000,
+  "opacity_mean": 0.40601807832717896,
+  "opacity_median": 0.2227569818496704,
+  "opacity_frac_below": {
+   "0.005": 0.0,
+   "0.01": 0.03895133333333333,
+   "0.02": 0.08997633333333334,
+   "0.05": 0.191921,
+   "0.1": 0.316547,
+   "0.2": 0.476181,
+   "0.5": 0.655118
+  },
+  "opacity_hist_edges": [
+   0.0,
+   0.005,
+   0.01,
+   0.02,
+   0.05,
+   0.1,
+   0.2,
+   0.5,
+   1.0
+  ],
+  "opacity_hist": [
+   0,
+   116854,
+   153075,
+   305834,
+   373878,
+   478902,
+   536811,
+   1034646
+  ],
+  "bbox_p1": [
+   -6.421427917480469,
+   -2.282783269882202,
+   -4.90896246433258
+  ],
+  "bbox_p99": [
+   7.8087358474731445,
+   2.591802873611444,
+   3.9007060527801514
+  ],
+  "bbox_extent": [
+   14.230163764953613,
+   4.874586143493646,
+   8.809668517112732
+  ],
+  "outliers_beyond_3x_bbox": 5142,
+  "outliers_beyond_10x_bbox": 871,
+  "rel_radius_p99": 1.3864600983416486,
+  "rel_radius_max": 13566.925070218513,
+  "mean_norm_median": 4.043262481689453,
+  "mean_norm_p99": 9.10494613647461,
+  "scale_max_axis_median": 3.596156238927506e-05,
+  "erank_mean": 2.2609970574912768,
+  "erank_median": 2.04544078675175,
+  "needle_frac_erank_lt_2": 0.107376,
+  "needle_frac_erank_lt_1_5": 0.003058,
+  "aspect_ratio_median": 6.391783714294434
+ },
+ "pruned": {
+  "dropped_low_opacity": 575763,
+  "kept": 2424237,
+  "dropped_total": 575763,
+  "kept_frac": 0.808079
+ },
+ "after": {
+  "num_gaussians": 2424237,
+  "opacity_mean": 0.4968663454055786,
+  "opacity_median": 0.35056158900260925,
+  "opacity_frac_below": {
+   "0.005": 0.0,
+   "0.01": 0.0,
+   "0.02": 0.0,
+   "0.05": 0.0,
+   "0.1": 0.15422502007848243,
+   "0.2": 0.3517725370910517,
+   "0.5": 0.573207570051938
+  },
+  "opacity_hist_edges": [
+   0.0,
+   0.005,
+   0.01,
+   0.02,
+   0.05,
+   0.1,
+   0.2,
+   0.5,
+   1.0
+  ],
+  "opacity_hist": [
+   0,
+   0,
+   0,
+   0,
+   373878,
+   478902,
+   536811,
+   1034646
+  ],
+  "bbox_p1": [
+   -6.469346523284912,
+   -2.2948496341705322,
+   -4.94221866607666
+  ],
+  "bbox_p99": [
+   7.900178909301758,
+   2.6227534008026216,
+   4.335230216979994
+  ],
+  "bbox_extent": [
+   14.36952543258667,
+   4.917603034973154,
+   9.277448883056653
+  ],
+  "outliers_beyond_3x_bbox": 2565,
+  "outliers_beyond_10x_bbox": 85,
+  "rel_radius_p99": 1.3242625877150862,
+  "rel_radius_max": 598.6842591582202,
+  "mean_norm_median": 4.06867790222168,
+  "mean_norm_p99": 9.098942756652832,
+  "scale_max_axis_median": 2.1650039343512617e-05,
+  "erank_mean": 2.2805121613037924,
+  "erank_median": 2.061287083850291,
+  "needle_frac_erank_lt_2": 0.11324305338133193,
+  "needle_frac_erank_lt_1_5": 0.0037343708556547895,
+  "aspect_ratio_median": 5.36154317855835
+ },
+ "out": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpf5_ppc\\output\\ply\\point_cloud_29999_pruned_op05.ply",
+ "out_bytes": 572121410
+}

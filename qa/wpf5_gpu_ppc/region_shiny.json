@@ -1,0 +1,21 @@
+{
+  "metric": "mean VGG-LPIPS (torchmetrics normalize=True) over every8 held-out views; region = fractional crop box; region_psnr from crop MSE",
+  "region_name": "shiny",
+  "box_frac": {
+    "x0": 0.28,
+    "x1": 0.72,
+    "y0": 0.3,
+    "y1": 0.55
+  },
+  "data_dir": "_dataset/GPU_V4/apex_images/training/gsplat_prod/data",
+  "factor": 2,
+  "arms": {
+    "ppc": {
+      "ckpt": "_dataset/GPU_V4/apex_images/training/wpf5/ppc/output/ckpts/ckpt_29999_rank0.pt",
+      "n_views": 72,
+      "full_lpips": 0.37920203887754017,
+      "region_lpips": 0.31377888802025056,
+      "region_psnr": 24.24009470634865
+    }
+  }
+}

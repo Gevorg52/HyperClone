@@ -1,0 +1,278 @@
+{
+ "arms": {
+  "or0": {
+   "masked_psnr": 23.036695,
+   "masked_ssim": 0.83112,
+   "masked_lpips": 0.279362,
+   "n_views": 38,
+   "crossscore": 0.865087,
+   "nova": 0.117958,
+   "tsed": 0.969697,
+   "raft_warp": 0.041777,
+   "nvs_sqa_jod": -2.858816,
+   "flicker": 0.993328,
+   "region_name": "deck",
+   "region_lpips": 0.2399777891604524,
+   "region_psnr": 24.071611119145825,
+   "floaters": {
+    "needle_pct": 8.87,
+    "sor_pct": 0.03,
+    "giant_pct": 11.16,
+    "low_opa_pct": 10.9,
+    "med_opa": 0.612,
+    "mean_erank": 2.273
+   },
+   "prune": {
+    "before_n": 3000000,
+    "after_n": 2199888,
+    "ply": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\Laptop\\apex_images\\training\\opreg0\\or0\\output\\ply\\point_cloud_29999_pruned_op05.ply"
+   },
+   "offpath_fog": {
+    "semi_alpha_frac": 0.0018683862433862431,
+    "fog_alpha_frac": 1.0839212228101116e-05,
+    "coverage": 0.9981316137566137,
+    "fog_layer_alpha_mean": 0.048882244243508295,
+    "fog_layer_px_frac": 0.1379551550558495,
+    "prune_delta_mae": 0.23304744171244757
+   },
+   "offpath_fog_by_kind": {
+    "dolly_in": {
+     "semi_alpha_frac": 0.00018084490740740742,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9998191550925926,
+     "fog_layer_alpha_mean": 0.06807940918952227,
+     "fog_layer_px_frac": 0.23691020447530864,
+     "prune_delta_mae": 0.3074001744389534
+    },
+    "elev_down": {
+     "semi_alpha_frac": 0.001207079475308642,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9987929205246914,
+     "fog_layer_alpha_mean": 0.04997964855283499,
+     "fog_layer_px_frac": 0.14681761188271605,
+     "prune_delta_mae": 0.2701959554105997
+    },
+    "elev_up": {
+     "semi_alpha_frac": 0.00343701774691358,
+     "fog_alpha_frac": 5.690586419753086e-05,
+     "coverage": 0.9965629822530864,
+     "fog_layer_alpha_mean": 0.04743361845612526,
+     "fog_layer_px_frac": 0.12573640046296297,
+     "prune_delta_mae": 0.2216939926147461
+    },
+    "gap": {
+     "semi_alpha_frac": 0.0,
+     "fog_alpha_frac": 0.0,
+     "coverage": 1.0,
+     "fog_layer_alpha_mean": 0.06036720797419548,
+     "fog_layer_px_frac": 0.1912422839506173,
+     "prune_delta_mae": 0.12966114282608032
+    },
+    "lateral": {
+     "semi_alpha_frac": 0.0015846836419753083,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9984153163580247,
+     "fog_layer_alpha_mean": 0.04236497264355421,
+     "fog_layer_px_frac": 0.09567033179012346,
+     "prune_delta_mae": 0.22034449130296707
+    },
+    "pull_out": {
+     "semi_alpha_frac": 0.0033994020061728393,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9966005979938272,
+     "fog_layer_alpha_mean": 0.03368233144283295,
+     "fog_layer_px_frac": 0.07131944444444444,
+     "prune_delta_mae": 0.17144916951656342
+    }
+   },
+   "ckpt_opacity_mean": 0.5375909209251404,
+   "ckpt_opacity_frac_below_0.05": 0.266704,
+   "ckpt_outliers_beyond_3x_bbox": 1878,
+   "ckpt_needle_frac_erank_lt_2": 0.092117
+  },
+  "or01": {
+   "masked_psnr": 21.95625,
+   "masked_ssim": 0.799695,
+   "masked_lpips": 0.309783,
+   "n_views": 38,
+   "crossscore": 0.864387,
+   "nova": 0.120297,
+   "tsed": 0.969697,
+   "raft_warp": 0.039695,
+   "nvs_sqa_jod": -2.858569,
+   "flicker": 0.993729,
+   "region_name": "deck",
+   "region_lpips": 0.2736865791835283,
+   "region_psnr": 22.381052453199942,
+   "floaters": {
+    "needle_pct": 15.81,
+    "sor_pct": 0.03,
+    "giant_pct": 12.43,
+    "low_opa_pct": 42.6,
+    "med_opa": 0.016,
+    "mean_erank": 2.15
+   },
+   "prune": {
+    "before_n": 3000000,
+    "after_n": 871717,
+    "ply": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\Laptop\\apex_images\\training\\opreg0\\or01\\output\\ply\\point_cloud_29999_pruned_op05.ply"
+   },
+   "offpath_fog": {
+    "semi_alpha_frac": 0.0005461860670194004,
+    "fog_alpha_frac": 0.0,
+    "coverage": 0.9994538139329807,
+    "fog_layer_alpha_mean": 0.5758422755059742,
+    "fog_layer_px_frac": 0.9374130107289829,
+    "prune_delta_mae": 1.1781493453752427
+   },
+   "offpath_fog_by_kind": {
+    "dolly_in": {
+     "semi_alpha_frac": 0.0,
+     "fog_alpha_frac": 0.0,
+     "coverage": 1.0,
+     "fog_layer_alpha_mean": 0.7177654206752777,
+     "fog_layer_px_frac": 0.9864038387345679,
+     "prune_delta_mae": 1.290244996547699
+    },
+    "elev_down": {
+     "semi_alpha_frac": 0.0018947723765432099,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9981052276234568,
+     "fog_layer_alpha_mean": 0.5341172739863396,
+     "fog_layer_px_frac": 0.8672439236111111,
+     "prune_delta_mae": 1.285898432135582
+    },
+    "elev_up": {
+     "semi_alpha_frac": 6.413966049382716e-05,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9999358603395062,
+     "fog_layer_alpha_mean": 0.5898398086428642,
+     "fog_layer_px_frac": 0.9547955246913581,
+     "prune_delta_mae": 1.1403309851884842
+    },
+    "gap": {
+     "semi_alpha_frac": 0.0,
+     "fog_alpha_frac": 0.0,
+     "coverage": 1.0,
+     "fog_layer_alpha_mean": 0.6348520517349243,
+     "fog_layer_px_frac": 0.9432002314814815,
+     "prune_delta_mae": 0.9261214137077332
+    },
+    "lateral": {
+     "semi_alpha_frac": 0.00028838734567901235,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.999711612654321,
+     "fog_layer_alpha_mean": 0.5660984814167023,
+     "fog_layer_px_frac": 0.965176986882716,
+     "prune_delta_mae": 1.145932987332344
+    },
+    "pull_out": {
+     "semi_alpha_frac": 0.0006201774691358024,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9993798225308642,
+     "fog_layer_alpha_mean": 0.4566379487514496,
+     "fog_layer_px_frac": 0.911997974537037,
+     "prune_delta_mae": 1.0913463085889816
+    }
+   },
+   "ckpt_opacity_mean": 0.0729043111205101,
+   "ckpt_opacity_frac_below_0.05": 0.7094276666666667,
+   "ckpt_outliers_beyond_3x_bbox": 8423,
+   "ckpt_needle_frac_erank_lt_2": 0.16219766666666666
+  },
+  "wps1": {
+   "masked_psnr": 21.957469,
+   "masked_ssim": 0.800108,
+   "masked_lpips": 0.309577,
+   "n_views": 38,
+   "crossscore": 0.863638,
+   "nova": 0.122095,
+   "tsed": 0.939394,
+   "raft_warp": 0.039276,
+   "nvs_sqa_jod": -2.868262,
+   "flicker": 0.99386,
+   "region_name": "deck",
+   "region_lpips": 0.27390942918626887,
+   "region_psnr": 22.448176680925354,
+   "floaters": {
+    "needle_pct": 15.32,
+    "sor_pct": 0.03,
+    "giant_pct": 12.72,
+    "low_opa_pct": 43.1,
+    "med_opa": 0.016,
+    "mean_erank": 2.154
+   },
+   "prune": {
+    "before_n": 3000000,
+    "after_n": 864473,
+    "ply": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\Laptop\\apex_images\\training\\wps1\\stack\\output\\ply\\point_cloud_29999_pruned_op05.ply"
+   },
+   "offpath_fog": {
+    "semi_alpha_frac": 0.0004259442974720753,
+    "fog_alpha_frac": 0.0,
+    "coverage": 0.9995740557025279,
+    "fog_layer_alpha_mean": 0.5687824388345083,
+    "fog_layer_px_frac": 0.9331520980305703,
+    "prune_delta_mae": 1.214204348268963
+   },
+   "offpath_fog_by_kind": {
+    "dolly_in": {
+     "semi_alpha_frac": 0.0,
+     "fog_alpha_frac": 0.0,
+     "coverage": 1.0,
+     "fog_layer_alpha_mean": 0.70733243227005,
+     "fog_layer_px_frac": 0.9849946952160493,
+     "prune_delta_mae": 1.264678180217743
+    },
+    "elev_down": {
+     "semi_alpha_frac": 0.0008526234567901235,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9991473765432098,
+     "fog_layer_alpha_mean": 0.5246626734733582,
+     "fog_layer_px_frac": 0.8358338155864198,
+     "prune_delta_mae": 1.5126343667507172
+    },
+    "elev_up": {
+     "semi_alpha_frac": 0.00014274691358024693,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9998572530864198,
+     "fog_layer_alpha_mean": 0.5860211625695229,
+     "fog_layer_px_frac": 0.9645992476851851,
+     "prune_delta_mae": 1.1795561760663986
+    },
+    "gap": {
+     "semi_alpha_frac": 0.00016010802469135801,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9998398919753086,
+     "fog_layer_alpha_mean": 0.6384236812591553,
+     "fog_layer_px_frac": 0.9636689814814815,
+     "prune_delta_mae": 0.8677526712417603
+    },
+    "lateral": {
+     "semi_alpha_frac": 0.0011930941358024691,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9988069058641975,
+     "fog_layer_alpha_mean": 0.5569298192858696,
+     "fog_layer_px_frac": 0.9612336033950617,
+     "prune_delta_mae": 1.149019405245781
+    },
+    "pull_out": {
+     "semi_alpha_frac": 7.71604938271605e-06,
+     "fog_alpha_frac": 0.0,
+     "coverage": 0.9999922839506172,
+     "fog_layer_alpha_mean": 0.4515557959675789,
+     "fog_layer_px_frac": 0.9114699074074074,
+     "prune_delta_mae": 1.0517465323209763
+    }
+   },
+   "ckpt_opacity_mean": 0.0726313591003418,
+   "ckpt_opacity_frac_below_0.05": 0.7118423333333334,
+   "ckpt_outliers_beyond_3x_bbox": 8063,
+   "ckpt_needle_frac_erank_lt_2": 0.15746233333333334
+  }
+ },
+ "sources": {
+  "prefix": "qa/opreg0_laptop_",
+  "offpath": "qa/opreg0_laptop_offpath_or0_or01_wps1/offpath.json"
+ }
+}

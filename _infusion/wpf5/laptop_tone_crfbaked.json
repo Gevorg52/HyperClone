@@ -1,0 +1,37 @@
+{
+ "argv": [
+  "_infusion/wpf5_tone_eval.py",
+  "--data_dir",
+  "_dataset/Laptop/apex_images/training/gsplat_prod/data",
+  "--factor",
+  "2",
+  "--arm",
+  "pp_baked=C:/Users/gevor/AppData/Local/Temp/claude/D--REPOS-HYPERclone/9c05f09d-22ab-416e-8bde-92d61daa7a0e/scratchpad/pp_baked.pt",
+  "--out",
+  "C:/Users/gevor/AppData/Local/Temp/claude/D--REPOS-HYPERclone/9c05f09d-22ab-416e-8bde-92d61daa7a0e/scratchpad/laptop_tone_baked.json"
+ ],
+ "n_views": 38,
+ "arms": {
+  "pp_baked": {
+   "ckpt": "C:/Users/gevor/AppData/Local/Temp/claude/D--REPOS-HYPERclone/9c05f09d-22ab-416e-8bde-92d61daa7a0e/scratchpad/pp_baked.pt",
+   "summary": {
+    "raw_lpips": 0.2862740264911401,
+    "raw_psnr": 22.23354388087429,
+    "cc_lpips": 0.2857411280274391,
+    "cc_psnr": 22.483641218937734,
+    "isp_lpips": null,
+    "isp_psnr": null,
+    "raw_mean_rgb": [
+     0.5193,
+     0.5136,
+     0.6148
+    ],
+    "gt_mean_rgb": [
+     0.5067,
+     0.4995,
+     0.6056
+    ]
+   }
+  }
+ }
+}

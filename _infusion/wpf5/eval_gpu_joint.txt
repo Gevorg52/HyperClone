@@ -1,0 +1,23 @@
+[Data] 569 images (497 train, 72 test)
+[Data] 123289 SfM points, scene_scale=1.454
+[offpath] base: 21 views 3s  semi=0.0146 fog=0.0009 cov=0.9854 foglayer=0.0841 prune_dMAE=0.356
+[offpath] bil: 21 views 2s  semi=0.0193 fog=0.0000 cov=0.9807 foglayer=0.0790 prune_dMAE=0.219
+[offpath] pp: 21 views 2s  semi=0.0222 fog=0.0000 cov=0.9778 foglayer=0.0790 prune_dMAE=0.326
+[offpath] ppc: 21 views 2s  semi=0.0209 fog=0.0000 cov=0.9791 foglayer=0.0896 prune_dMAE=0.202
+[offpath] wrote qa\wpf5_gpu_offpath\offpath.json
+[Data] 569 images (497 train, 72 test)
+[Data] 123289 SfM points, scene_scale=1.454
+base {"raw_lpips": 0.36888536769482827, "raw_psnr": 24.74390868002643, "cc_lpips": 0.36924458088146317, "cc_psnr": 24.59854657101604, "isp_lpips": null, "isp_psnr": null, "raw_mean_rgb": [0.4912, 0.379, 0.2798], "gt_mean_rgb": [0.4892, 0.3777, 0.2781]}
+bil {"raw_lpips": 0.44932412273354, "raw_psnr": 18.21733843496058, "cc_lpips": 0.44595050397846436, "cc_psnr": 20.70574669933715, "isp_lpips": null, "isp_psnr": null, "raw_mean_rgb": [0.4921, 0.3321, 0.2029], "gt_mean_rgb": [0.4892, 0.3777, 0.2781]}
+pp {"raw_lpips": 0.3714767698612478, "raw_psnr": 24.11485320556475, "cc_lpips": 0.37133195292618537, "cc_psnr": 24.200945020639985, "isp_lpips": 0.36903132746617, "isp_psnr": 24.61217490130335, "raw_mean_rgb": [0.4979, 0.3867, 0.2888], "gt_mean_rgb": [0.4892, 0.3777, 0.2781]}
+ppc {"raw_lpips": 0.37853775918483734, "raw_psnr": 24.151866420675802, "cc_lpips": 0.3778768496380912, "cc_psnr": 24.206147176128507, "isp_lpips": 0.37455202639102936, "isp_psnr": 24.7827911759729, "raw_mean_rgb": [0.4956, 0.3883, 0.2928], "gt_mean_rgb": [0.4892, 0.3777, 0.2781]}
+wrote _infusion/wpf5/gpu_tone.json
+| arm | mLPIPS | mPSNR | mSSIM | regLPIPS | xscore | nova | tsed | raft | jod | op<0.05 | op_mean | foglayerA | prune_dMAE | needle% | giant% |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| base | 0.3698 | 24.744 | 0.8437 | 0.2997 | 0.8273 | 0.0232 | 1.000 | 0.0154 | -2.384 | 0.3268 | 0.4699 | 0.0841 | 0.356 | 5.91 | 6.82 |
+| bil | 0.4498 | 18.217 | 0.7303 | 0.4008 | 0.7841 | 0.0410 | 1.000 | 0.0113 | -2.505 | 0.3432 | 0.4656 | 0.0790 | 0.219 | 5.10 | 6.59 |
+| pp | 0.3724 | 24.115 | 0.8356 | 0.3045 | 0.8232 | 0.0255 | 1.000 | 0.0139 | -2.396 | 0.3321 | 0.4719 | 0.0790 | 0.326 | 5.90 | 6.74 |
+| ppc | 0.3792 | 24.152 | 0.8309 | 0.3138 | 0.8387 | 0.0262 | 1.000 | 0.0133 | -2.429 | 0.3059 | 0.4579 | 0.0896 | 0.202 | 5.79 | 6.81 |
+
+wrote _infusion/wpf5/gpu_gate.json
+### WPF5 EVAL DONE gpu

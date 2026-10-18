@@ -57,7 +57,7 @@ def main():
         extra={
             "strategy": "mcmc",
             "cap_max": 3_000_000,      # validated near-optimal; 8M diverges/OOMs
-            "opacity_reg": 0.01,
+            "opacity_reg": 0.0,        # was 0.01 (pre-2026-10 runs); 0 per WP-O3/O5
             "scale_reg": 0.01,
             "antialiased": True,       # Mip-Splatting
             "pose_opt": True,

@@ -1,0 +1,110 @@
+{
+ "argv": [
+  "_infusion/wpf5_tone_eval.py",
+  "--data_dir",
+  "_dataset/360/train/wpo5_theater_027_8k",
+  "--factor",
+  "1",
+  "--holdout_list",
+  "_dataset/360/train/wpo5_theater_027_8k/holdout_test.txt",
+  "--max_views",
+  "48",
+  "--arm",
+  "base=_dataset/360/train/wpf5_base/output/ckpts/ckpt_29999_rank0.pt",
+  "--arm",
+  "bil=_dataset/360/train/wpf5_bil/output/ckpts/ckpt_29999_rank0.pt",
+  "--arm",
+  "pp=_dataset/360/train/wpf5_pp/output/ckpts/ckpt_29999_rank0.pt",
+  "--arm",
+  "ppc=_dataset/360/train/wpf5_ppc/output/ckpts/ckpt_29999_rank0.pt",
+  "--out",
+  "_infusion/wpf5/360_tone.json"
+ ],
+ "n_views": 48,
+ "arms": {
+  "base": {
+   "ckpt": "_dataset/360/train/wpf5_base/output/ckpts/ckpt_29999_rank0.pt",
+   "summary": {
+    "raw_lpips": 0.5856939516961575,
+    "raw_psnr": 18.58295211013768,
+    "cc_lpips": 0.6251093919078509,
+    "cc_psnr": 16.03144644323463,
+    "isp_lpips": null,
+    "isp_psnr": null,
+    "raw_mean_rgb": [
+     0.581,
+     0.5631,
+     0.4867
+    ],
+    "gt_mean_rgb": [
+     0.59,
+     0.5662,
+     0.4933
+    ]
+   }
+  },
+  "bil": {
+   "ckpt": "_dataset/360/train/wpf5_bil/output/ckpts/ckpt_29999_rank0.pt",
+   "summary": {
+    "raw_lpips": 0.6208424394329389,
+    "raw_psnr": 15.752813944520668,
+    "cc_lpips": 0.6413970639308294,
+    "cc_psnr": 15.704548171882104,
+    "isp_lpips": null,
+    "isp_psnr": null,
+    "raw_mean_rgb": [
+     0.476,
+     0.4681,
+     0.3806
+    ],
+    "gt_mean_rgb": [
+     0.59,
+     0.5662,
+     0.4933
+    ]
+   }
+  },
+  "pp": {
+   "ckpt": "_dataset/360/train/wpf5_pp/output/ckpts/ckpt_29999_rank0.pt",
+   "summary": {
+    "raw_lpips": 0.5876196287572384,
+    "raw_psnr": 18.25068343064247,
+    "cc_lpips": 0.6234590870638689,
+    "cc_psnr": 16.147939133736987,
+    "isp_lpips": 0.5853886759529511,
+    "isp_psnr": 18.491616780470924,
+    "raw_mean_rgb": [
+     0.5606,
+     0.5416,
+     0.4645
+    ],
+    "gt_mean_rgb": [
+     0.59,
+     0.5662,
+     0.4933
+    ]
+   }
+  },
+  "ppc": {
+   "ckpt": "_dataset/360/train/wpf5_ppc/output/ckpts/ckpt_29999_rank0.pt",
+   "summary": {
+    "raw_lpips": 0.5871997270733118,
+    "raw_psnr": 18.21020957012602,
+    "cc_lpips": 0.6223285856346289,
+    "cc_psnr": 16.14354518707269,
+    "isp_lpips": 0.5847438176472982,
+    "isp_psnr": 18.632239505091274,
+    "raw_mean_rgb": [
+     0.5576,
+     0.5393,
+     0.462
+    ],
+    "gt_mean_rgb": [
+     0.59,
+     0.5662,
+     0.4933
+    ]
+   }
+  }
+ }
+}

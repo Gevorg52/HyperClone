@@ -1,0 +1,40 @@
+[prune] _dataset\Laptop\apex_images\training\wpf5\pp\output\ckpts\ckpt_29999_rank0.pt -> 3000000 gaussians, mean opacity 0.5446, 26.4% below 0.05, 1790 beyond 3x bbox
+[prune] kept 2209477 (73.6%), dropped 790523 -> _dataset\Laptop\apex_images\training\wpf5\pp\output\ply\point_cloud_29999_pruned_op05.ply (521.4 MB, 2s)
+[prune] stats -> qa/wpf5_laptop_pp/prune_stats.json
+[QA] scene=wpf5_laptop_pp  split=every8  factor=2  out=qa\wpf5_laptop_pp
+[QA] loading splats: _dataset/Laptop/apex_images/training/wpf5/pp/output/ckpts/ckpt_29999_rank0.pt
+[QA] 3,000,000 Gaussians
+[QA] SH degree: rendering 3 (model has 3)
+[Data] 304 images (266 train, 38 test)
+[Data] 93126 SfM points, scene_scale=2.542
+[QA] scoring 38 held-out views
+  [1/38] frame_0001.jpg  obs 100.0%  PSNR 24.68  SSIM 0.8741  LPIPS 0.1910
+  [11/38] frame_0081.jpg  obs 100.0%  PSNR 24.02  SSIM 0.8375  LPIPS 0.3098
+  [21/38] frame_0161.jpg  obs 100.0%  PSNR 23.76  SSIM 0.8417  LPIPS 0.2598
+  [31/38] frame_0242.jpg  obs 100.0%  PSNR 21.33  SSIM 0.8317  LPIPS 0.2424
+  [38/38] frame_0298.jpg  obs 100.0%  PSNR 22.59  SSIM 0.8218  LPIPS 0.3252
+[QA] running phase-2 scorers: ['crossscore', 'nova', 'tsed', 'raft_warp', 'nvs_sqa', 'flicker']
+  [scorer] crossscore  ok  (113.04s)  -> {'mean': 0.8666940660853135, 'median': 0.8732996582984924, 'n': 38, 'csv': 'qa\\wpf5_laptop_pp\\_scorers\\crossscore_out_apex\\score_summary\\apex\\gaussian.csv', 'maps_dir': 'qa\\wpf5_laptop_pp\\_scorers\\crossscore_out', 'runtime_s': 113.04}
+  [scorer] nova        ok  (15.55s)  -> {'mean': 0.11688886818132903, 'median': 0.06844910979270935, 'checkpoint_loaded': True, 'n': 38, 'runtime_s': 15.55}
+  [scorer] tsed        ok  (2.12s)  -> {'ratio': 0.9393939393939394, 'n_pairs': 33, 'median_epi_med': 0.27439424718146566, 'mean_matches': 104.75757575757575, 'thresh_px': 2.0, 'runtime_s': 2.12}
+  [scorer] raft_warp   ok  (1.26s)  -> {'mean': 0.03937833276436185, 'median': 0.04614587500691414, 'n_pairs': 33, 'mean_valid_frac': 0.9324766144608007, 'runtime_s': 1.26}
+  [scorer] nvs_sqa     ok  (5.07s)  -> {'jod': -2.8914447264089347, 'feat_dim': 384, 'n_frames': 34, 'runtime_s': 5.07}
+  [scorer] flicker     ok  (0.37s)  -> {'score': 0.9931573317097683, 'mean_mae': 1.7448804140090943, 'n_pairs': 15, 'max_motion_frac': 0.0006031057872079187, 'static': True, 'static_max_frac': 0.02, 'runtime_s': 0.37}
+
+[QA] === wpf5_laptop_pp (every8) ===
+  observed area   100.0%
+  masked PSNR     22.694
+  masked SSIM     0.8300
+  masked LPIPS    0.2805  (lower=better)
+  normalize       true   render_sanity ok
+[QA] wrote qa\wpf5_laptop_pp\scorecard.json
+[QA] wrote qa\wpf5_laptop_pp\report.html  (open in a browser)
+[Data] 304 images (266 train, 38 test)
+[Data] 93126 SfM points, scene_scale=2.542
+pp     views=38  full_lpips=0.2805  deck_lpips=0.2422  deck_psnr=23.667
+wrote qa/wpf5_laptop_pp/region_deck.json
+
+model           Gaussians  floater indicators (lower=cleaner; compare vs base)
+
+pp              3,000,000  needle  8.68%  SOR-outlier  0.01%  giant 10.96%  low-opa  10.9%  med-opa 0.653  mean-erank 2.272
+### per-arm only: done pp

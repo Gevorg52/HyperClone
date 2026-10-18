@@ -1,0 +1,108 @@
+﻿[prune] _dataset\360\train\wpf5_base\output\ckpts\ckpt_29999_rank0.pt -> 3000000 gaussians, mean opacity 0.4100, 19.5% below 0.05, 4393 beyond 3x bbox
+[prune] kept 2413894 (80.5%), dropped 586106 -> _dataset\360\train\wpf5_base\output\ply\point_cloud_29999_pruned_op05.ply (569.7 MB, 3s)
+[prune] stats -> qa/wpf5_360_base/prune_stats.json
+[prune] _dataset\360\train\wpf5_bil\output\ckpts\ckpt_29999_rank0.pt -> 3000000 gaussians, mean opacity 0.4135, 20.2% below 0.05, 3774 beyond 3x bbox
+[prune] kept 2393374 (79.8%), dropped 606626 -> _dataset\360\train\wpf5_bil\output\ply\point_cloud_29999_pruned_op05.ply (564.8 MB, 3s)
+[prune] stats -> qa/wpf5_360_bil/prune_stats.json
+[prune] _dataset\360\train\wpf5_pp\output\ckpts\ckpt_29999_rank0.pt -> 3000000 gaussians, mean opacity 0.4062, 20.1% below 0.05, 3649 beyond 3x bbox
+[prune] kept 2398019 (79.9%), dropped 601981 -> _dataset\360\train\wpf5_pp\output\ply\point_cloud_29999_pruned_op05.ply (565.9 MB, 3s)
+[prune] stats -> qa/wpf5_360_pp/prune_stats.json
+[prune] _dataset\360\train\wpf5_ppc\output\ckpts\ckpt_29999_rank0.pt -> 3000000 gaussians, mean opacity 0.4060, 19.2% below 0.05, 5142 beyond 3x bbox
+[prune] kept 2424237 (80.8%), dropped 575763 -> _dataset\360\train\wpf5_ppc\output\ply\point_cloud_29999_pruned_op05.ply (572.1 MB, 3s)
+[prune] stats -> qa/wpf5_360_ppc/prune_stats.json
+[Data] holdout_list: 144 held out by name (holdout_test.txt)
+[Data] 1128 images (984 train, 144 test)
+[Data] 38450 SfM points, scene_scale=3.205
+[eval] 94 panos, 144 held-out crops; 1 unit = 3.903 m (baseline anchor: one inter-pano step = 0.6 m); ceiling diagnostic disagrees by 5.7164x — metre labels are indicative, see scorecard['scale']
+
+[metrics] arm base: step 30000, 3000000 gaussians
+[metrics] 40/144 (98s)
+[metrics] 80/144 (329s)
+[metrics] 120/144 (764s)
+[metrics] 144 held-out crops over 12 panos in 1091s
+    full_psnr              mean 19.3351  median 19.2775
+    full_ssim              mean 0.7290  median 0.7363
+    full_lpips             mean 0.5810  median 0.5823
+    valid_frac             mean 0.3299  median 0.3702
+    masked_psnr            mean 21.4196  median 21.4669
+    masked_ssim            mean 0.7146  median 0.7203
+    masked_lpips_bbox      mean 0.5819  median 0.5811
+    masked_lpips_tiled     mean 0.5524  median 0.5550
+
+[metrics] arm bil: step 30000, 3000000 gaussians
+[metrics] 40/144 (646s)
+[metrics] 80/144 (1430s)
+[metrics] 120/144 (2393s)
+[metrics] 144 held-out crops over 12 panos in 3001s
+    full_psnr              mean 16.2026  median 16.4247
+    full_ssim              mean 0.7122  median 0.7204
+    full_lpips             mean 0.6141  median 0.6155
+    valid_frac             mean 0.3299  median 0.3702
+    masked_psnr            mean 17.0459  median 17.0589
+    masked_ssim            mean 0.6978  median 0.6996
+    masked_lpips_bbox      mean 0.6171  median 0.6163
+    masked_lpips_tiled     mean 0.5928  median 0.5942
+
+[metrics] arm pp: step 30000, 3000000 gaussians
+[metrics] 40/144 (1112s)
+[metrics] 80/144 (2326s)
+[metrics] 120/144 (3362s)
+[metrics] 144 held-out crops over 12 panos in 4021s
+    full_psnr              mean 19.0500  median 18.9635
+    full_ssim              mean 0.7270  median 0.7322
+    full_lpips             mean 0.5823  median 0.5846
+    valid_frac             mean 0.3299  median 0.3702
+    masked_psnr            mean 20.9497  median 20.8844
+    masked_ssim            mean 0.7128  median 0.7162
+    masked_lpips_bbox      mean 0.5836  median 0.5825
+    masked_lpips_tiled     mean 0.5536  median 0.5540
+
+[metrics] arm ppc: step 30000, 3000000 gaussians
+[Data] holdout_list: 144 held out by name (holdout_test.txt)
+[Data] 1128 images (984 train, 144 test)
+[Data] 38450 SfM points, scene_scale=3.205
+[eval] 94 panos, 144 held-out crops; 1 unit = 3.903 m (baseline anchor: one inter-pano step = 0.6 m); ceiling diagnostic disagrees by 5.7164x � metre labels are indicative, see scorecard['scale']
+[metrics] arm base: reusing _infusion\wpf5\eval360\base\metrics.json
+[metrics] arm bil: reusing _infusion\wpf5\eval360\bil\metrics.json
+[metrics] arm pp: reusing _infusion\wpf5\eval360\pp\metrics.json
+
+[metrics] arm ppc: step 30000, 3000000 gaussians
+[metrics] 40/144 (21s)
+[metrics] 80/144 (38s)
+[metrics] 120/144 (54s)
+[metrics] 144 held-out crops over 12 panos in 64s
+    full_psnr              mean 18.9455  median 18.9450
+    full_ssim              mean 0.7268  median 0.7340
+    full_lpips             mean 0.5824  median 0.5837
+    valid_frac             mean 0.3299  median 0.3702
+    masked_psnr            mean 20.8172  median 20.7851
+    masked_ssim            mean 0.7127  median 0.7168
+    masked_lpips_bbox      mean 0.5836  median 0.5815
+    masked_lpips_tiled     mean 0.5550  median 0.5555
+[offpath] arm base: 31 views in 1s
+[offpath] arm bil: 31 views in 1s
+[offpath] arm pp: 31 views in 1s
+[offpath] arm ppc: 31 views in 1s
+[offpath] wrote 35 sheets -> _infusion\wpf5\eval360\offpath
+[fog] arm base: 3000000 gaussians, mean opacity 0.4100, 19.5% < 0.05, 4393 beyond 3x bbox
+[fog] arm bil: 3000000 gaussians, mean opacity 0.4135, 20.2% < 0.05, 3774 beyond 3x bbox
+[fog] arm pp: 3000000 gaussians, mean opacity 0.4062, 20.1% < 0.05, 3649 beyond 3x bbox
+[fog] arm ppc: 3000000 gaussians, mean opacity 0.4060, 19.2% < 0.05, 5142 beyond 3x bbox
+
+[eval] scorecard -> _infusion\wpf5\eval360\scorecard.json
+
+| arm | masked LPIPS (tiled) | masked PSNR | masked SSIM | full LPIPS |
+|---|---|---|---|---|
+| base | 0.5524 | 21.420 | 0.7146 | 0.5810 |
+| bil | 0.5928 | 17.046 | 0.6978 | 0.6141 |
+| pp | 0.5536 | 20.950 | 0.7128 | 0.5823 |
+| ppc | 0.5550 | 20.817 | 0.7127 | 0.5824 |
+[Data] holdout_list: 144 held out by name (holdout_test.txt)
+[Data] 1128 images (984 train, 144 test)
+[Data] 38450 SfM points, scene_scale=3.205
+base {"raw_lpips": 0.5856939516961575, "raw_psnr": 18.58295211013768, "cc_lpips": 0.6251093919078509, "cc_psnr": 16.03144644323463, "isp_lpips": null, "isp_psnr": null, "raw_mean_rgb": [0.581, 0.5631, 0.4867], "gt_mean_rgb": [0.59, 0.5662, 0.4933]}
+bil {"raw_lpips": 0.6208424394329389, "raw_psnr": 15.752813944520668, "cc_lpips": 0.6413970639308294, "cc_psnr": 15.704548171882104, "isp_lpips": null, "isp_psnr": null, "raw_mean_rgb": [0.476, 0.4681, 0.3806], "gt_mean_rgb": [0.59, 0.5662, 0.4933]}
+pp {"raw_lpips": 0.5876196287572384, "raw_psnr": 18.25068343064247, "cc_lpips": 0.6234590870638689, "cc_psnr": 16.147939133736987, "isp_lpips": 0.5853886759529511, "isp_psnr": 18.491616780470924, "raw_mean_rgb": [0.5606, 0.5416, 0.4645], "gt_mean_rgb": [0.59, 0.5662, 0.4933]}
+ppc {"raw_lpips": 0.5871997270733118, "raw_psnr": 18.21020957012602, "cc_lpips": 0.6223285856346289, "cc_psnr": 16.14354518707269, "isp_lpips": 0.5847438176472982, "isp_psnr": 18.632239505091274, "raw_mean_rgb": [0.5576, 0.5393, 0.462], "gt_mean_rgb": [0.59, 0.5662, 0.4933]}
+wrote _infusion/wpf5/360_tone.json
+### WPF5 EVAL DONE 360

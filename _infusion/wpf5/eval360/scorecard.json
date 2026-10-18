@@ -1,0 +1,1066 @@
+{
+ "wp": "WP-O5",
+ "created": "2026-10-18T12:15:06",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\_infusion\\wpo5_eval.py",
+  "--data_dir",
+  "_dataset/360/train/wpo5_theater_027_8k",
+  "--holdout_list",
+  "_dataset/360/train/wpo5_theater_027_8k/holdout_test.txt",
+  "--skip_existing_metrics",
+  "--arm",
+  "base=_dataset/360/train/wpf5_base/output/ckpts/ckpt_29999_rank0.pt",
+  "--arm",
+  "bil=_dataset/360/train/wpf5_bil/output/ckpts/ckpt_29999_rank0.pt",
+  "--arm",
+  "pp=_dataset/360/train/wpf5_pp/output/ckpts/ckpt_29999_rank0.pt",
+  "--arm",
+  "ppc=_dataset/360/train/wpf5_ppc/output/ckpts/ckpt_29999_rank0.pt",
+  "--out",
+  "_infusion/wpf5/eval360",
+  "--do",
+  "metrics,offpath,fog",
+  "--frame_cam",
+  "6"
+ ],
+ "data_dir": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo5_theater_027_8k",
+ "holdout_list": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpo5_theater_027_8k\\holdout_test.txt",
+ "arms": {
+  "base": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpf5_base\\output\\ckpts\\ckpt_29999_rank0.pt",
+  "bil": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpf5_bil\\output\\ckpts\\ckpt_29999_rank0.pt",
+  "pp": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpf5_pp\\output\\ckpts\\ckpt_29999_rank0.pt",
+  "ppc": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\360\\train\\wpf5_ppc\\output\\ckpts\\ckpt_29999_rank0.pt"
+ },
+ "num_panos": 94,
+ "num_heldout_views": 144,
+ "scale": {
+  "used": "baseline",
+  "metres_per_unit": 3.903308,
+  "step_median_units": 0.153716,
+  "assumed_walk_mps": 1.2,
+  "pano_fps": 2.0,
+  "baseline_step_m": 0.6,
+  "diagnostic_ceiling": {
+   "assumed_ceiling_m": 3.0,
+   "points_vertical_extent_units_p1_p99": 4.393497,
+   "metres_per_unit_ceiling": 0.682827,
+   "ratio_baseline_over_ceiling": 5.7164
+  },
+  "diagnostic_camera_height_spread_units_p1_p99": 0.626185,
+  "diagnostic_camera_height_spread_in_steps": 4.074,
+  "caveat": "metre labels are indicative; the exact relation is offset_m / baseline_step_m = offset in inter-panorama steps"
+ },
+ "note": null,
+ "heldout": {
+  "base": {
+   "full_psnr": {
+    "mean": 19.335120662443526,
+    "median": 19.277496809552957,
+    "std": 2.5669835500546343,
+    "min": 12.739568056673725,
+    "max": 25.453696450092774,
+    "n": 144
+   },
+   "full_ssim": {
+    "mean": 0.7290252182218764,
+    "median": 0.7363133430480957,
+    "std": 0.06998739836902908,
+    "min": 0.5029263496398926,
+    "max": 0.8579946756362915,
+    "n": 144
+   },
+   "full_lpips": {
+    "mean": 0.5810466445982456,
+    "median": 0.5822569727897644,
+    "std": 0.03587618778210795,
+    "min": 0.4941059947013855,
+    "max": 0.6608898639678955,
+    "n": 144
+   },
+   "valid_frac": {
+    "mean": 0.32988071038077277,
+    "median": 0.3701843321323395,
+    "std": 0.07288880648963547,
+    "min": 0.15341635048389435,
+    "max": 0.40591850876808167,
+    "n": 144
+   },
+   "masked_psnr": {
+    "mean": 21.41956803027791,
+    "median": 21.466940493606955,
+    "std": 3.0567665113094473,
+    "min": 16.2542301715747,
+    "max": 31.720598125364432,
+    "n": 144
+   },
+   "masked_ssim": {
+    "mean": 0.7145732208672497,
+    "median": 0.7202717959880829,
+    "std": 0.07844559744375375,
+    "min": 0.48052510619163513,
+    "max": 0.8815494179725647,
+    "n": 144
+   },
+   "masked_lpips_bbox": {
+    "mean": 0.5818913916332854,
+    "median": 0.5811025500297546,
+    "std": 0.04162905289670516,
+    "min": 0.48657453060150146,
+    "max": 0.6857513189315796,
+    "n": 144
+   },
+   "masked_lpips_tiled": {
+    "mean": 0.5523636604862688,
+    "median": 0.5549708529112417,
+    "std": 0.04678037185345068,
+    "min": 0.43260906319149206,
+    "max": 0.653671834203932,
+    "n": 144
+   }
+  },
+  "bil": {
+   "full_psnr": {
+    "mean": 16.202570305738234,
+    "median": 16.424667612582933,
+    "std": 1.7511078964431912,
+    "min": 10.720434209141787,
+    "max": 21.395192042758232,
+    "n": 144
+   },
+   "full_ssim": {
+    "mean": 0.712237186729908,
+    "median": 0.7204435467720032,
+    "std": 0.0725993538868933,
+    "min": 0.5008885264396667,
+    "max": 0.8446745276451111,
+    "n": 144
+   },
+   "full_lpips": {
+    "mean": 0.6140746105876234,
+    "median": 0.6154928803443909,
+    "std": 0.03340698989547598,
+    "min": 0.524323582649231,
+    "max": 0.6940467357635498,
+    "n": 144
+   },
+   "valid_frac": {
+    "mean": 0.32988071038077277,
+    "median": 0.3701843321323395,
+    "std": 0.07288880648963547,
+    "min": 0.15341635048389435,
+    "max": 0.40591850876808167,
+    "n": 144
+   },
+   "masked_psnr": {
+    "mean": 17.045892043174984,
+    "median": 17.058914448270613,
+    "std": 2.235095490178782,
+    "min": 10.73696937324597,
+    "max": 24.709177156322397,
+    "n": 144
+   },
+   "masked_ssim": {
+    "mean": 0.697785349148843,
+    "median": 0.6995923221111298,
+    "std": 0.07952645525269889,
+    "min": 0.4713445007801056,
+    "max": 0.8495987057685852,
+    "n": 144
+   },
+   "masked_lpips_bbox": {
+    "mean": 0.6171114105317328,
+    "median": 0.6162910461425781,
+    "std": 0.0381766088518972,
+    "min": 0.5069108605384827,
+    "max": 0.7108755707740784,
+    "n": 144
+   },
+   "masked_lpips_tiled": {
+    "mean": 0.5927674347340033,
+    "median": 0.5942333496849177,
+    "std": 0.04522655191764955,
+    "min": 0.44663860270234407,
+    "max": 0.7050539097852178,
+    "n": 144
+   }
+  },
+  "pp": {
+   "full_psnr": {
+    "mean": 19.050040504723068,
+    "median": 18.96348721962447,
+    "std": 2.5453398908852245,
+    "min": 12.70092210668719,
+    "max": 25.489329135000634,
+    "n": 144
+   },
+   "full_ssim": {
+    "mean": 0.7269936903483338,
+    "median": 0.7322263717651367,
+    "std": 0.07109824318785073,
+    "min": 0.5021684169769287,
+    "max": 0.8592579960823059,
+    "n": 144
+   },
+   "full_lpips": {
+    "mean": 0.5822865615288416,
+    "median": 0.5846011340618134,
+    "std": 0.03597468944646169,
+    "min": 0.4934839606285095,
+    "max": 0.6705021858215332,
+    "n": 144
+   },
+   "valid_frac": {
+    "mean": 0.32988071038077277,
+    "median": 0.3701843321323395,
+    "std": 0.07288880648963547,
+    "min": 0.15341635048389435,
+    "max": 0.40591850876808167,
+    "n": 144
+   },
+   "masked_psnr": {
+    "mean": 20.949699709790497,
+    "median": 20.884410643194265,
+    "std": 2.9833138197842484,
+    "min": 14.993387498950547,
+    "max": 32.04200055418595,
+    "n": 144
+   },
+   "masked_ssim": {
+    "mean": 0.7127572519497739,
+    "median": 0.7161509692668915,
+    "std": 0.07900165906556592,
+    "min": 0.4781094491481781,
+    "max": 0.878507137298584,
+    "n": 144
+   },
+   "masked_lpips_bbox": {
+    "mean": 0.5835602240016063,
+    "median": 0.5824973881244659,
+    "std": 0.04226720518469594,
+    "min": 0.4831339120864868,
+    "max": 0.7010178565979004,
+    "n": 144
+   },
+   "masked_lpips_tiled": {
+    "mean": 0.5536354165681935,
+    "median": 0.5540482128465097,
+    "std": 0.04720477563134462,
+    "min": 0.4265499623095403,
+    "max": 0.6783961162847632,
+    "n": 144
+   }
+  },
+  "ppc": {
+   "full_psnr": {
+    "mean": 18.945545881071443,
+    "median": 18.94495562794923,
+    "std": 2.506844861005201,
+    "min": 12.472537999766129,
+    "max": 25.167032331947823,
+    "n": 144
+   },
+   "full_ssim": {
+    "mean": 0.7267739321622584,
+    "median": 0.7339746356010437,
+    "std": 0.0719271680438317,
+    "min": 0.5014029741287231,
+    "max": 0.8585478067398071,
+    "n": 144
+   },
+   "full_lpips": {
+    "mean": 0.5823825063804785,
+    "median": 0.5836810171604156,
+    "std": 0.03644345840448916,
+    "min": 0.49603259563446045,
+    "max": 0.6863285303115845,
+    "n": 144
+   },
+   "valid_frac": {
+    "mean": 0.32988071038077277,
+    "median": 0.3701843321323395,
+    "std": 0.07288880648963547,
+    "min": 0.15341635048389435,
+    "max": 0.40591850876808167,
+    "n": 144
+   },
+   "masked_psnr": {
+    "mean": 20.81718664677236,
+    "median": 20.7851459175442,
+    "std": 2.8757296230414777,
+    "min": 14.600307700481423,
+    "max": 31.236610209980668,
+    "n": 144
+   },
+   "masked_ssim": {
+    "mean": 0.7127038788878255,
+    "median": 0.71675243973732,
+    "std": 0.07971129287104914,
+    "min": 0.47721001505851746,
+    "max": 0.8780704140663147,
+    "n": 144
+   },
+   "masked_lpips_bbox": {
+    "mean": 0.5835957119448317,
+    "median": 0.5814598798751831,
+    "std": 0.042767768795283365,
+    "min": 0.48899197578430176,
+    "max": 0.7156497836112976,
+    "n": 144
+   },
+   "masked_lpips_tiled": {
+    "mean": 0.5549722035334717,
+    "median": 0.5554559409129816,
+    "std": 0.04838289084791129,
+    "min": 0.43909799759505225,
+    "max": 0.7200401923235725,
+    "n": 144
+   }
+  }
+ },
+ "offpath": {
+  "views": [
+   {
+    "group": "pano_00000",
+    "label": "on-path (reference)",
+    "kind": "onpath",
+    "offset_m": [
+     0.0,
+     0.0
+    ],
+    "position": [
+     3.090162067311477,
+     0.47707918538283983,
+     -0.34782773331553074
+    ]
+   },
+   {
+    "group": "pano_00000",
+    "label": "lateral -1.00 m (-1.67 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     -1.0,
+     0.0
+    ],
+    "position": [
+     3.0912591170518406,
+     0.47707918554684303,
+     -0.09163712994291512
+    ]
+   },
+   {
+    "group": "pano_00000",
+    "label": "lateral -0.50 m (-0.83 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     -0.5,
+     0.0
+    ],
+    "position": [
+     3.090710592181659,
+     0.4770791854648414,
+     -0.21973243162922293
+    ]
+   },
+   {
+    "group": "pano_00000",
+    "label": "lateral +0.50 m (+0.83 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     0.5,
+     0.0
+    ],
+    "position": [
+     3.0896135424412954,
+     0.47707918530083826,
+     -0.4759230350018385
+    ]
+   },
+   {
+    "group": "pano_00000",
+    "label": "lateral +1.00 m (+1.67 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     1.0,
+     0.0
+    ],
+    "position": [
+     3.0890650175711136,
+     0.47707918521883663,
+     -0.6040183366881464
+    ]
+   },
+   {
+    "group": "pano_00000",
+    "label": "vertical +0.50 m (+0.83 steps)",
+    "kind": "vertical",
+    "offset_m": [
+     0.0,
+     0.5
+    ],
+    "position": [
+     3.0901620673193495,
+     0.3489827092656592,
+     -0.3478277332335621
+    ]
+   },
+   {
+    "group": "pano_00000",
+    "label": "vertical -0.30 m (-0.50 steps)",
+    "kind": "vertical",
+    "offset_m": [
+     0.0,
+     -0.3
+    ],
+    "position": [
+     3.090162067306754,
+     0.5539370710531482,
+     -0.3478277333647119
+    ]
+   },
+   {
+    "group": "pano_00031",
+    "label": "on-path (reference)",
+    "kind": "onpath",
+    "offset_m": [
+     0.0,
+     0.0
+    ],
+    "position": [
+     -0.12807031684172315,
+     -0.05548267588012349,
+     0.0379011286026458
+    ]
+   },
+   {
+    "group": "pano_00031",
+    "label": "lateral -1.00 m (-1.67 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     -1.0,
+     0.0
+    ],
+    "position": [
+     -0.16001750199930992,
+     -0.05548267571942922,
+     0.29209437425457996
+    ]
+   },
+   {
+    "group": "pano_00031",
+    "label": "lateral -0.50 m (-0.83 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     -0.5,
+     0.0
+    ],
+    "position": [
+     -0.14404390942051654,
+     -0.05548267579977635,
+     0.1649977514286129
+    ]
+   },
+   {
+    "group": "pano_00031",
+    "label": "lateral +0.50 m (+0.83 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     0.5,
+     0.0
+    ],
+    "position": [
+     -0.11209672426292977,
+     -0.05548267596047063,
+     -0.08919549422332129
+    ]
+   },
+   {
+    "group": "pano_00031",
+    "label": "lateral +1.00 m (+1.67 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     1.0,
+     0.0
+    ],
+    "position": [
+     -0.09612313168413639,
+     -0.05548267604081776,
+     -0.21629211704928838
+    ]
+   },
+   {
+    "group": "pano_00031",
+    "label": "vertical +0.50 m (+0.83 steps)",
+    "kind": "vertical",
+    "offset_m": [
+     0.0,
+     0.5
+    ],
+    "position": [
+     -0.12807031683385067,
+     -0.1835791519973041,
+     0.03790112868461444
+    ]
+   },
+   {
+    "group": "pano_00031",
+    "label": "vertical -0.30 m (-0.50 steps)",
+    "kind": "vertical",
+    "offset_m": [
+     0.0,
+     -0.3
+    ],
+    "position": [
+     -0.12807031684644665,
+     0.021375209790184875,
+     0.03790112855346462
+    ]
+   },
+   {
+    "group": "pano_00062",
+    "label": "on-path (reference)",
+    "kind": "onpath",
+    "offset_m": [
+     0.0,
+     0.0
+    ],
+    "position": [
+     0.05211536983543548,
+     -0.06594555767074553,
+     0.04534173546745826
+    ]
+   },
+   {
+    "group": "pano_00062",
+    "label": "lateral -1.00 m (-1.67 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     -1.0,
+     0.0
+    ],
+    "position": [
+     -0.19735545708319796,
+     -0.06594555772338477,
+     -0.012960368191765936
+    ]
+   },
+   {
+    "group": "pano_00062",
+    "label": "lateral -0.50 m (-0.83 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     -0.5,
+     0.0
+    ],
+    "position": [
+     -0.07262004362388125,
+     -0.06594555769706514,
+     0.016190683637846162
+    ]
+   },
+   {
+    "group": "pano_00062",
+    "label": "lateral +0.50 m (+0.83 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     0.5,
+     0.0
+    ],
+    "position": [
+     0.1768507832947522,
+     -0.06594555764442592,
+     0.07449278729707036
+    ]
+   },
+   {
+    "group": "pano_00062",
+    "label": "lateral +1.00 m (+1.67 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     1.0,
+     0.0
+    ],
+    "position": [
+     0.30158619675406895,
+     -0.06594555761810629,
+     0.10364383912668246
+    ]
+   },
+   {
+    "group": "pano_00062",
+    "label": "vertical +0.50 m (+0.83 steps)",
+    "kind": "vertical",
+    "offset_m": [
+     0.0,
+     0.5
+    ],
+    "position": [
+     0.05211536984330797,
+     -0.19404203378792614,
+     0.0453417355494269
+    ]
+   },
+   {
+    "group": "pano_00062",
+    "label": "vertical -0.30 m (-0.50 steps)",
+    "kind": "vertical",
+    "offset_m": [
+     0.0,
+     -0.3
+    ],
+    "position": [
+     0.05211536983071199,
+     0.010912327999562835,
+     0.04534173541827708
+    ]
+   },
+   {
+    "group": "pano_00093",
+    "label": "on-path (reference)",
+    "kind": "onpath",
+    "offset_m": [
+     0.0,
+     0.0
+    ],
+    "position": [
+     -0.20707935506993186,
+     -0.006019229043203712,
+     0.4298997306518537
+    ]
+   },
+   {
+    "group": "pano_00093",
+    "label": "lateral -1.00 m (-1.67 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     -1.0,
+     0.0
+    ],
+    "position": [
+     -0.23088240266599314,
+     -0.006019229207894745,
+     0.1748149531764086
+    ]
+   },
+   {
+    "group": "pano_00093",
+    "label": "lateral -0.50 m (-0.83 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     -0.5,
+     0.0
+    ],
+    "position": [
+     -0.2189808788679625,
+     -0.006019229125549228,
+     0.30235734191413116
+    ]
+   },
+   {
+    "group": "pano_00093",
+    "label": "lateral +0.50 m (+0.83 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     0.5,
+     0.0
+    ],
+    "position": [
+     -0.19517783127190122,
+     -0.0060192289608581966,
+     0.5574421193895762
+    ]
+   },
+   {
+    "group": "pano_00093",
+    "label": "lateral +1.00 m (+1.67 steps)",
+    "kind": "lateral",
+    "offset_m": [
+     1.0,
+     0.0
+    ],
+    "position": [
+     -0.18327630747387058,
+     -0.00601922887851268,
+     0.6849845081272988
+    ]
+   },
+   {
+    "group": "pano_00093",
+    "label": "vertical +0.50 m (+0.83 steps)",
+    "kind": "vertical",
+    "offset_m": [
+     0.0,
+     0.5
+    ],
+    "position": [
+     -0.20707935506205938,
+     -0.13411570516038432,
+     0.42989973073382237
+    ]
+   },
+   {
+    "group": "pano_00093",
+    "label": "vertical -0.30 m (-0.50 steps)",
+    "kind": "vertical",
+    "offset_m": [
+     0.0,
+     -0.3
+    ],
+    "position": [
+     -0.20707935507465536,
+     0.07083865662710465,
+     0.42989973060267256
+    ]
+   },
+   {
+    "group": "unvisited",
+    "label": "unvisited az 0 deg (4.62 m from any capture position)",
+    "kind": "unvisited",
+    "offset_m": null,
+    "position": [
+     2.00422600787219,
+     -0.033673629814156274,
+     -1.2523462723239025
+    ]
+   },
+   {
+    "group": "unvisited",
+    "label": "unvisited az 120 deg (4.62 m from any capture position)",
+    "kind": "unvisited",
+    "offset_m": null,
+    "position": [
+     2.00422600787219,
+     -0.033673629814156274,
+     -1.2523462723239025
+    ]
+   },
+   {
+    "group": "unvisited",
+    "label": "unvisited az 240 deg (4.62 m from any capture position)",
+    "kind": "unvisited",
+    "offset_m": null,
+    "position": [
+     2.00422600787219,
+     -0.033673629814156274,
+     -1.2523462723239025
+    ]
+   }
+  ],
+  "unvisited": {
+   "position": [
+    2.00422600787219,
+    -0.033673629814156274,
+    -1.2523462723239025
+   ],
+   "min_dist_to_capture_units": 1.1831512302271345,
+   "min_dist_to_capture_m": 4.618203662155416,
+   "inside_capture_hull": true,
+   "hull_restriction_applied": true
+  },
+  "num_views": 31,
+  "sheets": {
+   "sheet_arm_base.jpg": "arm base: all 31 off-path viewpoints",
+   "sheet_arm_bil.jpg": "arm bil: all 31 off-path viewpoints",
+   "sheet_arm_pp.jpg": "arm pp: all 31 off-path viewpoints",
+   "sheet_arm_ppc.jpg": "arm ppc: all 31 off-path viewpoints",
+   "cmp_pano_00000_onpath_00.jpg": "pano_00000 / on-path (reference): arms base, bil, pp, ppc",
+   "cmp_pano_00000_lateral_01.jpg": "pano_00000 / lateral -1.00 m (-1.67 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00000_lateral_02.jpg": "pano_00000 / lateral -0.50 m (-0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00000_lateral_03.jpg": "pano_00000 / lateral +0.50 m (+0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00000_lateral_04.jpg": "pano_00000 / lateral +1.00 m (+1.67 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00000_vertical_05.jpg": "pano_00000 / vertical +0.50 m (+0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00000_vertical_06.jpg": "pano_00000 / vertical -0.30 m (-0.50 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00031_onpath_07.jpg": "pano_00031 / on-path (reference): arms base, bil, pp, ppc",
+   "cmp_pano_00031_lateral_08.jpg": "pano_00031 / lateral -1.00 m (-1.67 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00031_lateral_09.jpg": "pano_00031 / lateral -0.50 m (-0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00031_lateral_10.jpg": "pano_00031 / lateral +0.50 m (+0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00031_lateral_11.jpg": "pano_00031 / lateral +1.00 m (+1.67 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00031_vertical_12.jpg": "pano_00031 / vertical +0.50 m (+0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00031_vertical_13.jpg": "pano_00031 / vertical -0.30 m (-0.50 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00062_onpath_14.jpg": "pano_00062 / on-path (reference): arms base, bil, pp, ppc",
+   "cmp_pano_00062_lateral_15.jpg": "pano_00062 / lateral -1.00 m (-1.67 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00062_lateral_16.jpg": "pano_00062 / lateral -0.50 m (-0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00062_lateral_17.jpg": "pano_00062 / lateral +0.50 m (+0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00062_lateral_18.jpg": "pano_00062 / lateral +1.00 m (+1.67 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00062_vertical_19.jpg": "pano_00062 / vertical +0.50 m (+0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00062_vertical_20.jpg": "pano_00062 / vertical -0.30 m (-0.50 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00093_onpath_21.jpg": "pano_00093 / on-path (reference): arms base, bil, pp, ppc",
+   "cmp_pano_00093_lateral_22.jpg": "pano_00093 / lateral -1.00 m (-1.67 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00093_lateral_23.jpg": "pano_00093 / lateral -0.50 m (-0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00093_lateral_24.jpg": "pano_00093 / lateral +0.50 m (+0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00093_lateral_25.jpg": "pano_00093 / lateral +1.00 m (+1.67 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00093_vertical_26.jpg": "pano_00093 / vertical +0.50 m (+0.83 steps): arms base, bil, pp, ppc",
+   "cmp_pano_00093_vertical_27.jpg": "pano_00093 / vertical -0.30 m (-0.50 steps): arms base, bil, pp, ppc",
+   "cmp_unvisited_unvisited_28.jpg": "unvisited / unvisited az 0 deg (4.62 m from any capture position): arms base, bil, pp, ppc",
+   "cmp_unvisited_unvisited_29.jpg": "unvisited / unvisited az 120 deg (4.62 m from any capture position): arms base, bil, pp, ppc",
+   "cmp_unvisited_unvisited_30.jpg": "unvisited / unvisited az 240 deg (4.62 m from any capture position): arms base, bil, pp, ppc"
+  },
+  "image_size": [
+   1920,
+   1920
+  ]
+ },
+ "fog": {
+  "stats": {
+   "base": {
+    "num_gaussians": 3000000,
+    "opacity_mean": 0.409980833530426,
+    "opacity_median": 0.22302162647247314,
+    "opacity_frac_below": {
+     "0.005": 0.0035396666666666667,
+     "0.01": 0.044157,
+     "0.02": 0.095222,
+     "0.05": 0.19536866666666666,
+     "0.1": 0.31906233333333334,
+     "0.2": 0.47611366666666666,
+     "0.5": 0.6522633333333333
+    },
+    "opacity_hist_edges": [
+     0.0,
+     0.005,
+     0.01,
+     0.02,
+     0.05,
+     0.1,
+     0.2,
+     0.5,
+     1.0
+    ],
+    "opacity_hist": [
+     10619,
+     121852,
+     153195,
+     300440,
+     371081,
+     471154,
+     528449,
+     1043210
+    ],
+    "bbox_p1": [
+     -6.424592971801758,
+     -2.2660720348358154,
+     -4.860972599983215
+    ],
+    "bbox_p99": [
+     7.737733120918237,
+     2.622816801071167,
+     4.453531775474537
+    ],
+    "bbox_extent": [
+     14.162326092719994,
+     4.888888835906982,
+     9.314504375457751
+    ],
+    "outliers_beyond_3x_bbox": 4393,
+    "outliers_beyond_10x_bbox": 818,
+    "rel_radius_p99": 1.3556211849679356,
+    "rel_radius_max": 7160.144614177884,
+    "mean_norm_median": 4.026564121246338,
+    "mean_norm_p99": 9.18063735961914,
+    "scale_max_axis_median": 2.145885900972644e-06,
+    "erank_mean": 2.3147504364426106,
+    "erank_median": 2.091065408140121,
+    "needle_frac_erank_lt_2": 0.09398466666666666,
+    "needle_frac_erank_lt_1_5": 0.0034336666666666665,
+    "aspect_ratio_median": 5.0975494384765625
+   },
+   "bil": {
+    "num_gaussians": 3000000,
+    "opacity_mean": 0.41346976161003113,
+    "opacity_median": 0.22299468517303467,
+    "opacity_frac_below": {
+     "0.005": 0.003772,
+     "0.01": 0.04658466666666667,
+     "0.02": 0.09988533333333334,
+     "0.05": 0.20220866666666668,
+     "0.1": 0.323766,
+     "0.2": 0.4770666666666667,
+     "0.5": 0.6471526666666667
+    },
+    "opacity_hist_edges": [
+     0.0,
+     0.005,
+     0.01,
+     0.02,
+     0.05,
+     0.1,
+     0.2,
+     0.5,
+     1.0
+    ],
+    "opacity_hist": [
+     11316,
+     128438,
+     159902,
+     306970,
+     364672,
+     459902,
+     510258,
+     1058542
+    ],
+    "bbox_p1": [
+     -6.441724863052368,
+     -2.2163031101226807,
+     -4.812281279563904
+    ],
+    "bbox_p99": [
+     7.72308349609375,
+     2.59928035736084,
+     4.233852863311768
+    ],
+    "bbox_extent": [
+     14.164808359146118,
+     4.8155834674835205,
+     9.046134142875673
+    ],
+    "outliers_beyond_3x_bbox": 3774,
+    "outliers_beyond_10x_bbox": 655,
+    "rel_radius_p99": 1.3407181039292115,
+    "rel_radius_max": 10433.243001133626,
+    "mean_norm_median": 4.04494571685791,
+    "mean_norm_p99": 9.085688591003418,
+    "scale_max_axis_median": 2.385733523624367e-06,
+    "erank_mean": 2.314250390197974,
+    "erank_median": 2.0908821326351967,
+    "needle_frac_erank_lt_2": 0.09000833333333333,
+    "needle_frac_erank_lt_1_5": 0.0021853333333333334,
+    "aspect_ratio_median": 5.095232963562012
+   },
+   "pp": {
+    "num_gaussians": 3000000,
+    "opacity_mean": 0.40615755319595337,
+    "opacity_median": 0.2178521752357483,
+    "opacity_frac_below": {
+     "0.005": 0.0035613333333333335,
+     "0.01": 0.046323,
+     "0.02": 0.09871066666666667,
+     "0.05": 0.20066033333333333,
+     "0.1": 0.32456633333333335,
+     "0.2": 0.48171733333333333,
+     "0.5": 0.655806
+    },
+    "opacity_hist_edges": [
+     0.0,
+     0.005,
+     0.01,
+     0.02,
+     0.05,
+     0.1,
+     0.2,
+     0.5,
+     1.0
+    ],
+    "opacity_hist": [
+     10684,
+     128285,
+     157163,
+     305849,
+     371718,
+     471453,
+     522266,
+     1032582
+    ],
+    "bbox_p1": [
+     -6.374257121086121,
+     -2.253569550514221,
+     -4.919533576965332
+    ],
+    "bbox_p99": [
+     7.863581123352041,
+     2.598855972290039,
+     4.908738613128662
+    ],
+    "bbox_extent": [
+     14.237838244438162,
+     4.8524255228042605,
+     9.828272190093994
+    ],
+    "outliers_beyond_3x_bbox": 3649,
+    "outliers_beyond_10x_bbox": 803,
+    "rel_radius_p99": 1.354990581834221,
+    "rel_radius_max": 5956.4984819694155,
+    "mean_norm_median": 4.047086715698242,
+    "mean_norm_p99": 9.334829330444336,
+    "scale_max_axis_median": 2.2563772290595807e-06,
+    "erank_mean": 2.3161262470379316,
+    "erank_median": 2.0916494712922398,
+    "needle_frac_erank_lt_2": 0.09515033333333334,
+    "needle_frac_erank_lt_1_5": 0.0034133333333333333,
+    "aspect_ratio_median": 5.058724403381348
+   },
+   "ppc": {
+    "num_gaussians": 3000000,
+    "opacity_mean": 0.40601807832717896,
+    "opacity_median": 0.2227569818496704,
+    "opacity_frac_below": {
+     "0.005": 0.0,
+     "0.01": 0.03895133333333333,
+     "0.02": 0.08997633333333334,
+     "0.05": 0.191921,
+     "0.1": 0.316547,
+     "0.2": 0.476181,
+     "0.5": 0.655118
+    },
+    "opacity_hist_edges": [
+     0.0,
+     0.005,
+     0.01,
+     0.02,
+     0.05,
+     0.1,
+     0.2,
+     0.5,
+     1.0
+    ],
+    "opacity_hist": [
+     0,
+     116854,
+     153075,
+     305834,
+     373878,
+     478902,
+     536811,
+     1034646
+    ],
+    "bbox_p1": [
+     -6.421427917480469,
+     -2.282783269882202,
+     -4.90896246433258
+    ],
+    "bbox_p99": [
+     7.8087358474731445,
+     2.591802873611444,
+     3.9007060527801514
+    ],
+    "bbox_extent": [
+     14.230163764953613,
+     4.874586143493646,
+     8.809668517112732
+    ],
+    "outliers_beyond_3x_bbox": 5142,
+    "outliers_beyond_10x_bbox": 871,
+    "rel_radius_p99": 1.3864600983416486,
+    "rel_radius_max": 13566.925070218513,
+    "mean_norm_median": 4.043262481689453,
+    "mean_norm_p99": 9.10494613647461,
+    "scale_max_axis_median": 3.596156238927506e-05,
+    "erank_mean": 2.2609970574912768,
+    "erank_median": 2.04544078675175,
+    "needle_frac_erank_lt_2": 0.107376,
+    "needle_frac_erank_lt_1_5": 0.003058,
+    "aspect_ratio_median": 6.391783714294434
+   }
+  },
+  "figures": {
+   "fogpair_base_lateral_0.jpg": "arm base, lateral -1.00 m (-1.67 steps): full render vs low-opacity-pruned (<0.05 dropped, 586106 gaussians)",
+   "fogpair_base_unvisited_1.jpg": "arm base, unvisited az 0 deg (4.62 m from any capture position): full render vs low-opacity-pruned (<0.05 dropped, 586106 gaussians)",
+   "fogpair_bil_lateral_0.jpg": "arm bil, lateral -1.00 m (-1.67 steps): full render vs low-opacity-pruned (<0.05 dropped, 606626 gaussians)",
+   "fogpair_bil_unvisited_1.jpg": "arm bil, unvisited az 0 deg (4.62 m from any capture position): full render vs low-opacity-pruned (<0.05 dropped, 606626 gaussians)",
+   "fogpair_pp_lateral_0.jpg": "arm pp, lateral -1.00 m (-1.67 steps): full render vs low-opacity-pruned (<0.05 dropped, 601981 gaussians)",
+   "fogpair_pp_unvisited_1.jpg": "arm pp, unvisited az 0 deg (4.62 m from any capture position): full render vs low-opacity-pruned (<0.05 dropped, 601981 gaussians)",
+   "fogpair_ppc_lateral_0.jpg": "arm ppc, lateral -1.00 m (-1.67 steps): full render vs low-opacity-pruned (<0.05 dropped, 575763 gaussians)",
+   "fogpair_ppc_unvisited_1.jpg": "arm ppc, unvisited az 0 deg (4.62 m from any capture position): full render vs low-opacity-pruned (<0.05 dropped, 575763 gaussians)"
+  },
+  "prune_opacity": 0.05
+ }
+}

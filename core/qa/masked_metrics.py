@@ -101,7 +101,9 @@ def _lpips_window(lp, render: torch.Tensor, gt: torch.Tensor,
         r = F.pad(r, pad, mode="replicate")
         g = F.pad(g, pad, mode="replicate")
     with torch.no_grad():
-        return float(lp(r, g))
+        val = float(lp(r, g))
+        lp.reset()
+        return val
 
 
 def masked_lpips(render: torch.Tensor, gt: torch.Tensor, mask: torch.Tensor,

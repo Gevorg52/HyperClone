@@ -1,0 +1,23 @@
+[Data] 304 images (266 train, 38 test)
+[Data] 93126 SfM points, scene_scale=2.542
+[offpath] base: 21 views 5s  semi=0.0012 fog=0.0000 cov=0.9988 foglayer=0.0498 prune_dMAE=0.333
+[offpath] bil: 21 views 4s  semi=0.0021 fog=0.0001 cov=0.9979 foglayer=0.0494 prune_dMAE=0.139
+[offpath] pp: 21 views 4s  semi=0.0011 fog=0.0000 cov=0.9989 foglayer=0.0464 prune_dMAE=0.183
+[offpath] ppc: 21 views 4s  semi=0.0013 fog=0.0000 cov=0.9987 foglayer=0.0566 prune_dMAE=0.195
+[offpath] wrote qa\wpf5_laptop_offpath\offpath.json
+[Data] 304 images (266 train, 38 test)
+[Data] 93126 SfM points, scene_scale=2.542
+base {"raw_lpips": 0.2789708509256965, "raw_psnr": 23.00020212362471, "cc_lpips": 0.28057921324905594, "cc_psnr": 22.89634725726458, "isp_lpips": null, "isp_psnr": null, "raw_mean_rgb": [0.5091, 0.5032, 0.6091], "gt_mean_rgb": [0.5067, 0.4995, 0.6056]}
+bil {"raw_lpips": 0.315274216234684, "raw_psnr": 19.306047961759862, "cc_lpips": 0.3041516189512454, "cc_psnr": 21.41035320150675, "isp_lpips": null, "isp_psnr": null, "raw_mean_rgb": [0.4554, 0.4213, 0.5423], "gt_mean_rgb": [0.5067, 0.4995, 0.6056]}
+pp {"raw_lpips": 0.2804634300501723, "raw_psnr": 22.6934249121373, "cc_lpips": 0.28088930602136414, "cc_psnr": 22.834475952527487, "isp_lpips": 0.2782553732395172, "isp_psnr": 22.981521396979733, "raw_mean_rgb": [0.497, 0.4932, 0.5974], "gt_mean_rgb": [0.5067, 0.4995, 0.6056]}
+ppc {"raw_lpips": 0.28339747064992, "raw_psnr": 22.60333972646338, "cc_lpips": 0.28395144994321625, "cc_psnr": 22.755911912778966, "isp_lpips": 0.28041804856375646, "isp_psnr": 23.002582767544467, "raw_mean_rgb": [0.4963, 0.4929, 0.5968], "gt_mean_rgb": [0.5067, 0.4995, 0.6056]}
+wrote _infusion/wpf5/laptop_tone.json
+| arm | mLPIPS | mPSNR | mSSIM | regLPIPS | xscore | nova | tsed | raft | jod | op<0.05 | op_mean | foglayerA | prune_dMAE | needle% | giant% |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| base | 0.2791 | 23.008 | 0.8312 | 0.2407 | 0.8648 | 0.1209 | 0.939 | 0.0404 | -2.861 | 0.2674 | 0.5374 | 0.0498 | 0.333 | 8.80 | 11.27 |
+| bil | 0.3154 | 19.308 | 0.8107 | 0.2684 | 0.8558 | 0.1245 | 0.970 | 0.0292 | -2.864 | 0.2809 | 0.5324 | 0.0494 | 0.139 | 8.08 | 10.55 |
+| pp | 0.2805 | 22.694 | 0.8300 | 0.2422 | 0.8667 | 0.1169 | 0.939 | 0.0394 | -2.891 | 0.2635 | 0.5446 | 0.0464 | 0.183 | 8.68 | 10.96 |
+| ppc | 0.2835 | 22.608 | 0.8294 | 0.2440 | 0.8629 | 0.1211 | 0.970 | 0.0390 | -2.875 | 0.2532 | 0.5301 | 0.0566 | 0.195 | 8.37 | 9.81 |
+
+wrote _infusion/wpf5/laptop_gate.json
+### WPF5 EVAL DONE laptop

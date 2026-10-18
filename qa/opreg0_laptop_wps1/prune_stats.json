@@ -1,0 +1,152 @@
+{
+ "tool": "tools/prune_ply.py",
+ "argv": [
+  "C:\\Users\\gevor\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "D:\\REPOS\\HYPERclone\\apex-sfm\\tools\\prune_ply.py",
+  "--ckpt",
+  "_dataset/Laptop/apex_images/training/wps1/stack/output/ckpts/ckpt_29999_rank0.pt",
+  "--opacity_min",
+  "0.05",
+  "--out",
+  "_dataset/Laptop/apex_images/training/wps1/stack/output/ply/point_cloud_29999_pruned_op05.ply",
+  "--stats_json",
+  "qa/opreg0_laptop_wps1/prune_stats.json"
+ ],
+ "created": "2026-10-17T22:19:24",
+ "source": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\Laptop\\apex_images\\training\\wps1\\stack\\output\\ckpts\\ckpt_29999_rank0.pt",
+ "opacity_min": 0.05,
+ "bbox_scale": 0.0,
+ "erank_min": 0.0,
+ "before": {
+  "num_gaussians": 3000000,
+  "opacity_mean": 0.0726313591003418,
+  "opacity_median": 0.0157918781042099,
+  "opacity_frac_below": {
+   "0.005": 0.3441363333333333,
+   "0.01": 0.43118433333333334,
+   "0.02": 0.540203,
+   "0.05": 0.7118423333333334,
+   "0.1": 0.8275256666666667,
+   "0.2": 0.907531,
+   "0.5": 0.9649173333333333
+  },
+  "opacity_hist_edges": [
+   0.0,
+   0.005,
+   0.01,
+   0.02,
+   0.05,
+   0.1,
+   0.2,
+   0.5,
+   1.0
+  ],
+  "opacity_hist": [
+   1032409,
+   261144,
+   327056,
+   514918,
+   347050,
+   240016,
+   172159,
+   105248
+  ],
+  "bbox_p1": [
+   -18.95286418914795,
+   -3.742477180957794,
+   -8.387771587371827
+  ],
+  "bbox_p99": [
+   9.777589902877805,
+   4.148419423103332,
+   9.582340393066403
+  ],
+  "bbox_extent": [
+   28.730454092025752,
+   7.890896604061126,
+   17.97011198043823
+  ],
+  "outliers_beyond_3x_bbox": 8063,
+  "outliers_beyond_10x_bbox": 1546,
+  "rel_radius_p99": 1.4725293601977743,
+  "rel_radius_max": 1740.627128513114,
+  "mean_norm_median": 0.6535836458206177,
+  "mean_norm_p99": 22.124784469604492,
+  "scale_max_axis_median": 0.0039045768789947033,
+  "erank_mean": 2.153976277732262,
+  "erank_median": 2.071382406868546,
+  "needle_frac_erank_lt_2": 0.15746233333333334,
+  "needle_frac_erank_lt_1_5": 0.013221333333333333,
+  "aspect_ratio_median": 4.213104248046875
+ },
+ "pruned": {
+  "dropped_low_opacity": 2135527,
+  "kept": 864473,
+  "dropped_total": 2135527,
+  "kept_frac": 0.288158
+ },
+ "after": {
+  "num_gaussians": 864473,
+  "opacity_mean": 0.22219569981098175,
+  "opacity_median": 0.12335719168186188,
+  "opacity_frac_below": {
+   "0.005": 0.0,
+   "0.01": 0.0,
+   "0.02": 0.0,
+   "0.05": 0.0,
+   "0.1": 0.40145846081948194,
+   "0.2": 0.6791027597160351,
+   "0.5": 0.8782518366681203
+  },
+  "opacity_hist_edges": [
+   0.0,
+   0.005,
+   0.01,
+   0.02,
+   0.05,
+   0.1,
+   0.2,
+   0.5,
+   1.0
+  ],
+  "opacity_hist": [
+   0,
+   0,
+   0,
+   0,
+   347050,
+   240016,
+   172159,
+   105248
+  ],
+  "bbox_p1": [
+   -18.730959854125977,
+   -3.9637575817108153,
+   -8.36211612701416
+  ],
+  "bbox_p99": [
+   10.114850959777845,
+   4.030563945770265,
+   9.526842880249024
+  ],
+  "bbox_extent": [
+   28.845810813903825,
+   7.99432152748108,
+   17.888959007263182
+  ],
+  "outliers_beyond_3x_bbox": 1201,
+  "outliers_beyond_10x_bbox": 37,
+  "rel_radius_p99": 1.3816805543358897,
+  "rel_radius_max": 33.03279637811209,
+  "mean_norm_median": 0.6829177737236023,
+  "mean_norm_p99": 20.860496520996094,
+  "scale_max_axis_median": 0.005210782401263714,
+  "erank_mean": 2.08685899088868,
+  "erank_median": 2.0378445414258364,
+  "needle_frac_erank_lt_2": 0.33159277386338265,
+  "needle_frac_erank_lt_1_5": 0.039801127392064296,
+  "aspect_ratio_median": 4.502857208251953
+ },
+ "out": "D:\\REPOS\\HYPERclone\\apex-sfm\\_dataset\\Laptop\\apex_images\\training\\wps1\\stack\\output\\ply\\point_cloud_29999_pruned_op05.ply",
+ "out_bytes": 204017105
+}

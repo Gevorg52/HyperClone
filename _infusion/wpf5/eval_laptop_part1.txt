@@ -1,0 +1,79 @@
+[prune] _dataset\Laptop\apex_images\training\opreg0\b2\output\ckpts\ckpt_29999_rank0.pt -> 3000000 gaussians, mean opacity 0.5374, 26.7% below 0.05, 1947 beyond 3x bbox
+[prune] kept 2197774 (73.3%), dropped 802226 -> _dataset\Laptop\apex_images\training\opreg0\b2\output\ply\point_cloud_29999_pruned_op05.ply (518.7 MB, 3s)
+[prune] stats -> qa/wpf5_laptop_base/prune_stats.json
+[QA] scene=wpf5_laptop_base  split=every8  factor=2  out=qa\wpf5_laptop_base
+[QA] loading splats: _dataset/Laptop/apex_images/training/opreg0/b2/output/ckpts/ckpt_29999_rank0.pt
+[QA] 3,000,000 Gaussians
+[QA] SH degree: rendering 3 (model has 3)
+[Data] 304 images (266 train, 38 test)
+[Data] 93126 SfM points, scene_scale=2.542
+[QA] scoring 38 held-out views
+  [1/38] frame_0001.jpg  obs 100.0%  PSNR 26.00  SSIM 0.8799  LPIPS 0.1889
+  [11/38] frame_0081.jpg  obs 100.0%  PSNR 24.33  SSIM 0.8407  LPIPS 0.3139
+  [21/38] frame_0161.jpg  obs 100.0%  PSNR 23.89  SSIM 0.8432  LPIPS 0.2569
+  [31/38] frame_0242.jpg  obs 100.0%  PSNR 21.70  SSIM 0.8331  LPIPS 0.2378
+  [38/38] frame_0298.jpg  obs 100.0%  PSNR 22.86  SSIM 0.8215  LPIPS 0.3203
+[QA] running phase-2 scorers: ['crossscore', 'nova', 'tsed', 'raft_warp', 'nvs_sqa', 'flicker']
+  [scorer] crossscore  ok  (106.49s)  -> {'mean': 0.8647765768201727, 'median': 0.8761040270328522, 'n': 38, 'csv': 'qa\\wpf5_laptop_base\\_scorers\\crossscore_out_apex\\score_summary\\apex\\gaussian.csv', 'maps_dir': 'qa\\wpf5_laptop_base\\_scorers\\crossscore_out', 'runtime_s': 106.49}
+  [scorer] nova        ok  (16.64s)  -> {'mean': 0.12094679788539284, 'median': 0.072744220495224, 'checkpoint_loaded': True, 'n': 38, 'runtime_s': 16.64}
+  [scorer] tsed        ok  (2.41s)  -> {'ratio': 0.9393939393939394, 'n_pairs': 33, 'median_epi_med': 0.28280002781532426, 'mean_matches': 112.78787878787878, 'thresh_px': 2.0, 'runtime_s': 2.41}
+  [scorer] raft_warp   ok  (2.31s)  -> {'mean': 0.040424524495999016, 'median': 0.04702151194214821, 'n_pairs': 33, 'mean_valid_frac': 0.9285818013277921, 'runtime_s': 2.31}
+  [scorer] nvs_sqa     ok  (5.43s)  -> {'jod': -2.860987207060333, 'feat_dim': 384, 'n_frames': 34, 'runtime_s': 5.43}
+  [scorer] flicker     ok  (0.52s)  -> {'score': 0.9932453609292023, 'mean_mae': 1.7224329630533854, 'n_pairs': 15, 'max_motion_frac': 0.0006031057872079187, 'static': True, 'static_max_frac': 0.02, 'runtime_s': 0.52}
+
+[QA] === wpf5_laptop_base (every8) ===
+  observed area   100.0%
+  masked PSNR     23.008
+  masked SSIM     0.8312
+  masked LPIPS    0.2791  (lower=better)
+  normalize       true   render_sanity ok
+[QA] wrote qa\wpf5_laptop_base\scorecard.json
+[QA] wrote qa\wpf5_laptop_base\report.html  (open in a browser)
+[Data] 304 images (266 train, 38 test)
+[Data] 93126 SfM points, scene_scale=2.542
+base   views=38  full_lpips=0.2791  deck_lpips=0.2407  deck_psnr=24.003
+wrote qa/wpf5_laptop_base/region_deck.json
+
+model           Gaussians  floater indicators (lower=cleaner; compare vs base)
+
+base            3,000,000  needle  8.80%  SOR-outlier  0.02%  giant 11.27%  low-opa  11.0%  med-opa 0.609  mean-erank 2.272
+[prune] _dataset\Laptop\apex_images\training\wpf5\bil\output\ckpts\ckpt_29999_rank0.pt -> 3000000 gaussians, mean opacity 0.5324, 28.1% below 0.05, 1767 beyond 3x bbox
+[prune] kept 2157289 (71.9%), dropped 842711 -> _dataset\Laptop\apex_images\training\wpf5\bil\output\ply\point_cloud_29999_pruned_op05.ply (509.1 MB, 3s)
+[prune] stats -> qa/wpf5_laptop_bil/prune_stats.json
+[QA] scene=wpf5_laptop_bil  split=every8  factor=2  out=qa\wpf5_laptop_bil
+[QA] loading splats: _dataset/Laptop/apex_images/training/wpf5/bil/output/ckpts/ckpt_29999_rank0.pt
+[QA] 3,000,000 Gaussians
+[QA] SH degree: rendering 3 (model has 3)
+[Data] 304 images (266 train, 38 test)
+[Data] 93126 SfM points, scene_scale=2.542
+[QA] scoring 38 held-out views
+  [1/38] frame_0001.jpg  obs 100.0%  PSNR 20.22  SSIM 0.8558  LPIPS 0.2249
+  [11/38] frame_0081.jpg  obs 100.0%  PSNR 18.57  SSIM 0.8182  LPIPS 0.3203
+  [21/38] frame_0161.jpg  obs 100.0%  PSNR 19.67  SSIM 0.8224  LPIPS 0.2634
+  [31/38] frame_0242.jpg  obs 100.0%  PSNR 16.51  SSIM 0.8104  LPIPS 0.3014
+  [38/38] frame_0298.jpg  obs 99.9%  PSNR 18.17  SSIM 0.8077  LPIPS 0.3873
+[QA] running phase-2 scorers: ['crossscore', 'nova', 'tsed', 'raft_warp', 'nvs_sqa', 'flicker']
+  [scorer] crossscore  ok  (101.12s)  -> {'mean': 0.8557971355162168, 'median': 0.868229478597641, 'n': 38, 'csv': 'qa\\wpf5_laptop_bil\\_scorers\\crossscore_out_apex\\score_summary\\apex\\gaussian.csv', 'maps_dir': 'qa\\wpf5_laptop_bil\\_scorers\\crossscore_out', 'runtime_s': 101.12}
+  [scorer] nova        ok  (15.69s)  -> {'mean': 0.12452066572088945, 'median': 0.07377699017524719, 'checkpoint_loaded': True, 'n': 38, 'runtime_s': 15.69}
+  [scorer] tsed        ok  (2.12s)  -> {'ratio': 0.9696969696969697, 'n_pairs': 33, 'median_epi_med': 0.28488802573983446, 'mean_matches': 96.33333333333333, 'thresh_px': 2.0, 'runtime_s': 2.12}
+  [scorer] raft_warp   ok  (1.35s)  -> {'mean': 0.02924212088074648, 'median': 0.028556840494275093, 'n_pairs': 33, 'mean_valid_frac': 0.9299881837584756, 'runtime_s': 1.35}
+  [scorer] nvs_sqa     ok  (5.11s)  -> {'jod': -2.8636004450134678, 'feat_dim': 384, 'n_frames': 34, 'runtime_s': 5.11}
+  [scorer] flicker     ok  (0.4s)  -> {'score': 0.9932945836135765, 'mean_mae': 1.7098811785380046, 'n_pairs': 15, 'max_motion_frac': 0.0006031057872079187, 'static': True, 'static_max_frac': 0.02, 'runtime_s': 0.4}
+
+[QA] === wpf5_laptop_bil (every8) ===
+  observed area   100.0%
+  masked PSNR     19.308
+  masked SSIM     0.8107
+  masked LPIPS    0.3154  (lower=better)
+  normalize       true   render_sanity ok
+[QA] wrote qa\wpf5_laptop_bil\scorecard.json
+[QA] wrote qa\wpf5_laptop_bil\report.html  (open in a browser)
+[Data] 304 images (266 train, 38 test)
+[Data] 93126 SfM points, scene_scale=2.542
+bil    views=38  full_lpips=0.3154  deck_lpips=0.2684  deck_psnr=20.923
+wrote qa/wpf5_laptop_bil/region_deck.json
+
+model           Gaussians  floater indicators (lower=cleaner; compare vs base)
+
+bil             3,000,000  needle  8.08%  SOR-outlier  0.01%  giant 10.55%  low-opa  11.7%  med-opa 0.602  mean-erank 2.296
+### per-arm only: done base bil

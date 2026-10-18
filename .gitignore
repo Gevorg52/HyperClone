@@ -39,8 +39,14 @@ qa/**/thumbs/
 qa/**/*.png
 qa/**/*.jpg
 qa/**/*.html
+qa/**/*.npy
 _infusion/wpq2_sags/*.jpg
 _infusion/wpq2_sags/crops/
 _infusion/wpx1_zoom/*.jpg
+_infusion/**/_scorers/
 deliverables/*.sog
 deliverables/*.ply
+deliverables/_work/
+*.pt
+*.spz
+

@@ -1,0 +1,15 @@
+[chain A] start laptop:bil Sun Oct 18 00:46:22 PDT 2026
+[chain A] end laptop:bil rc=0 Sun Oct 18 03:14:24 PDT 2026
+[chain A] start laptop:pp Sun Oct 18 03:14:24 PDT 2026
+[chain A] end laptop:pp rc=0 Sun Oct 18 05:49:36 PDT 2026
+[chain A] start laptop:ppc Sun Oct 18 05:49:36 PDT 2026
+[chain A] end laptop:ppc rc=0 Sun Oct 18 08:13:23 PDT 2026
+[chain A] start 360:base Sun Oct 18 08:13:23 PDT 2026
+[chain A] end 360:base rc=0 Sun Oct 18 08:33:27 PDT 2026
+[chain A] start 360:bil Sun Oct 18 08:33:27 PDT 2026
+[chain A] end 360:bil rc=0 Sun Oct 18 09:16:45 PDT 2026
+[chain A] start 360:pp Sun Oct 18 09:16:45 PDT 2026
+[chain A] end 360:pp rc=0 Sun Oct 18 09:37:23 PDT 2026
+[chain A] start 360:ppc Sun Oct 18 09:37:23 PDT 2026
+[chain A] end 360:ppc rc=0 Sun Oct 18 09:56:44 PDT 2026
+[chain A] ALL DONE Sun Oct 18 09:56:44 PDT 2026

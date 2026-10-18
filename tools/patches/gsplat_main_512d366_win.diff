@@ -1,0 +1,99 @@
+diff --git a/gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGS.h b/gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGS.h
+index 7381bdea..f3ffd315 100644
+--- a/gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGS.h
++++ b/gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGS.h
+@@ -117,7 +117,7 @@ void launch_rasterize_to_pixels_from_world_3dgs_parallel_batch_fwd_kernel(
+     const at::Tensor batch_offsets,    // [num_tiles + 1] int32
+     const at::Tensor bid_to_slot,      // [total_batches] int32
+     const int64_t total_batches,       // scalar; equals batch_offsets[num_tiles]
+-    bool fwd_only,                     // skip exact debug/backward metadata and batch-replay
++    const bool fwd_only, /* APEX-WIN: const matches the .cu definition (MSVC mangles it) */                     // skip exact debug/backward metadata and batch-replay
+     // outputs
+     at::Tensor renders,                     // [..., C, image_height, image_width, channels]
+     at::Tensor alphas,                      // [..., C, image_height, image_width]
+diff --git a/gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGSParallelBatchBwd.cu b/gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGSParallelBatchBwd.cu
+index c0574f65..dffe56d1 100644
+--- a/gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGSParallelBatchBwd.cu
++++ b/gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGSParallelBatchBwd.cu
+@@ -25,6 +25,8 @@
+ #    include <ATen/core/Tensor.h>
+ #    include <ATen/cuda/Atomic.cuh>
+ #    include <ATen/cuda/cub.h>
++#    include <c10/cuda/CUDACachingAllocator.h>
++#    include <cub/cub.cuh>
+ #    include <c10/cuda/CUDAStream.h>
+ #    include <cooperative_groups.h>
+ #    include <cstdint>
+@@ -187,7 +189,11 @@ namespace
+         {
+             return 0;
+         }
+-        return 64u - static_cast<uint32_t>(__builtin_clzll(x - 1));
++        // APEX-WIN: MSVC has no __builtin_clzll; portable bit-length of (x - 1)
++        uint64_t v = x - 1;
++        uint32_t r = 0;
++        while(v) { v >>= 1; ++r; }
++        return r;
+     }
+ } // namespace
+ 
+@@ -231,15 +237,19 @@ at::Tensor compute_bid_to_slot(
+     // Sort by `(batch_round, tile)` while carrying the original tile-major
+     // slot as the value. The sorted values are the launch-index to slot
+     // permutation; no extra scatter is needed.
+-    at::cuda::cub::radix_sort_pairs<int64_t, int32_t>(
++    // APEX-WIN: at::cuda::cub::radix_sort_pairs<int64,int32> resolves to
++    // detail::radix_sort_pairs_impl<int64,4>, which torch_cuda.dll does not export on
++    // Windows (LNK2001). Call cub directly (same pattern as SparseTileLayout.cu).
++    CUB_WRAPPER(
++        cub::DeviceRadixSort::SortPairs,
+         sort_keys.const_data_ptr<int64_t>(),
+         sorted_keys.data_ptr<int64_t>(),
+         sort_values.const_data_ptr<int32_t>(),
+         bid_to_slot.data_ptr<int32_t>(),
+-        total_batches,
+-        /*descending=*/false,
++        static_cast<int64_t>(total_batches),
+         /*begin_bit=*/0,
+-        /*end_bit=*/static_cast<int64_t>(total_bits == 0 ? 1u : total_bits)
++        /*end_bit=*/static_cast<int>(total_bits == 0 ? 1u : total_bits),
++        at::cuda::getCurrentCUDAStream()
+     );
+ 
+     return bid_to_slot;
+diff --git a/gsplat/cuda/csrc/SphericalHarmonicsL1PlusCUDA.cu b/gsplat/cuda/csrc/SphericalHarmonicsL1PlusCUDA.cu
+index 50480e84..77092a14 100644
+--- a/gsplat/cuda/csrc/SphericalHarmonicsL1PlusCUDA.cu
++++ b/gsplat/cuda/csrc/SphericalHarmonicsL1PlusCUDA.cu
+@@ -704,7 +704,8 @@ __global__ void spherical_harmonics_l1_plus_bwd_kernel(
+         return;
+     }
+ 
+-    std::array<opmath_t, MAX_K> acc{};
++    // APEX-WIN: MSVC std::array<T, 0>::operator[] is host-only (DEGREE 0 -> MAX_K 0); plain array, min size 1
++    opmath_t acc[MAX_K > 0 ? MAX_K : 1] = {};
+ 
+     const scalar_t *coeffs_ptr = coeffs + coeff_id * K * D;
+     const uint32_t image_count = packed ? 1 : B * C;
+@@ -730,7 +731,7 @@ __global__ void spherical_harmonics_l1_plus_bwd_kernel(
+             dir,
+             coeffs_ptr,
+             v_colors + output_id * D,
+-            acc.data(),
++            acc,
+             v_means == nullptr && v_viewdirs == nullptr ? nullptr : &v_dir
+         );
+ 
+diff --git a/gsplat/cuda/include/Cameras.cuh b/gsplat/cuda/include/Cameras.cuh
+index 1c07f58c..ecf69832 100644
+--- a/gsplat/cuda/include/Cameras.cuh
++++ b/gsplat/cuda/include/Cameras.cuh
+@@ -779,7 +779,7 @@ struct OrthographicCameraModel
+         }
+ 
+         const auto point = glm::fvec2{ray.x, ray.y} / ray.z;
+-        if(!std::isfinite(point.x) || !std::isfinite(point.y))
++        if(!(fabsf(point.x) <= 3.402823466e+38f) || !(fabsf(point.y) <= 3.402823466e+38f)) // APEX-WIN: MSVC std::isfinite is host-only
+         {
+             return {
+                 glm::fvec2{0.f, 0.f},

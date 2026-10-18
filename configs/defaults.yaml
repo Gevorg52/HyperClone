@@ -73,7 +73,7 @@ training:
   # June 2026 quality stack
   strategy: "mcmc"               # mcmc (better quality + explicit budget) | default
   cap_max: 1000000               # MCMC Gaussian budget (~1M objects, ~3M scenes on 24GB)
-  opacity_reg: 0.01              # opacity regularization (required for MCMC)
+  opacity_reg: 0.0               # opt-in only; 0.01/0.001 destroy many-view MCMC (WP-O3/O5; was 0.01 until 2026-10-17)
   scale_reg: 0.01                # scale regularization (required for MCMC)
   antialiased: true              # Mip-Splatting anti-aliasing
   pose_opt: true                 # SE(3) camera pose refinement during training

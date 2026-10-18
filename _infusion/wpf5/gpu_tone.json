@@ -1,0 +1,106 @@
+{
+ "argv": [
+  "_infusion/wpf5_tone_eval.py",
+  "--data_dir",
+  "_dataset/GPU_V4/apex_images/training/gsplat_prod/data",
+  "--factor",
+  "2",
+  "--arm",
+  "base=_dataset/GPU_V4/apex_images/training/wpf5/base/output/ckpts/ckpt_29999_rank0.pt",
+  "--arm",
+  "bil=_dataset/GPU_V4/apex_images/training/wpf5/bil/output/ckpts/ckpt_29999_rank0.pt",
+  "--arm",
+  "pp=_dataset/GPU_V4/apex_images/training/wpf5/pp/output/ckpts/ckpt_29999_rank0.pt",
+  "--arm",
+  "ppc=_dataset/GPU_V4/apex_images/training/wpf5/ppc/output/ckpts/ckpt_29999_rank0.pt",
+  "--out",
+  "_infusion/wpf5/gpu_tone.json"
+ ],
+ "n_views": 72,
+ "arms": {
+  "base": {
+   "ckpt": "_dataset/GPU_V4/apex_images/training/wpf5/base/output/ckpts/ckpt_29999_rank0.pt",
+   "summary": {
+    "raw_lpips": 0.36888536769482827,
+    "raw_psnr": 24.74390868002643,
+    "cc_lpips": 0.36924458088146317,
+    "cc_psnr": 24.59854657101604,
+    "isp_lpips": null,
+    "isp_psnr": null,
+    "raw_mean_rgb": [
+     0.4912,
+     0.379,
+     0.2798
+    ],
+    "gt_mean_rgb": [
+     0.4892,
+     0.3777,
+     0.2781
+    ]
+   }
+  },
+  "bil": {
+   "ckpt": "_dataset/GPU_V4/apex_images/training/wpf5/bil/output/ckpts/ckpt_29999_rank0.pt",
+   "summary": {
+    "raw_lpips": 0.44932412273354,
+    "raw_psnr": 18.21733843496058,
+    "cc_lpips": 0.44595050397846436,
+    "cc_psnr": 20.70574669933715,
+    "isp_lpips": null,
+    "isp_psnr": null,
+    "raw_mean_rgb": [
+     0.4921,
+     0.3321,
+     0.2029
+    ],
+    "gt_mean_rgb": [
+     0.4892,
+     0.3777,
+     0.2781
+    ]
+   }
+  },
+  "pp": {
+   "ckpt": "_dataset/GPU_V4/apex_images/training/wpf5/pp/output/ckpts/ckpt_29999_rank0.pt",
+   "summary": {
+    "raw_lpips": 0.3714767698612478,
+    "raw_psnr": 24.11485320556475,
+    "cc_lpips": 0.37133195292618537,
+    "cc_psnr": 24.200945020639985,
+    "isp_lpips": 0.36903132746617,
+    "isp_psnr": 24.61217490130335,
+    "raw_mean_rgb": [
+     0.4979,
+     0.3867,
+     0.2888
+    ],
+    "gt_mean_rgb": [
+     0.4892,
+     0.3777,
+     0.2781
+    ]
+   }
+  },
+  "ppc": {
+   "ckpt": "_dataset/GPU_V4/apex_images/training/wpf5/ppc/output/ckpts/ckpt_29999_rank0.pt",
+   "summary": {
+    "raw_lpips": 0.37853775918483734,
+    "raw_psnr": 24.151866420675802,
+    "cc_lpips": 0.3778768496380912,
+    "cc_psnr": 24.206147176128507,
+    "isp_lpips": 0.37455202639102936,
+    "isp_psnr": 24.7827911759729,
+    "raw_mean_rgb": [
+     0.4956,
+     0.3883,
+     0.2928
+    ],
+    "gt_mean_rgb": [
+     0.4892,
+     0.3777,
+     0.2781
+    ]
+   }
+  }
+ }
+}

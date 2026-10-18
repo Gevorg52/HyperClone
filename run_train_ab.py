@@ -32,7 +32,7 @@ def main():
 
     extra = {
         "strategy": "mcmc", "cap_max": args.cap,
-        "opacity_reg": 0.01, "scale_reg": 0.01,
+        "opacity_reg": 0.0, "scale_reg": 0.01,  # opacity_reg was 0.01 pre-2026-10
         "antialiased": True, "pose_opt": True, "pose_opt_lr": 1e-5,
         "coarse_factor": 4, "coarse_until": args.steps // 2,
         "lpips_lambda": 0.2 if args.loss == "lpips" else 0.0,

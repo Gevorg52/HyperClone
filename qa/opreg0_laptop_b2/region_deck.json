@@ -1,0 +1,21 @@
+{
+  "metric": "mean VGG-LPIPS (torchmetrics normalize=True) over every8 held-out views; region = fractional crop box; region_psnr from crop MSE",
+  "region_name": "deck",
+  "box_frac": {
+    "x0": 0.3,
+    "x1": 0.72,
+    "y0": 0.55,
+    "y1": 0.95
+  },
+  "data_dir": "_dataset/Laptop/apex_images/training/gsplat_prod/data",
+  "factor": 2,
+  "arms": {
+    "b2": {
+      "ckpt": "_dataset/Laptop/apex_images/training/opreg0/b2/output/ckpts/ckpt_29999_rank0.pt",
+      "n_views": 38,
+      "full_lpips": 0.27907317994456543,
+      "region_lpips": 0.2406801685298744,
+      "region_psnr": 24.002691477395256
+    }
+  }
+}

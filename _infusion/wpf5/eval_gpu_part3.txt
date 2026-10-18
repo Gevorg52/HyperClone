@@ -1,0 +1,44 @@
+[prune] _dataset\GPU_V4\apex_images\training\wpf5\pp\output\ckpts\ckpt_29999_rank0.pt -> 3000000 gaussians, mean opacity 0.4719, 33.2% below 0.05, 1222 beyond 3x bbox
+[prune] kept 2003742 (66.8%), dropped 996258 -> _dataset\GPU_V4\apex_images\training\wpf5\pp\output\ply\point_cloud_29999_pruned_op05.ply (472.9 MB, 3s)
+[prune] stats -> qa/wpf5_gpu_pp/prune_stats.json
+[QA] scene=wpf5_gpu_pp  split=every8  factor=2  out=qa\wpf5_gpu_pp
+[QA] loading splats: _dataset/GPU_V4/apex_images/training/wpf5/pp/output/ckpts/ckpt_29999_rank0.pt
+[QA] 3,000,000 Gaussians
+[QA] SH degree: rendering 3 (model has 3)
+[Data] 569 images (497 train, 72 test)
+[Data] 123289 SfM points, scene_scale=1.454
+[QA] scoring 72 held-out views
+  [1/72] DSC00730.JPG  obs 100.0%  PSNR 24.78  SSIM 0.8501  LPIPS 0.3578
+  [11/72] DSC00810.JPG  obs 100.0%  PSNR 25.61  SSIM 0.8584  LPIPS 0.3737
+  [21/72] DSC00890.JPG  obs 100.0%  PSNR 26.79  SSIM 0.8761  LPIPS 0.3347
+  [31/72] DSC00970.JPG  obs 100.0%  PSNR 27.36  SSIM 0.8623  LPIPS 0.3502
+  [41/72] DSC01050.JPG  obs 100.0%  PSNR 22.42  SSIM 0.8121  LPIPS 0.3561
+  [51/72] DSC01130.JPG  obs 100.0%  PSNR 24.48  SSIM 0.8452  LPIPS 0.4127
+  [61/72] DSC01210.JPG  obs 100.0%  PSNR 24.48  SSIM 0.8549  LPIPS 0.3601
+  [71/72] DSC01290.JPG  obs 100.0%  PSNR 24.53  SSIM 0.8272  LPIPS 0.3949
+  [72/72] DSC01298.JPG  obs 100.0%  PSNR 26.09  SSIM 0.8645  LPIPS 0.3493
+[QA] running phase-2 scorers: ['crossscore', 'nova', 'tsed', 'raft_warp', 'nvs_sqa', 'flicker']
+  [scorer] crossscore  ok  (167.75s)  -> {'mean': 0.8231779841913117, 'median': 0.8396389484405518, 'n': 72, 'csv': 'qa\\wpf5_gpu_pp\\_scorers\\crossscore_out_apex\\score_summary\\apex\\gaussian.csv', 'maps_dir': 'qa\\wpf5_gpu_pp\\_scorers\\crossscore_out', 'runtime_s': 167.75}
+  [scorer] nova        ok  (53.84s)  -> {'mean': 0.02545135137107637, 'median': 0.01828789710998535, 'checkpoint_loaded': True, 'n': 72, 'runtime_s': 53.84}
+  [scorer] tsed        ok  (3.43s)  -> {'ratio': 1.0, 'n_pairs': 33, 'median_epi_med': 0.1474990298204788, 'mean_matches': 468.57575757575756, 'thresh_px': 2.0, 'runtime_s': 3.43}
+  [scorer] raft_warp   ok  (3.25s)  -> {'mean': 0.013885552331692341, 'median': 0.014572525396943092, 'n_pairs': 33, 'mean_valid_frac': 0.9779537103392861, 'runtime_s': 3.25}
+  [scorer] nvs_sqa     ok  (5.85s)  -> {'jod': -2.3962808781836564, 'feat_dim': 384, 'n_frames': 34, 'runtime_s': 5.85}
+  [scorer] flicker     ok  (0.69s)  -> {'score': 0.9891258110719569, 'mean_mae': 2.772918176651001, 'n_pairs': 15, 'max_motion_frac': 0.0007268387960731132, 'static': True, 'static_max_frac': 0.02, 'runtime_s': 0.69}
+
+[QA] === wpf5_gpu_pp (every8) ===
+  observed area   100.0%
+  masked PSNR     24.115
+  masked SSIM     0.8356
+  masked LPIPS    0.3724  (lower=better)
+  normalize       true   render_sanity ok
+[QA] wrote qa\wpf5_gpu_pp\scorecard.json
+[QA] wrote qa\wpf5_gpu_pp\report.html  (open in a browser)
+[Data] 569 images (497 train, 72 test)
+[Data] 123289 SfM points, scene_scale=1.454
+pp     views=72  full_lpips=0.3725  shiny_lpips=0.3045  shiny_psnr=24.506
+wrote qa/wpf5_gpu_pp/region_shiny.json
+
+model           Gaussians  floater indicators (lower=cleaner; compare vs base)
+
+pp              3,000,000  needle  5.90%  SOR-outlier  0.01%  giant  6.74%  low-opa  17.3%  med-opa 0.334  mean-erank 2.352
+### per-arm only: done pp
