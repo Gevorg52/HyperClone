@@ -1,0 +1,17 @@
+diff --git a/core/training/gsplat_trainer.py b/core/training/gsplat_trainer.py
+index 9fa0da9..1a0b74d 100644
+--- a/core/training/gsplat_trainer.py
++++ b/core/training/gsplat_trainer.py
+@@ -1942,7 +1942,11 @@ def main():
+                         help="MCMC Gaussian budget (VRAM control)")
+     parser.add_argument("--refine_stop_iter", type=int, default=0,
+                         help="0 = strategy default (MCMC 25000, default 15000)")
+-    parser.add_argument("--opacity_reg", type=float, default=0.01)
++    parser.add_argument("--opacity_reg", type=float, default=0.0,
++                        help="Opacity L1 regularizer weight (opt-in). Default 0 since "
++                             "2026-10-17: 0.01 AND 0.001 silently destroy many-view "
++                             "MCMC scenes (WP-O3/O5, DEVELOPER_NOTES section 6). "
++                             "Pre-2026-10 runs used 0.01.")
+     parser.add_argument("--scale_reg", type=float, default=0.01)
+     parser.add_argument("--vis_reg", type=float, default=0.0,
+                         help="Visibility loss: push opacity->0 for Gaussians seen by "

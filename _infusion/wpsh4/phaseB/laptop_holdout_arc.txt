@@ -1,0 +1,37 @@
+# WP-SH4 Phase B contiguous 38-deg azimuth orbit-arc holdout (Laptop)
+# 35 / 304 views (11.51%), azimuth in [0, 38) deg
+frame_0006.jpg
+frame_0007.jpg
+frame_0029.jpg
+frame_0030.jpg
+frame_0031.jpg
+frame_0048.jpg
+frame_0049.jpg
+frame_0050.jpg
+frame_0074.jpg
+frame_0075.jpg
+frame_0076.jpg
+frame_0091.jpg
+frame_0092.jpg
+frame_0098.jpg
+frame_0099.jpg
+frame_0111.jpg
+frame_0112.jpg
+frame_0122.jpg
+frame_0123.jpg
+frame_0132.jpg
+frame_0158.jpg
+frame_0159.jpg
+frame_0160.jpg
+frame_0165.jpg
+frame_0166.jpg
+frame_0167.jpg
+frame_0168.jpg
+frame_0204.jpg
+frame_0228.jpg
+frame_0229.jpg
+frame_0235.jpg
+frame_0236.jpg
+frame_0269.jpg
+frame_0271.jpg
+frame_0272.jpg

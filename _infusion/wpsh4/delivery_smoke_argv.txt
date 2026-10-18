@@ -1,0 +1,1 @@
+python -m core.delivery --ckpt _dataset/Laptop/apex_images/training/wpsh4_smoke/sh4/ckpts/ckpt_4999_rank0.pt --data_dir _dataset/Laptop/apex_images/training/gsplat_prod/data --name wpsh4smoke --factor 4 --out _dataset/Laptop/apex_images/training/wpsh4_smoke/delivery --no_qa --spz --sog_iterations 4

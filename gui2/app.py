@@ -315,7 +315,10 @@ def create_app() -> gr.Blocks:
                     u_qa_data = gr.Textbox(label="COLMAP data dir")
                     with gr.Row():
                         u_qa_factor = gr.Number(value=2, label="factor", precision=0)
-                        u_qa_sh = gr.Number(value=3, label="SH degree", precision=0)
+                        # WP-SH4: "auto" = the model's own degree (3 for every production
+                        # model -> unchanged); a fixed 3 silently truncated degree-4 models
+                        u_qa_sh = gr.Dropdown(["auto", "0", "1", "2", "3", "4"],
+                                              value="auto", label="SH degree")
                     u_qa_btn = gr.Button("Run QA scorecard",
                                          elem_classes="apex-primary")
                     u_qa_md = gr.Markdown("")
@@ -1066,7 +1069,9 @@ def create_app() -> gr.Blocks:
             out_dir = Path(ckpt).parent / "_qa_expert"
             cmd = [sys.executable, os.path.join(str(_REPO), "qa_report.py"),
                    ckpt, data_dir, "--factor", str(int(factor)),
-                   "--sh_degree", str(int(sh)), "--out", str(out_dir), "--seed", "0"]
+                   "--out", str(out_dir), "--seed", "0"]
+            if sh not in (None, "", "auto"):
+                cmd += ["--sh_degree", str(int(sh))]
             env = dict(os.environ)
             env["PYTHONPATH"] = str(_REPO) + os.pathsep + env.get("PYTHONPATH", "")
             r = subprocess.run(cmd, cwd=str(_REPO), env=env, text=True,

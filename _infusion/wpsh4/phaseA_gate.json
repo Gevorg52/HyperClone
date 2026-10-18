@@ -1,0 +1,416 @@
+{
+ "script": "_infusion/wpsh4_phaseA_gate.py",
+ "argv": [
+  "_infusion/wpsh4_phaseA_gate.py"
+ ],
+ "created": "2026-10-17T20:14:25",
+ "versions": {
+  "torch": "2.11.0+cu128",
+  "gsplat": "1.5.3",
+  "spz_bindings": "1.1.0 (nianticlabs/spz @ affd0ec, local build)",
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition"
+ },
+ "kernel": [
+  {
+   "degree": 0,
+   "dirs": "unit",
+   "fwd_max_abs": 0.0,
+   "fwd_ref_max": 1.12159264087677,
+   "dcoeffs_max_abs": 0.0,
+   "ddirs_max_abs": 0.0,
+   "ddirs_rel": 0.0
+  },
+  {
+   "degree": 0,
+   "dirs": "raw",
+   "fwd_max_abs": 0.0,
+   "fwd_ref_max": 1.0771071910858154,
+   "dcoeffs_max_abs": 0.0,
+   "ddirs_max_abs": 0.0,
+   "ddirs_rel": 0.0
+  },
+  {
+   "degree": 1,
+   "dirs": "unit",
+   "fwd_max_abs": 3.5762786865234375e-07,
+   "fwd_ref_max": 2.1689391136169434,
+   "dcoeffs_max_abs": 2.384185791015625e-07,
+   "ddirs_max_abs": 1.255422830581665e-06,
+   "ddirs_rel": 2.6211640147266735e-07
+  },
+  {
+   "degree": 1,
+   "dirs": "raw",
+   "fwd_max_abs": 3.5762786865234375e-07,
+   "fwd_ref_max": 2.4882898330688477,
+   "dcoeffs_max_abs": 2.384185791015625e-07,
+   "ddirs_max_abs": 5.245208740234375e-06,
+   "ddirs_rel": 2.208022351624095e-07
+  },
+  {
+   "degree": 2,
+   "dirs": "unit",
+   "fwd_max_abs": 9.5367431640625e-07,
+   "fwd_ref_max": 3.438488006591797,
+   "dcoeffs_max_abs": 9.5367431640625e-07,
+   "ddirs_max_abs": 2.86102294921875e-06,
+   "ddirs_rel": 2.649740622473473e-07
+  },
+  {
+   "degree": 2,
+   "dirs": "raw",
+   "fwd_max_abs": 7.152557373046875e-07,
+   "fwd_ref_max": 3.8432390689849854,
+   "dcoeffs_max_abs": 5.960464477539062e-07,
+   "ddirs_max_abs": 1.9073486328125e-05,
+   "ddirs_rel": 2.0397766320456867e-07
+  },
+  {
+   "degree": 3,
+   "dirs": "unit",
+   "fwd_max_abs": 1.9073486328125e-06,
+   "fwd_ref_max": 4.943089485168457,
+   "dcoeffs_max_abs": 1.430511474609375e-06,
+   "ddirs_max_abs": 9.5367431640625e-06,
+   "ddirs_rel": 4.276892298094026e-07
+  },
+  {
+   "degree": 3,
+   "dirs": "raw",
+   "fwd_max_abs": 1.430511474609375e-06,
+   "fwd_ref_max": 4.707207202911377,
+   "dcoeffs_max_abs": 1.0728836059570312e-06,
+   "ddirs_max_abs": 4.57763671875e-05,
+   "ddirs_rel": 3.1547824619337916e-07
+  },
+  {
+   "degree": 4,
+   "dirs": "unit",
+   "fwd_max_abs": 3.814697265625e-06,
+   "fwd_ref_max": 5.511478900909424,
+   "dcoeffs_max_abs": 3.814697265625e-06,
+   "ddirs_max_abs": 1.9073486328125e-05,
+   "ddirs_rel": 5.530847033696773e-07
+  },
+  {
+   "degree": 4,
+   "dirs": "raw",
+   "fwd_max_abs": 5.7220458984375e-06,
+   "fwd_ref_max": 5.978204250335693,
+   "dcoeffs_max_abs": 2.5033950805664062e-06,
+   "ddirs_max_abs": 7.05718994140625e-05,
+   "ddirs_rel": 3.314376044727396e-07
+  }
+ ],
+ "rotation": [
+  {
+   "degree": 1,
+   "radiance_max_abs_cuda_fp32": 2.384185791015625e-07,
+   "offblock_max": 0.0,
+   "band_orthogonality_max": 2.220446049250313e-15
+  },
+  {
+   "degree": 2,
+   "radiance_max_abs_cuda_fp32": 5.960464477539062e-07,
+   "offblock_max": 0.0,
+   "band_orthogonality_max": 2.4424906541753444e-15
+  },
+  {
+   "degree": 3,
+   "radiance_max_abs_cuda_fp32": 1.6689300537109375e-06,
+   "offblock_max": 0.0,
+   "band_orthogonality_max": 2.3314683517128287e-15
+  },
+  {
+   "degree": 4,
+   "radiance_max_abs_cuda_fp32": 3.337860107421875e-06,
+   "offblock_max": 0.0,
+   "band_orthogonality_max": 2.886579864025407e-15
+  }
+ ],
+ "smoke": {
+  "sh4": {
+   "argv": "python -m core.training.gsplat_trainer --data_dir _dataset/Laptop/apex_images/training/gsplat_prod/data --data_factor 4 --max_steps 5000 --test_every 8 --strategy mcmc --cap_max 500000 --opacity_reg 0.01 --scale_reg 0.01 --antialiased --seed 0 --save_steps 5000 --sh_degree 4 --result_dir _dataset/Laptop/apex_images/training/wpsh4_smoke/sh4",
+   "exit": "rc=0 wall_s=124",
+   "results_json": {
+    "psnr": 23.348306299582894,
+    "ssim": 0.8329560380232962,
+    "num_gaussians": 500000,
+    "steps": 5000,
+    "strategy": "mcmc",
+    "antialiased": true,
+    "pose_opt": false,
+    "data_factor": 4,
+    "coarse_factor": null
+   },
+   "train_seconds": 113.0,
+   "peak_mem_mb_logged": 2952,
+   "final_it_per_s": 48.7,
+   "ply_bytes": 172002152,
+   "ply_f_rest": 72,
+   "ply_sh_degree": 4
+  },
+  "sh3": {
+   "argv": "python -m core.training.gsplat_trainer --data_dir _dataset/Laptop/apex_images/training/gsplat_prod/data --data_factor 4 --max_steps 5000 --test_every 8 --strategy mcmc --cap_max 500000 --opacity_reg 0.01 --scale_reg 0.01 --antialiased --seed 0 --save_steps 5000 --sh_degree 3 --result_dir _dataset/Laptop/apex_images/training/wpsh4_smoke/sh3",
+   "exit": "rc=0 wall_s=173",
+   "results_json": {
+    "psnr": 23.183028306618493,
+    "ssim": 0.83066168741176,
+    "num_gaussians": 500000,
+    "steps": 5000,
+    "strategy": "mcmc",
+    "antialiased": true,
+    "pose_opt": false,
+    "data_factor": 4,
+    "coarse_factor": null
+   },
+   "train_seconds": 163.1,
+   "peak_mem_mb_logged": 2942,
+   "final_it_per_s": 30.9,
+   "ply_bytes": 118001477,
+   "ply_f_rest": 45,
+   "ply_sh_degree": 3
+  },
+  "trainer_sha256_at_run": "a44a343086bcd28ca6e64209acebaa110d700277bab219d514fed3e4f9fa24e7",
+  "note": "time/VRAM comparison is indicative only: the GPU was shared with another agent's job (nvidia-smi showed ~78 GB / 88% util from it at launch). NOT a quality A/B \u2014 the held-out PSNR in results_json is reported, not judged."
+ },
+ "splat_transform": {
+  "version": "splat-transform v2.7.1 (b42b60c)",
+  "input": "point_cloud_4999.ply",
+  "input_f_rest": 72,
+  "passthrough": {
+   "f_rest": 72,
+   "f_rest_index_min": 0,
+   "f_rest_index_max": 71,
+   "parsed_degree": 4
+  },
+  "filter_h3": {
+   "f_rest": 72,
+   "f_rest_index_min": 0,
+   "f_rest_index_max": 71,
+   "parsed_degree": 4
+  },
+  "filter_h2": {
+   "f_rest": 51,
+   "f_rest_index_min": 0,
+   "f_rest_index_max": 71,
+   "parsed_degree": "INVALID: 17 rest SH coeffs per channel is not (d+1)^2-1 for any d in 0..4"
+  },
+  "filter_h0": {
+   "f_rest": 27,
+   "f_rest_index_min": 45,
+   "f_rest_index_max": 71,
+   "parsed_degree": "INVALID: 9 rest SH coeffs per channel is not (d+1)^2-1 for any d in 0..4"
+  },
+  "sog_from_sh4": {
+   "shN_bands": 3
+  },
+  "filter_h3_changed_any_value": false,
+  "version_note": "back-filled 2026-10-17T20:26:24 by --patch_version (original run captured stdout only; the version string is on stderr). Same installed binary; gate not re-run."
+ },
+ "spz": {
+  "render_views": [
+   0,
+   8,
+   16,
+   24,
+   32,
+   40,
+   48,
+   56,
+   64,
+   72,
+   80,
+   88
+  ],
+  "factor": 4,
+  "rows": [
+   {
+    "model": "sh4",
+    "sh_degree": 4,
+    "n": 500000,
+    "bits": [
+     5,
+     4
+    ],
+    "header": {
+     "magic": "NGSP",
+     "version": 4,
+     "num_points": 499992,
+     "sh_degree": 4,
+     "fractional_bits": 12,
+     "flags": 1
+    },
+    "ply_bytes": 172002152,
+    "dropped_out_of_range": 8,
+    "spz_bytes": 10681747,
+    "ply_over_spz_ratio": 16.102436427299768,
+    "write_seconds": 1.21,
+    "errors": {
+     "means_max": 0.0001220703125,
+     "scales_max_in_range": 0.0312504768371582,
+     "scales_max_incl_clipped": 8.531606674194336,
+     "quat_max_deg": 0.2017411097196981,
+     "alpha_sigmoid_max": 0.0019607916474342346,
+     "sh0_max_in_range": 0.013072192668914795,
+     "shN_max_in_range": 0.06640625,
+     "shN_band1_max_in_range": 0.0351562425494194,
+     "shN_rms": 0.025706570595502853
+    },
+    "clip": {
+     "shN_abs_gt_1_frac": 0.0,
+     "sh0_outside_pm3.33_frac": 0.0006520000169984996,
+     "scale_outside_range_frac": 0.015966666862368584,
+     "pos_outside_pm2048_frac": 6.666666649834951e-06,
+     "shN_abs_p99": 0.1101912260055542
+    },
+    "render_psnr_orig_vs_decoded": {
+     "views": 12,
+     "psnr_mean": 30.408285202728177,
+     "psnr_min": 28.53189975383586
+    }
+   },
+   {
+    "model": "sh4",
+    "sh_degree": 4,
+    "n": 500000,
+    "bits": [
+     8,
+     8
+    ],
+    "header": {
+     "magic": "NGSP",
+     "version": 4,
+     "num_points": 499992,
+     "sh_degree": 4,
+     "fractional_bits": 12,
+     "flags": 1
+    },
+    "ply_bytes": 172002152,
+    "dropped_out_of_range": 8,
+    "spz_bytes": 24128536,
+    "ply_over_spz_ratio": 7.1285780455142405,
+    "write_seconds": 3.22,
+    "errors": {
+     "means_max": 0.0001220703125,
+     "scales_max_in_range": 0.0312504768371582,
+     "scales_max_incl_clipped": 8.531606674194336,
+     "quat_max_deg": 0.2017411097196981,
+     "alpha_sigmoid_max": 0.0019607916474342346,
+     "sh0_max_in_range": 0.013072192668914795,
+     "shN_max_in_range": 0.00390625,
+     "shN_band1_max_in_range": 0.0039062490686774254,
+     "shN_rms": 0.0021349391900002956
+    },
+    "clip": {
+     "shN_abs_gt_1_frac": 0.0,
+     "sh0_outside_pm3.33_frac": 0.0006520000169984996,
+     "scale_outside_range_frac": 0.015966666862368584,
+     "pos_outside_pm2048_frac": 6.666666649834951e-06,
+     "shN_abs_p99": 0.1101912260055542
+    },
+    "render_psnr_orig_vs_decoded": {
+     "views": 12,
+     "psnr_mean": 53.834745901173314,
+     "psnr_min": 52.26886392245201
+    }
+   },
+   {
+    "model": "sh4 -> exact deg-3 twin (PLY)",
+    "ply_bytes": 118001477,
+    "master_ply_bytes": 172002152,
+    "twin_over_master": 0.6860465152784833
+   },
+   {
+    "model": "sh3",
+    "sh_degree": 3,
+    "n": 500000,
+    "bits": [
+     5,
+     4
+    ],
+    "header": {
+     "magic": "NGSP",
+     "version": 4,
+     "num_points": 499997,
+     "sh_degree": 3,
+     "fractional_bits": 12,
+     "flags": 1
+    },
+    "ply_bytes": 118001477,
+    "dropped_out_of_range": 3,
+    "spz_bytes": 10113340,
+    "ply_over_spz_ratio": 11.667903679694344,
+    "write_seconds": 0.88,
+    "errors": {
+     "means_max": 0.0001220703125,
+     "scales_max_in_range": 0.0312502384185791,
+     "scales_max_incl_clipped": 8.50592041015625,
+     "quat_max_deg": 0.22381166540340428,
+     "alpha_sigmoid_max": 0.0019607990980148315,
+     "sh0_max_in_range": 0.013072192668914795,
+     "shN_max_in_range": 0.0664062350988388,
+     "shN_band1_max_in_range": 0.0351562462747097,
+     "shN_rms": 0.026153407990932465
+    },
+    "clip": {
+     "shN_abs_gt_1_frac": 0.0,
+     "sh0_outside_pm3.33_frac": 0.0009239999926649034,
+     "scale_outside_range_frac": 0.019651999697089195,
+     "pos_outside_pm2048_frac": 1.9999999949504854e-06,
+     "shN_abs_p99": 0.1287744641304016
+    },
+    "render_psnr_orig_vs_decoded": {
+     "views": 12,
+     "psnr_mean": 33.69126457628313,
+     "psnr_min": 31.157830713549348
+    }
+   },
+   {
+    "model": "sh3",
+    "sh_degree": 3,
+    "n": 500000,
+    "bits": [
+     8,
+     8
+    ],
+    "header": {
+     "magic": "NGSP",
+     "version": 4,
+     "num_points": 499997,
+     "sh_degree": 3,
+     "fractional_bits": 12,
+     "flags": 1
+    },
+    "ply_bytes": 118001477,
+    "dropped_out_of_range": 3,
+    "spz_bytes": 18303284,
+    "ply_over_spz_ratio": 6.447011203016901,
+    "write_seconds": 1.39,
+    "errors": {
+     "means_max": 0.0001220703125,
+     "scales_max_in_range": 0.0312502384185791,
+     "scales_max_incl_clipped": 8.50592041015625,
+     "quat_max_deg": 0.22381166540340428,
+     "alpha_sigmoid_max": 0.0019607990980148315,
+     "sh0_max_in_range": 0.013072192668914795,
+     "shN_max_in_range": 0.00390625,
+     "shN_band1_max_in_range": 0.0039062462747097015,
+     "shN_rms": 0.0021250497084110975
+    },
+    "clip": {
+     "shN_abs_gt_1_frac": 0.0,
+     "sh0_outside_pm3.33_frac": 0.0009239999926649034,
+     "scale_outside_range_frac": 0.019651999697089195,
+     "pos_outside_pm2048_frac": 1.9999999949504854e-06,
+     "shN_abs_p99": 0.1287744641304016
+    },
+    "render_psnr_orig_vs_decoded": {
+     "views": 12,
+     "psnr_mean": 54.11021492342018,
+     "psnr_min": 52.292594767233645
+    }
+   }
+  ]
+ }
+}

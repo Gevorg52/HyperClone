@@ -11,7 +11,7 @@ same command twice produces a byte-identical scorecard.json (a WP gate requireme
 Usage:
   python qa_report.py <ckpt.pt|ply> <data_dir> [--factor 2]
         [--split every8|wedge:START:END] [--out qa/<scene>/]
-        [--sh_degree 3] [--alpha_thresh 0.3] [--lpips_mode bbox|tiled]
+        [--sh_degree auto] [--alpha_thresh 0.3] [--lpips_mode bbox|tiled]
         [--vis_view_count] [--max_views N] [--thumb 512] [--seed 0]
         [--inject_floaters N] [--blur_sigma S]        # corruption sensitivity check
 
@@ -53,6 +53,9 @@ def load_splats(path: str, device: str) -> dict:
     p = str(path).lower()
     if p.endswith(".ply"):
         return _load_ply(path, device)
+    if p.endswith(".spz"):                       # WP-D2: SPZ v4 (Niantic bindings)
+        from core.spz_io import read_spz
+        return {k: v.to(device).float() for k, v in read_spz(path).items()}
     ck = torch.load(path, map_location=device, weights_only=False)
     sp = ck["splats"] if isinstance(ck, dict) and "splats" in ck else ck
     return {k: v.to(device).float() for k, v in sp.items()}
@@ -219,7 +222,11 @@ def main():
                          "or absolute name-sorted view indices (wedge:131:170)")
     ap.add_argument("--out", default=None, help="output dir (default qa/<scene>/)")
     ap.add_argument("--scene", default=None)
-    ap.add_argument("--sh_degree", type=int, default=3)
+    ap.add_argument("--sh_degree", type=int, default=None,
+                    help="SH degree to render at. Default: the model's own degree (from its "
+                         "shN / f_rest count) — 3 for every production model, so unchanged "
+                         "there; a degree-4 model was previously scored TRUNCATED to 3 "
+                         "(WP-SH4). Pass a lower value to score a truncation on purpose.")
     ap.add_argument("--alpha_thresh", type=float, default=0.3)
     ap.add_argument("--lpips_mode", choices=["bbox", "tiled"], default="bbox")
     ap.add_argument("--vis_view_count", action="store_true",
@@ -291,6 +298,13 @@ def main():
     print(f"[QA] loading splats: {args.ckpt}")
     splats = load_splats(args.ckpt, device)
     print(f"[QA] {splats['means'].shape[0]:,} Gaussians")
+    from core.sh_utils import sh_degree_of
+    model_deg = sh_degree_of(splats)
+    if args.sh_degree is None:
+        args.sh_degree = model_deg
+    elif args.sh_degree > model_deg:
+        ap.error(f"--sh_degree {args.sh_degree} > the model's SH degree {model_deg}")
+    print(f"[QA] SH degree: rendering {args.sh_degree} (model has {model_deg})")
 
     corruption = {}
     if args.inject_floaters > 0:

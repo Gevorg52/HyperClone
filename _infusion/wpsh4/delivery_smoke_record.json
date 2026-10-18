@@ -1,0 +1,95 @@
+{
+  "name": "wpsh4smoke",
+  "scene": "wpsh4smoke",
+  "mode": "full",
+  "argv": [
+    "D:\\REPOS\\HYPERclone\\apex-sfm\\core\\delivery.py",
+    "--ckpt",
+    "_dataset/Laptop/apex_images/training/wpsh4_smoke/sh4/ckpts/ckpt_4999_rank0.pt",
+    "--data_dir",
+    "_dataset/Laptop/apex_images/training/gsplat_prod/data",
+    "--name",
+    "wpsh4smoke",
+    "--factor",
+    "4",
+    "--out",
+    "_dataset/Laptop/apex_images/training/wpsh4_smoke/delivery",
+    "--no_qa",
+    "--spz",
+    "--sog_iterations",
+    "4"
+  ],
+  "ckpt": "_dataset/Laptop/apex_images/training/wpsh4_smoke/sh4/ckpts/ckpt_4999_rank0.pt",
+  "data_dir": "_dataset/Laptop/apex_images/training/gsplat_prod/data",
+  "factor": 4,
+  "started": "2026-10-17 20:15:41",
+  "stages": {
+    "master": {
+      "n": 500000,
+      "sh_degree": 4
+    },
+    "prune": {
+      "n_before": 500000,
+      "n_after": 446316,
+      "removed_low_opacity": 53580,
+      "removed_outliers": 190,
+      "opacity_min": 0.01,
+      "sor_std": 2.0
+    },
+    "sh_truncate_for_splat_transform": {
+      "from": 4,
+      "to": 3
+    },
+    "splat_transform": {
+      "floater_voxel": 0.09893,
+      "actions": [
+        "--filter-nan",
+        "--filter-floaters",
+        "0.09893,0.1,0.004",
+        "--decimate",
+        "60%"
+      ],
+      "n_after": 264989,
+      "sh_degree": 3,
+      "decimate": "60%"
+    }
+  },
+  "robust_scene_scale": 4.946495551275339,
+  "object_center": [
+    -0.07269433051840794,
+    0.04463285795717491,
+    0.24678163676691275
+  ],
+  "refit_enabled": false,
+  "filter_harmonics": 2,
+  "deliverable": {
+    "sog": "_dataset\\Laptop\\apex_images\\training\\wpsh4_smoke\\delivery\\wpsh4smoke_full.sog",
+    "sog_mb": 4.7,
+    "ply": "_dataset\\Laptop\\apex_images\\training\\wpsh4_smoke\\delivery\\wpsh4smoke_full.ply",
+    "ply_mb": 40.28,
+    "n_gaussians": 264989,
+    "sh_degree": 2,
+    "ply_full_sh": {
+      "ply": "_dataset\\Laptop\\apex_images\\training\\wpsh4_smoke\\delivery\\wpsh4smoke_full_sh4.ply",
+      "ply_mb": 153.53,
+      "sh_degree": 4,
+      "n_gaussians": 446316,
+      "source": "pruned master (opacity + SOR prune; no splat-transform reduce/refit)"
+    },
+    "spz": {
+      "path": "_dataset\\Laptop\\apex_images\\training\\wpsh4_smoke\\delivery\\wpsh4smoke_full.spz",
+      "sh_degree": 4,
+      "n": 446316,
+      "sh1_bits": 8,
+      "sh_rest_bits": 8,
+      "bytes": 21610056,
+      "coord_stored": "RUB (our own RDF->RUB flip)",
+      "dropped_out_of_range": 0,
+      "position_limit": 2047.5,
+      "version": 4,
+      "mb": 21.61,
+      "source": "pruned master (delivered path is SH-capped)"
+    }
+  },
+  "seconds_total": 19.4
+}

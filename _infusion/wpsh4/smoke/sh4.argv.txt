@@ -1,0 +1,1 @@
+python -m core.training.gsplat_trainer --data_dir _dataset/Laptop/apex_images/training/gsplat_prod/data --data_factor 4 --max_steps 5000 --test_every 8 --strategy mcmc --cap_max 500000 --opacity_reg 0.01 --scale_reg 0.01 --antialiased --seed 0 --save_steps 5000 --sh_degree 4 --result_dir _dataset/Laptop/apex_images/training/wpsh4_smoke/sh4

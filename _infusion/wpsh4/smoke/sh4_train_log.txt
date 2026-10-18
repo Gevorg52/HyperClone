@@ -1,0 +1,65 @@
+[Train] Seeded RNG with 0
+[Data] 304 images (266 train, 38 test)
+[Data] 93126 SfM points, scene_scale=2.542
+[Init] 93126 Gaussians from SfM points (opacity=0.5)
+[Train] MCMC densification: cap_max=500000, refine_stop=5000
+[Train] Starting 5000 steps, 266 train images
+[Train] strategy=mcmc, antialiased=True, ssim_lambda=0.2, sh_degree=4
+step=100 | loss=0.240543 | psnr=12.56 | #GS=93126 | mem=2952MB | 31.0 it/s | eta=158s
+step=200 | loss=0.184441 | psnr=15.08 | #GS=93126 | mem=2952MB | 30.7 it/s | eta=157s
+step=300 | loss=0.146953 | psnr=17.15 | #GS=93126 | mem=2952MB | 32.0 it/s | eta=147s
+step=400 | loss=0.133576 | psnr=17.67 | #GS=93126 | mem=2952MB | 34.1 it/s | eta=135s
+step=500 | loss=0.115108 | psnr=19.19 | #GS=93126 | mem=2952MB | 36.7 it/s | eta=123s
+step=600 | loss=0.109935 | psnr=19.44 | #GS=97782 | mem=2952MB | 38.3 it/s | eta=115s
+step=700 | loss=0.102828 | psnr=20.25 | #GS=102671 | mem=2952MB | 40.2 it/s | eta=107s
+step=800 | loss=0.102687 | psnr=19.78 | #GS=107804 | mem=2952MB | 41.7 it/s | eta=101s
+step=900 | loss=0.097000 | psnr=20.48 | #GS=113194 | mem=2952MB | 43.0 it/s | eta=95s
+step=1000 | loss=0.091025 | psnr=21.03 | #GS=118853 | mem=2952MB | 44.2 it/s | eta=91s
+step=1100 | loss=0.088785 | psnr=21.26 | #GS=124795 | mem=2952MB | 45.3 it/s | eta=86s
+step=1200 | loss=0.088746 | psnr=21.11 | #GS=131034 | mem=2952MB | 46.2 it/s | eta=82s
+step=1300 | loss=0.081176 | psnr=22.05 | #GS=137585 | mem=2952MB | 47.0 it/s | eta=79s
+step=1400 | loss=0.080356 | psnr=21.96 | #GS=144464 | mem=2952MB | 47.6 it/s | eta=76s
+step=1500 | loss=0.080504 | psnr=21.80 | #GS=151687 | mem=2952MB | 48.3 it/s | eta=73s
+step=1600 | loss=0.079653 | psnr=21.96 | #GS=159271 | mem=2952MB | 48.8 it/s | eta=70s
+step=1700 | loss=0.073847 | psnr=22.74 | #GS=167234 | mem=2952MB | 49.3 it/s | eta=67s
+step=1800 | loss=0.071473 | psnr=23.31 | #GS=175595 | mem=2952MB | 49.8 it/s | eta=64s
+step=1900 | loss=0.075266 | psnr=22.60 | #GS=184374 | mem=2952MB | 50.2 it/s | eta=62s
+step=2000 | loss=0.074648 | psnr=22.80 | #GS=193592 | mem=2952MB | 50.6 it/s | eta=59s
+step=2100 | loss=0.068987 | psnr=23.10 | #GS=203271 | mem=2952MB | 51.0 it/s | eta=57s
+step=2200 | loss=0.072588 | psnr=23.02 | #GS=213434 | mem=2952MB | 51.4 it/s | eta=55s
+step=2300 | loss=0.070434 | psnr=23.35 | #GS=224105 | mem=2952MB | 51.6 it/s | eta=52s
+step=2400 | loss=0.070765 | psnr=22.96 | #GS=235310 | mem=2952MB | 51.9 it/s | eta=50s
+step=2500 | loss=0.066499 | psnr=23.64 | #GS=247075 | mem=2952MB | 52.1 it/s | eta=48s
+step=2600 | loss=0.068359 | psnr=23.53 | #GS=259428 | mem=2952MB | 52.2 it/s | eta=46s
+step=2700 | loss=0.059049 | psnr=24.88 | #GS=272399 | mem=2952MB | 52.4 it/s | eta=44s
+step=2800 | loss=0.063834 | psnr=23.71 | #GS=286018 | mem=2952MB | 52.5 it/s | eta=42s
+step=2900 | loss=0.058776 | psnr=24.38 | #GS=300318 | mem=2952MB | 52.8 it/s | eta=40s
+step=3000 | loss=0.064193 | psnr=23.56 | #GS=315333 | mem=2952MB | 52.9 it/s | eta=38s
+step=3100 | loss=0.063864 | psnr=23.99 | #GS=331099 | mem=2952MB | 52.9 it/s | eta=36s
+step=3200 | loss=0.070252 | psnr=23.03 | #GS=347653 | mem=2952MB | 53.0 it/s | eta=34s
+step=3300 | loss=0.067699 | psnr=23.44 | #GS=365035 | mem=2952MB | 53.0 it/s | eta=32s
+step=3400 | loss=0.063660 | psnr=24.07 | #GS=383286 | mem=2952MB | 53.0 it/s | eta=30s
+step=3500 | loss=0.062497 | psnr=24.38 | #GS=402450 | mem=2952MB | 53.0 it/s | eta=28s
+step=3600 | loss=0.062628 | psnr=23.89 | #GS=422572 | mem=2952MB | 52.9 it/s | eta=26s
+step=3700 | loss=0.070330 | psnr=22.78 | #GS=443700 | mem=2952MB | 52.9 it/s | eta=25s
+step=3800 | loss=0.060270 | psnr=24.10 | #GS=465885 | mem=2952MB | 52.8 it/s | eta=23s
+step=3900 | loss=0.062278 | psnr=23.84 | #GS=489179 | mem=2952MB | 52.7 it/s | eta=21s
+step=4000 | loss=0.058304 | psnr=24.57 | #GS=500000 | mem=2952MB | 52.6 it/s | eta=19s
+step=4100 | loss=0.060325 | psnr=24.11 | #GS=500000 | mem=2952MB | 52.5 it/s | eta=17s
+step=4200 | loss=0.060419 | psnr=24.59 | #GS=500000 | mem=2952MB | 52.4 it/s | eta=15s
+step=4300 | loss=0.057462 | psnr=24.22 | #GS=500000 | mem=2952MB | 52.2 it/s | eta=13s
+step=4400 | loss=0.062856 | psnr=24.02 | #GS=500000 | mem=2952MB | 52.1 it/s | eta=12s
+step=4500 | loss=0.059726 | psnr=24.21 | #GS=500000 | mem=2952MB | 52.0 it/s | eta=10s
+step=4600 | loss=0.060938 | psnr=24.26 | #GS=500000 | mem=2952MB | 51.9 it/s | eta=8s
+step=4700 | loss=0.057953 | psnr=24.83 | #GS=500000 | mem=2952MB | 51.8 it/s | eta=6s
+step=4800 | loss=0.056916 | psnr=24.61 | #GS=500000 | mem=2952MB | 51.7 it/s | eta=4s
+step=4900 | loss=0.056460 | psnr=24.57 | #GS=500000 | mem=2952MB | 51.0 it/s | eta=2s
+step=5000 | loss=0.056420 | psnr=24.37 | #GS=500000 | mem=2952MB | 48.7 it/s | eta=0s
+[Checkpoint] Saved ckpt_4999_rank0.pt
+[PLY] Saved point_cloud_4999.ply
+
+[Eval] Running on 38 test images...
+[Eval] PSNR=23.35 SSIM=0.8330
+[Stats] Written to _dataset\Laptop\apex_images\training\wpsh4_smoke\sh4\stats\results.json
+
+[Done] Training complete in 113.0s

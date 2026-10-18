@@ -21,8 +21,9 @@ What has to move, and why each one is easy to get wrong:
               direction, so rotating the scene rotates every Gaussian's view-dependent lobe.
               Leaving them alone silently breaks all view-dependent shading (specular
               highlights and lighting slide across surfaces as you orbit). Band 0 is
-              rotation-invariant; bands 1..3 must each be multiplied by a (2l+1)x(2l+1)
-              rotation matrix.
+              rotation-invariant; bands 1..L must each be multiplied by a (2l+1)x(2l+1)
+              rotation matrix. L (0..4) is read from the model itself (f_rest count) —
+              WP-SH4: it used to be hard-coded to 3.
   opacity     unchanged (scalar).
 
 SH ROTATION — how, and why this way. Each band l spans a (2l+1)-dimensional space that is
@@ -33,10 +34,15 @@ rather than by hand-implementing Wigner-D / Ivanic-Ruedenberg recursions:
     write  Y_m(R^T u) = sum_n D[n, m] Y_n(u)          =>   c' = D c
     solve  A D = B   with   A[i, n] = Y_n(u_i),  B[i, m] = Y_m(R^T u_i)
 
-over many well-spread sample directions u_i (Fibonacci sphere), in float64. The basis Y is
-evaluated with **gsplat's own `spherical_harmonics`**, so the result is in gsplat's exact SH
-convention by construction — there is no separate convention to get wrong. D comes out
-block-diagonal per band (verified in the tests), which is itself a correctness check.
+over many well-spread sample directions u_i (Fibonacci sphere), in float64. This IS the
+real-SH Wigner-D matrix (the band representation of R), obtained numerically; it is generic in
+the degree. The basis Y is gsplat's own SH basis: its float64 torch oracle
+`gsplat.cuda._torch_impl._eval_sh_bases_fast` (WP-SH4: `tests/test_sh_degree4.py` proves the
+CUDA kernel equals it to fp32 tolerance at degrees 0..4, and that the band-4 basis is
+orthonormal), so the result is in the rasterizer's exact SH convention by construction. The
+oracle runs on CPU in float64, so D is exact to ~1e-12 and needs no GPU. D comes out
+block-diagonal per band and orthogonal per band, and D(R1 R2) = D(R1) D(R2) — all three are
+checked in the tests.
 
   python tools/align_ply.py --ply run/ply/point_cloud_29999.ply \
       --data_dir _dataset/360/train/wpo5_theater_027_8k \
@@ -56,31 +62,42 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.alignment import _rotation_between_vectors  # noqa: E402  (pure math, reused)
+from core.sh_utils import sh_degree_of  # noqa: E402
 from tools.prune_ply import read_ckpt, read_gsplat_ply, splat_stats  # noqa: E402
 
+# Default degree for the helper functions' signatures only. The transform itself derives the
+# degree from the model (`sh_degree_of`), so a degree-4 (72 f_rest) PLY rotates bands 1..4.
 SH_DEGREE = 3
-SH_K = (SH_DEGREE + 1) ** 2
 
 
 # ---------------------------------------------------------------------------
 # 1. spherical-harmonic rotation
 # ---------------------------------------------------------------------------
 
-def fibonacci_sphere(n: int, device) -> torch.Tensor:
+def fibonacci_sphere(n: int, device, dtype=torch.float32) -> torch.Tensor:
     i = torch.arange(n, dtype=torch.float64) + 0.5
     phi = torch.acos(1.0 - 2.0 * i / n)
     theta = np.pi * (1.0 + 5.0 ** 0.5) * i
     return torch.stack([torch.cos(theta) * torch.sin(phi),
                         torch.sin(theta) * torch.sin(phi),
-                        torch.cos(phi)], dim=-1).to(device).float()
+                        torch.cos(phi)], dim=-1).to(device=device, dtype=dtype)
 
 
 def sh_basis(dirs: torch.Tensor, degree: int = SH_DEGREE) -> torch.Tensor:
-    """(M, K) matrix of gsplat's real-SH basis evaluated at `dirs`.
+    """(M, K) matrix of gsplat's real-SH basis evaluated at `dirs` (any dtype/device).
 
-    Evaluated through `gsplat.spherical_harmonics` itself (one-hot coefficients, K calls) so
-    the basis convention cannot drift from the rasterizer's.
+    gsplat's torch oracle (`_eval_sh_bases_fast`, the same Sloan closed form the CUDA kernel
+    implements; equality is a unit test). Directions are normalised first, as the kernel does.
     """
+    from gsplat.cuda._torch_impl import _eval_sh_bases_fast
+
+    d = dirs / dirs.norm(dim=-1, keepdim=True)
+    return _eval_sh_bases_fast((degree + 1) ** 2, d)
+
+
+def sh_basis_cuda(dirs: torch.Tensor, degree: int = SH_DEGREE) -> torch.Tensor:
+    """Same basis through the CUDA kernel `gsplat.spherical_harmonics` (one-hot coeffs, K
+    calls). Used by the tests as the cross-check of `sh_basis`."""
     import gsplat
 
     k = (degree + 1) ** 2
@@ -94,15 +111,17 @@ def sh_basis(dirs: torch.Tensor, degree: int = SH_DEGREE) -> torch.Tensor:
 
 def sh_rotation_matrix(R: np.ndarray, degree: int = SH_DEGREE, samples: int = 512,
                        device=None) -> torch.Tensor:
-    """(K, K) block-diagonal matrix D with c' = D @ c for a world rotation R."""
-    device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    """(K, K) block-diagonal matrix D with c' = D @ c for a world rotation R (float64).
+
+    `device` is accepted for backward compatibility; the solve runs on CPU in float64.
+    """
     k = (degree + 1) ** 2
-    u = fibonacci_sphere(samples, device)
-    Rt = torch.as_tensor(R, dtype=torch.float64, device=device)
+    u = fibonacci_sphere(samples, "cpu", torch.float64)
+    Rt = torch.as_tensor(R, dtype=torch.float64)
     # rows of (u @ R) are R^T u  ->  (R^T u)_i = sum_j R_ji u_j
-    u_rot = (u.double() @ Rt).float()
-    A = sh_basis(u, degree).double()
-    B = sh_basis(u_rot, degree).double()
+    u_rot = u @ Rt
+    A = sh_basis(u, degree)
+    B = sh_basis(u_rot, degree)
     D = torch.zeros(k, k, dtype=torch.float64, device=device)
     for band in range(degree + 1):
         s, e = band * band, (band + 1) ** 2
@@ -112,7 +131,7 @@ def sh_rotation_matrix(R: np.ndarray, degree: int = SH_DEGREE, samples: int = 51
 
 def rotate_sh(sh: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
     """sh: (N, K, 3) -> (N, K, 3), applying c' = D c independently per colour channel."""
-    return torch.einsum("ij,njc->nic", D.float().to(sh.device), sh)
+    return torch.einsum("ij,njc->nic", D.to(device=sh.device, dtype=sh.dtype), sh)
 
 
 # ---------------------------------------------------------------------------
@@ -350,10 +369,9 @@ def apply_to_splats(splats: dict, T: dict, device=None) -> dict:
     out["scales"] = splats["scales"] + float(np.log(s))
     out["quats"] = quat_left_multiply(rotmat_to_quat_wxyz(R), splats["quats"])
     out["opacities"] = splats["opacities"].clone()
-    D = sh_rotation_matrix(R, SH_DEGREE, device=device).cpu()
+    degree = sh_degree_of(splats)                                  # raises on a bad count
+    D = sh_rotation_matrix(R, degree)
     sh = torch.cat([splats["sh0"], splats["shN"]], dim=1)          # (N, K, 3)
-    if sh.shape[1] != SH_K:
-        raise ValueError(f"expected {SH_K} SH coefficients, got {sh.shape[1]}")
     sh = rotate_sh(sh, D)
     out["sh0"], out["shN"] = sh[:, :1], sh[:, 1:]
     return out
@@ -373,8 +391,11 @@ def transform_camera(c2w: np.ndarray, T: dict) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 def verify(splats: dict, aligned: dict, data: dict, T: dict, n_views: int,
-           device, sh_degree: int = SH_DEGREE) -> dict:
+           device, sh_degree: int = None) -> dict:
     from core.training.gsplat_trainer import load_image, render_splats
+
+    if sh_degree is None:
+        sh_degree = sh_degree_of(splats)                           # render ALL bands
 
     src = {k: v.to(device) for k, v in splats.items()}
     dst = {k: v.to(device) for k, v in aligned.items()}

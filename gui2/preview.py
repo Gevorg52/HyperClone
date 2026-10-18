@@ -160,7 +160,8 @@ def render_strip(ckpt_path: str, data_dir: str, out_png: str, step: int,
 
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
     splats = _load_ckpt_splats(ckpt_path, device)
-    sh_degree = int((-1 + (1 + 4 * (1 + splats["shN"].shape[1])) ** 0.5) / 2)
+    from core.sh_utils import sh_degree_of
+    sh_degree = sh_degree_of(splats)              # exact for 0..4 (WP-SH4)
 
     data = load_colmap_data(data_dir, factor=factor, test_every=test_every,
                             normalize=True)
@@ -258,22 +259,15 @@ def _compose_strip(tiles: list[np.ndarray], step: int, meta: dict,
 # ---------------------------------------------------------------------------
 
 def _ply_sh_degree(ply_path: str) -> int:
-    """SH degree from a PLY header (count f_rest_* props). Reads only the header."""
-    n_rest = 0
+    """SH degree from a PLY header (count f_rest_* props). Reads only the header.
+
+    Exact for degrees 0..4 (72 f_rest = 4) via core.sh_utils; an unreadable header still
+    falls back to 3 as before (the caller only uses this to decide whether to cap at 2)."""
+    from core.sh_utils import ply_sh_degree
     try:
-        with open(ply_path, "rb") as f:
-            for _ in range(400):
-                line = f.readline().decode("ascii", "replace").strip()
-                if line.startswith("property") and "f_rest_" in line:
-                    n_rest += 1
-                if line == "end_header" or not line:
-                    break
+        return ply_sh_degree(ply_path)
     except Exception:
         return 3
-    rest = n_rest // 3
-    total = rest + 1
-    deg = int(round(total ** 0.5)) - 1
-    return max(0, deg)
 
 
 def export_viewer_sog(ckpt_path: str, ply_dir: str, out_sog: str,
@@ -307,12 +301,24 @@ def export_viewer_sog(ckpt_path: str, ply_dir: str, out_sog: str,
         export_ply(splats, tmp_ply)
         src_ply = tmp_ply
 
+    # before the degree>3 truncation below, which writes its temp PLY next to out_sog
+    Path(out_sog).parent.mkdir(parents=True, exist_ok=True)
     actions = []
-    if _ply_sh_degree(src_ply) > 2:          # SH2 quick profile
+    src_deg = _ply_sh_degree(src_ply)
+    if src_deg > 3:
+        # WP-SH4: splat-transform v2.7.1 `--filter-harmonics` assumes the degree-3 f_rest
+        # layout (no-op at 3, invalid f_rest counts at 2/0 on a 72-f_rest PLY) -> truncate
+        # exactly ourselves first.
+        from core.sh_utils import truncate_ply_file
+        sh2_ply = str(Path(out_sog).with_suffix(".sh2.ply"))
+        truncate_ply_file(src_ply, sh2_ply, 2)
+        if tmp_ply and os.path.isfile(tmp_ply):
+            os.remove(tmp_ply)
+        src_ply = tmp_ply = sh2_ply
+    elif src_deg > 2:                        # SH2 quick profile
         actions += ["--filter-harmonics", "2"]
     actions += ["--morton-order"]
 
-    Path(out_sog).parent.mkdir(parents=True, exist_ok=True)
     run_splat_transform(src_ply, out_sog, actions, gpu=gpu, iterations=iterations)
 
     if tmp_ply and os.path.isfile(tmp_ply):
