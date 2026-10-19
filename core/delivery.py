@@ -204,11 +204,15 @@ def mask_in_render_frame(data: dict, idx: int):
 
 def vote_object(splats: dict, data: dict, device: str, *, mask_thresh: float,
                 vote_frac: float, min_views: int, stride: int = 1,
-                near_plane: float = 0.01) -> tuple[torch.Tensor, dict]:
+                near_plane: float = 0.01, horizon_vote_frac: float = 0.0,
+                horizon_quantile: float = 0.10) -> tuple[torch.Tensor, dict]:
     """Project every Gaussian center into the training views that observe it and
     keep those landing inside the object mask in >= vote_frac of those views.
 
-    Faithful to val_splatsure's projection loop (fully_fused_projection, eps2d=0).
+    When horizon_vote_frac > 0, also enforces a second visual-hull pass over the
+    lowest-elevation / smallest-apparent-area side views (bottom horizon_quantile
+    of valid mask coverage), where any pedestal/book/table beneath a concave object
+    separates vertically from the object in 2D.
     Returns (keep bool (N,), stats dict)."""
     from gsplat.cuda._wrapper import fully_fused_projection
 
@@ -224,10 +228,14 @@ def vote_object(splats: dict, data: dict, device: str, *, mask_thresh: float,
 
     tr = sorted(int(i) for i in data["train_indices"])[::max(1, stride)]
     used = 0
+    view_areas: list[tuple[float, int]] = []
     for n, idx in enumerate(tr):
         m = mask_in_render_frame(data, idx)
         if m is None:
             continue
+        area_frac = float((m > mask_thresh).mean())
+        if area_frac >= 0.02:
+            view_areas.append((area_frac, idx))
         cid = data["camera_ids"][idx]
         K = torch.from_numpy(np.asarray(data["Ks_dict"][cid])).float().to(device)[None]
         W, H = data["imsize_dict"][cid]
@@ -260,11 +268,57 @@ def vote_object(splats: dict, data: dict, device: str, *, mask_thresh: float,
 
     frac = inside / observed.clamp(min=1.0)
     keep = (observed >= min_views) & (frac >= vote_frac)
+    n_kept_all = int(keep.sum())
+    horizon_used = 0
+    if horizon_vote_frac > 0.0 and len(view_areas) >= 20:
+        view_areas.sort(key=lambda t: t[0])
+        n_hor = max(10, int(round(len(view_areas) * horizon_quantile)))
+        hor_indices = [idx for _, idx in view_areas[:n_hor]]
+        inside_h = torch.zeros(N, device=device)
+        observed_h = torch.zeros(N, device=device)
+        for idx in hor_indices:
+            m = mask_in_render_frame(data, idx)
+            if m is None:
+                continue
+            cid = data["camera_ids"][idx]
+            K = torch.from_numpy(np.asarray(data["Ks_dict"][cid])).float().to(device)[None]
+            W, H = data["imsize_dict"][cid]
+            vm = torch.linalg.inv(
+                torch.from_numpy(data["camtoworlds"][idx]).float().to(device))[None]
+            with torch.no_grad():
+                out = fully_fused_projection(
+                    means, None, quats, scales, vm, K, int(W), int(H),
+                    eps2d=0.0, near_plane=near_plane, far_plane=1e10, packed=False,
+                    opacities=opac)
+                radii = out[0][0]
+                means2d = out[1][0]
+                if radii.ndim == 2:
+                    radii = radii.max(dim=-1).values
+                vis = radii > 0
+                u = means2d[:, 0].round().long().clamp(0, int(W) - 1)
+                v = means2d[:, 1].round().long().clamp(0, int(H) - 1)
+                mt = torch.from_numpy(m).to(device)
+                mval = mt[v, u]
+                observed_h += vis.float()
+                inside_h += (vis & (mval > mask_thresh)).float()
+            horizon_used += 1
+        min_h_views = min(5, max(2, horizon_used // 3))
+        frac_h = inside_h / observed_h.clamp(min=1.0)
+        keep_h = (observed_h >= min_h_views) & (frac_h >= horizon_vote_frac)
+        keep = keep & keep_h
+        print(f"  [vote-horizon] {horizon_used} lowest-elevation side views "
+              f"(vote_frac>={horizon_vote_frac}): {n_kept_all:,} -> {int(keep.sum()):,} "
+              f"(carved {n_kept_all - int(keep.sum()):,} pedestal/under-object Gaussians)",
+              flush=True)
+
     stats = {
         "n_total": N,
+        "n_kept_all_pass": n_kept_all,
         "n_kept": int(keep.sum()),
         "kept_pct": round(100.0 * int(keep.sum()) / max(N, 1), 2),
         "views_used": used,
+        "horizon_views_used": horizon_used,
+        "horizon_vote_frac": horizon_vote_frac,
         "mask_thresh": mask_thresh,
         "vote_frac": vote_frac,
         "min_views": min_views,
@@ -367,7 +421,9 @@ def self_refit(reduced_ckpt: str, data_dir: str, result_dir: str, *, factor: int
     if erank_lambda > 0:
         cmd += ["--erank_lambda", str(erank_lambda), "--erank_start", "1"]
     if lpips_lambda > 0:
-        cmd += ["--lpips_lambda", str(lpips_lambda), "--lpips_gated", "--lpips_start", "1"]
+        lp_patch = 768 if int(factor) == 1 else 512
+        cmd += ["--lpips_lambda", str(lpips_lambda), "--lpips_gated",
+                "--lpips_start", "1", "--lpips_patch", str(lp_patch), "--lpips_bf16"]
     if object_masked:
         cmd += ["--rgb_object_masked"]
         if alpha_loss_lambda > 0:
@@ -518,7 +574,7 @@ def ensure_masks(data_dir: str, factor: int, mask_dir: str | None,
     still-missing stems are filled by BiRefNet). Without --mask_dir the behaviour is
     unchanged: reuse a COMPLETE dst, else --gen_masks, else error.
     """
-    dst = os.path.join(data_dir, f"masks_{factor}")
+    dst = os.path.join(data_dir, "masks" if int(factor) <= 1 else f"masks_{factor}")
     os.makedirs(dst, exist_ok=True)
     stems = [os.path.splitext(n)[0] for n in image_names]
 
@@ -579,6 +635,12 @@ def ensure_masks(data_dir: str, factor: int, mask_dir: str | None,
     if have >= len(stems):
         print(f"[masks] {have}/{len(stems)} present in {dst}")
         return dst
+    if int(factor) == 1:
+        alt_dst = os.path.join(data_dir, "masks")
+        have_alt = sum(os.path.isfile(os.path.join(alt_dst, s + ".png")) for s in stems)
+        if have_alt >= len(stems):
+            print(f"[masks] {have_alt}/{len(stems)} present in {alt_dst}")
+            return alt_dst
     if gen_masks:
         filled = _birefnet_fill(list(image_paths), stems)
         print(f"[masks] generated {filled}/{len(stems)} BiRefNet masks -> {dst}")
@@ -627,13 +689,18 @@ def main():
     ap.add_argument("--vote_min_views", type=int, default=4,
                     help="require a Gaussian be observed by >= this many views to keep it")
     ap.add_argument("--vote_stride", type=int, default=1, help="subsample voting views")
+    ap.add_argument("--vote_horizon_frac", type=float, default=0.85,
+                    help="second-stage visual-hull vote threshold across the lowest-elevation "
+                         "10%% side views to carve pedestals/tables beneath concave objects "
+                         "(0 = off; default 0.85)")
     # prune
     ap.add_argument("--opacity_min", type=float, default=0.01)
     ap.add_argument("--sor_k", type=int, default=8)
     ap.add_argument("--sor_std", type=float, default=2.0)
-    ap.add_argument("--prune_tidi", action="store_true", default=False,
-                    help="run TIDI cross-view evidence + isolation pruner instead of basic "
-                         "opacity+SOR prune (WP-C3, default OFF)")
+    ap.add_argument("--prune_tidi", action=argparse.BooleanOptionalAction, default=None,
+                    help="run TIDI cross-view evidence + isolation pruner (pre- and post-refit) "
+                         "instead of basic opacity+SOR prune (default: ON for --extract_object, "
+                         "OFF for full-scene)")
     ap.add_argument("--tidi_data_dir", type=str, default=None,
                     help="COLMAP data dir for TIDI cross-view scoring (default: --data_dir)")
     ap.add_argument("--tidi_data_factor", type=int, default=4,
@@ -651,8 +718,9 @@ def main():
                          "(default: ON for --extract_object, OFF for full-scene)")
     ap.add_argument("--cluster_res_frac", type=float, default=0.01,
                     help="cluster voxel resolution as fraction of robust scene diagonal")
-    ap.add_argument("--decimate", default="60%", help="target count for splat-transform "
-                    "--decimate (keeps N or N%%); e.g. 60%% or 1500000")
+    ap.add_argument("--decimate", default=None, help="target count for splat-transform "
+                    "--decimate (keeps N or N%%); default: OFF for --extract_object "
+                    "(voting+TIDI already reduces count by ~80%%), '60%%' for full-scene")
     ap.add_argument("--no_decimate", action="store_true")
     ap.add_argument("--filter_harmonics", type=int, default=None, choices=[0, 1, 2, 3],
                     help="drop SH bands above this at final export. Default: 3 for "
@@ -667,8 +735,8 @@ def main():
                          "pruning), OFF for full-scene (WP-D1 finding: decimation is "
                          "near-lossless and the L1+SSIM refit trades LPIPS for PSNR on "
                          "the LPIPS-tuned master — unfaithful). Override explicitly.")
-    ap.add_argument("--alpha_loss_lambda", type=float, default=0.1,
-                    help="object-refit background-alpha killer (extract mode)")
+    ap.add_argument("--alpha_loss_lambda", type=float, default=0.5,
+                    help="object-refit background-alpha killer (extract mode, default 0.5)")
     ap.add_argument("--sog_iterations", type=int, default=15, help="SOG SH compression iters")
     # SPZ v4 (WP-D2) — default OFF
     ap.add_argument("--spz", action="store_true",
@@ -731,7 +799,7 @@ def main():
         keep, vstats = vote_object(
             splats, data, device, mask_thresh=args.vote_mask_thresh,
             vote_frac=args.vote_frac, min_views=args.vote_min_views,
-            stride=args.vote_stride)
+            stride=args.vote_stride, horizon_vote_frac=args.vote_horizon_frac)
         print(f"[extract] voting kept {vstats['n_kept']:,}/{vstats['n_total']:,} "
               f"({vstats['kept_pct']}%)")
         rec["stages"]["vote"] = vstats
@@ -739,8 +807,9 @@ def main():
                             keep.to(device))
 
     # ---- prune ---------------------------------------------------------------
+    do_prune_tidi = args.prune_tidi if args.prune_tidi is not None else args.extract_object
     tidi_dir = args.tidi_data_dir or args.data_dir
-    if args.prune_tidi and tidi_dir:
+    if do_prune_tidi and tidi_dir:
         from tools.prune_tidi import TidiConfig, prune_ckpt_tidi
         tidi_cfg = TidiConfig.from_preset(args.tidi_mode)
         tidi_src = args.ckpt
@@ -804,8 +873,11 @@ def main():
         actions += ["--filter-cluster", f"{cres},0.999,0.1",
                     "--seed-pos", f"{ocenter[0]},{ocenter[1]},{ocenter[2]}"]
         rec["stages"].setdefault("splat_transform", {})["cluster_res"] = cres
-    if not args.no_decimate:
-        actions += ["--decimate", args.decimate]
+    decimate_val = None if args.no_decimate else (
+        args.decimate if args.decimate is not None else (None if args.extract_object else "60%")
+    )
+    if decimate_val is not None:
+        actions += ["--decimate", decimate_val]
     reduced_ply = str(work / "reduced.ply")
     # summary of the pruned model first (WP-D1 gotcha: run -m before filtering)
     try:
@@ -822,7 +894,7 @@ def main():
     rec["stages"].setdefault("splat_transform", {})
     rec["stages"]["splat_transform"].update(
         {"actions": actions, "n_after": n_reduced, "sh_degree": sh_reduced,
-         "decimate": (None if args.no_decimate else args.decimate)})
+         "decimate": decimate_val})
 
     # ---- self-refit ----------------------------------------------------------
     do_refit = args.refit if args.refit is not None else args.extract_object
@@ -850,7 +922,7 @@ def main():
                                   "alpha_loss_lambda": (args.alpha_loss_lambda
                                                         if args.extract_object else 0.0),
                                   "seconds": round(time.time()-t_ref, 1)}
-        if args.prune_tidi and tidi_dir:
+        if do_prune_tidi and tidi_dir:
             from tools.prune_tidi import TidiConfig, prune_ckpt_tidi
             tidi_cfg_post = TidiConfig.from_preset(args.tidi_mode)
             refit_ckpt_pt = os.path.join(refit_dir, "ckpts", f"ckpt_{args.refit_steps - 1}_rank0.pt")

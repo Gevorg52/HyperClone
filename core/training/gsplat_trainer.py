@@ -775,13 +775,18 @@ class Prefetcher:
             return batch
         return self.q.get()
 
-    def close(self):
+    def close(self, free_vram: bool = False):
         self._stop.set()
         try:
             while True:
                 self.q.get_nowait()
         except queue.Empty:
             pass
+        if free_vram:
+            self.data.pop("_gpu_u8_cache", None)
+            self.data.pop("_u8_cache", None)
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
 
 # ---------------------------------------------------------------------------
@@ -888,6 +893,7 @@ class CameraOptModule(torch.nn.Module):
 # ---------------------------------------------------------------------------
 
 _SSIM_WIN_CACHE: dict[tuple, torch.Tensor] = {}
+_SSIM_SEP_CACHE: dict[tuple, tuple[torch.Tensor, torch.Tensor]] = {}
 
 
 def _fspecial_gauss(size: int, sigma: float, device: torch.device,
@@ -904,6 +910,21 @@ def _fspecial_gauss(size: int, sigma: float, device: torch.device,
     return w
 
 
+def _fspecial_gauss_1d(size: int, sigma: float, device: torch.device,
+                       dtype: torch.dtype = torch.float32) -> tuple[torch.Tensor, torch.Tensor]:
+    key = (size, sigma, device, dtype)
+    pair = _SSIM_SEP_CACHE.get(key)
+    if pair is None:
+        coords = torch.arange(size, dtype=dtype, device=device) - size // 2
+        g = torch.exp(-(coords ** 2) / (2 * sigma ** 2))
+        g = g / g.sum()
+        wh = g.view(1, 1, size, 1).expand(3, 1, size, 1).contiguous()
+        ww = g.view(1, 1, 1, size).expand(3, 1, 1, size).contiguous()
+        pair = (wh, ww)
+        _SSIM_SEP_CACHE[key] = pair
+    return pair
+
+
 def ssim(
     img1: torch.Tensor,
     img2: torch.Tensor,
@@ -912,24 +933,24 @@ def ssim(
     C2: float = 0.03 ** 2,
     return_map: bool = False,
 ) -> torch.Tensor:
-    """Compute SSIM between two images. Input: (B, C, H, W) in [0, 1].
+    """Compute SSIM between two images using separable 1D Gaussian filters. Input: (B, C, H, W) in [0, 1].
 
     return_map=True returns the per-pixel SSIM map (B, C, H, W) instead of its mean, so a
     caller can average it over a validity mask (--loss_mask) rather than over the frame.
     """
-    window = _fspecial_gauss(window_size, 1.5, img1.device, img1.dtype)
+    wh, ww = _fspecial_gauss_1d(window_size, 1.5, img1.device, img1.dtype)
     pad = window_size // 2
 
-    mu1 = F.conv2d(img1, window, padding=pad, groups=3)
-    mu2 = F.conv2d(img2, window, padding=pad, groups=3)
+    mu1 = F.conv2d(F.conv2d(img1, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3)
+    mu2 = F.conv2d(F.conv2d(img2, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3)
 
-    mu1_sq = mu1 ** 2
-    mu2_sq = mu2 ** 2
+    mu1_sq = mu1 * mu1
+    mu2_sq = mu2 * mu2
     mu1_mu2 = mu1 * mu2
 
-    sigma1_sq = F.conv2d(img1 * img1, window, padding=pad, groups=3) - mu1_sq
-    sigma2_sq = F.conv2d(img2 * img2, window, padding=pad, groups=3) - mu2_sq
-    sigma12 = F.conv2d(img1 * img2, window, padding=pad, groups=3) - mu1_mu2
+    sigma1_sq = F.conv2d(F.conv2d(img1 * img1, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3) - mu1_sq
+    sigma2_sq = F.conv2d(F.conv2d(img2 * img2, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3) - mu2_sq
+    sigma12 = F.conv2d(F.conv2d(img1 * img2, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3) - mu1_mu2
 
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / (
         (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2)
@@ -1419,7 +1440,8 @@ def train(args):
     # applied to the RENDER during training only (dropped at inference). Absorbs
     # per-image exposure/WB drift so the canonical Gaussians converge to a
     # consistent radiance instead of spawning exposure-compensating floaters.
-    bil_grids = bil_opt = _bil_slice = _bil_tv = None
+    bil_grids = bil_opt = _bil_slice = _bil_tv = bil_identity = None
+    bil_grid_xy_cache: dict[tuple[int, int], torch.Tensor] = {}
     train_pos = {}
     if args.bilateral_grid:
         try:  # runs as a module (import) or as a subprocess script (bare name)
@@ -1431,9 +1453,10 @@ def train(args):
                 BilateralGrid, slice as _bil_slice, total_variation_loss as _bil_tv,
             )
         bil_grids = BilateralGrid(num_train, grid_X=16, grid_Y=16, grid_W=8).to(device)
-        bil_opt = torch.optim.Adam(bil_grids.parameters(), lr=2e-3, eps=1e-15)
+        bil_identity = bil_grids.grids[:1].detach().clone()
+        bil_opt = torch.optim.Adam(bil_grids.parameters(), lr=2e-3, eps=1e-15, fused=use_fused)
         train_pos = {int(g): i for i, g in enumerate(train_indices)}
-        print(f"[Train] Bilateral grid ON ({num_train} views, 16x16x8)")
+        print(f"[Train] Bilateral grid ON ({num_train} views, 16x16x8, zero-mean canonical anchor)")
 
     # Optional PPISP (WP-F5; NVIDIA nv-tlabs/ppisp, arXiv 2601.18336) — a physically
     # plausible ISP applied to the RENDER: per-frame exposure + colour (white balance)
@@ -1681,7 +1704,7 @@ def train(args):
         if step == coarse_until + 1 and coarse_until > 0:
             print(f"[Train] Switching to fine resolution (factor {args.data_factor}) at step {step}")
             sys.stdout.flush()
-            prefetcher.close()
+            prefetcher.close(free_vram=(data_coarse is not data_fine))
             # Offset the seed so the fine phase doesn't replay the coarse
             # phase's view sequence (still deterministic given --seed).
             prefetcher = Prefetcher(data_fine, train_indices,
@@ -1763,12 +1786,15 @@ def train(args):
         # Bilateral-grid color correction (training-only) — match this view's
         # exposure/WB so photometric loss doesn't drive exposure floaters.
         if bil_grids is not None:
-            gy, gx = torch.meshgrid(
-                (torch.arange(H, device=device) + 0.5) / H,
-                (torch.arange(W, device=device) + 0.5) / W,
-                indexing="ij",
-            )
-            grid_xy = torch.stack([gx, gy], dim=-1).unsqueeze(0)        # (1,H,W,2)
+            grid_xy = bil_grid_xy_cache.get((H, W))
+            if grid_xy is None:
+                gy, gx = torch.meshgrid(
+                    (torch.arange(H, device=device) + 0.5) / H,
+                    (torch.arange(W, device=device) + 0.5) / W,
+                    indexing="ij",
+                )
+                grid_xy = torch.stack([gx, gy], dim=-1).unsqueeze(0)    # (1,H,W,2)
+                bil_grid_xy_cache[(H, W)] = grid_xy
             iid = torch.tensor([train_pos.get(int(idx), 0)], device=device)
             rendered = _bil_slice(bil_grids, grid_xy,
                                   rendered.unsqueeze(0), iid)["rgb"][0]
@@ -2051,7 +2077,7 @@ def train(args):
         if (args.lpips_lambda > 0 or args.gram_lambda > 0) and step >= args.lpips_start:
             lp, crop_l1, r_crop, g_crop = lpips_patch_loss(
                 rendered, gt_window, args.lpips_patch, device,
-                use_bf16=bool(getattr(args, "lpips_bf16", False)),
+                use_bf16=bool(getattr(args, "lpips_bf16", True)),
             )
             # Gram/style term shares the same crop (Difix3D+ texture-baking lever)
             gram = gram_loss(r_crop, g_crop, device) if args.gram_lambda > 0 else 0.0
@@ -2154,6 +2180,9 @@ def train(args):
         if bil_opt is not None:
             bil_opt.step()
             bil_opt.zero_grad(set_to_none=True)
+            if bil_identity is not None:
+                with torch.no_grad():
+                    bil_grids.grids.sub_(bil_grids.grids.mean(dim=0, keepdim=True) - bil_identity)
         if ppisp_mod is not None:
             for opt in ppisp_opts:
                 opt.step()
@@ -2165,6 +2194,14 @@ def train(args):
         if splats_frozen:
             pass  # PPISP controller distillation: no relocation, no MCMC noise
         elif use_mcmc:
+            if getattr(args, "mcmc_noise_decay", True) and refine_stop > 1:
+                decay_start = refine_stop // 3
+                if step <= decay_start:
+                    strategy.noise_lr = mcmc_noise_lr
+                elif step <= refine_stop:
+                    prog = (step - decay_start) / max(1, refine_stop - decay_start)
+                    scale = 0.05 + 0.95 * 0.5 * (1.0 + math.cos(math.pi * prog))
+                    strategy.noise_lr = mcmc_noise_lr * scale
             strategy.step_post_backward(
                 params=splats,
                 optimizers=optimizers,
@@ -2385,6 +2422,11 @@ def main():
     parser.add_argument("--mcmc_noise_lr", type=float, default=5e5,
                         help="MCMC positional noise injection multiplier (default 5e5; "
                              "lower values e.g. 1e5 reduce active-window jitter)")
+    parser.add_argument("--mcmc_noise_decay", action=argparse.BooleanOptionalAction,
+                        default=True,
+                        help="Cosine-decay MCMC noise_lr from 1.0x to 0.05x over "
+                             "[refine_stop/3, refine_stop] so fine surface detail "
+                             "locks in without Brownian jitter (default True)")
     parser.add_argument("--opacity_reg", type=float, default=0.0,
                         help="Opacity L1 regularizer weight (opt-in). Default 0 since "
                              "2026-10-17: 0.01 AND 0.001 silently destroy many-view "
@@ -2544,7 +2586,7 @@ def main():
                         help="Gate LPIPS toward under-resolved (high-error) crops "
                              "so it doesn't over-texture well-resolved regions")
     parser.add_argument("--lpips_bf16", action=argparse.BooleanOptionalAction,
-                        default=False,
+                        default=True,
                         help="Evaluate VGG-LPIPS patch loss under bfloat16 autocast "
                              "(~30%% faster LPIPS fwd+bwd, 0.988 grad cosine sim)")
     parser.add_argument("--gram_lambda", type=float, default=0.0,
