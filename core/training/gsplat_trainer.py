@@ -887,11 +887,21 @@ class CameraOptModule(torch.nn.Module):
 # SSIM (standard PyTorch, no fused_ssim dependency)
 # ---------------------------------------------------------------------------
 
-def _fspecial_gauss(size: int, sigma: float, device: torch.device) -> torch.Tensor:
-    coords = torch.arange(size, dtype=torch.float32, device=device) - size // 2
-    g = torch.exp(-(coords ** 2) / (2 * sigma ** 2))
-    g = torch.outer(g, g)
-    return g / g.sum()
+_SSIM_WIN_CACHE: dict[tuple, torch.Tensor] = {}
+
+
+def _fspecial_gauss(size: int, sigma: float, device: torch.device,
+                    dtype: torch.dtype = torch.float32) -> torch.Tensor:
+    key = (size, sigma, device, dtype)
+    w = _SSIM_WIN_CACHE.get(key)
+    if w is None:
+        coords = torch.arange(size, dtype=dtype, device=device) - size // 2
+        g = torch.exp(-(coords ** 2) / (2 * sigma ** 2))
+        g = torch.outer(g, g)
+        g = (g / g.sum()).unsqueeze(0).unsqueeze(0).expand(3, 1, -1, -1).contiguous()
+        _SSIM_WIN_CACHE[key] = g
+        w = g
+    return w
 
 
 def ssim(
@@ -907,8 +917,7 @@ def ssim(
     return_map=True returns the per-pixel SSIM map (B, C, H, W) instead of its mean, so a
     caller can average it over a validity mask (--loss_mask) rather than over the frame.
     """
-    window = _fspecial_gauss(window_size, 1.5, img1.device)
-    window = window.unsqueeze(0).unsqueeze(0).expand(3, 1, -1, -1)
+    window = _fspecial_gauss(window_size, 1.5, img1.device, img1.dtype)
     pad = window_size // 2
 
     mu1 = F.conv2d(img1, window, padding=pad, groups=3)
@@ -1153,10 +1162,10 @@ def get_lpips(device):
     return _lpips_model
 
 
-def lpips_patch_loss(rendered, gt_image, patch: int, device):
+def lpips_patch_loss(rendered, gt_image, patch: int, device, use_bf16: bool = False):
     """LPIPS on a matched random crop of rendered vs GT. Inputs (H,W,3) in [0,1].
 
-    Returns (lpips_value, crop_l1_detached). The crop's L1 error is used to GATE
+    Returns (lpips_value, crop_l1_detached, r, g). The crop's L1 error is used to GATE
     the perceptual loss toward under-resolved regions (high error) and away from
     already-well-resolved ones (low error) — so LPIPS sharpens the textureless
     deck without over-texturing the well-resolved keyboard.
@@ -1169,8 +1178,15 @@ def lpips_patch_loss(rendered, gt_image, patch: int, device):
     g = gt_image[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
     crop_l1 = (r - g).abs().mean().detach()
     lp_net = get_lpips(device)
-    lp_net.reset()
-    return lp_net(r, g), crop_l1, r, g
+    # Call the underlying stateless _NoTrainLpips network directly on [-1, 1] inputs
+    # instead of the stateful torchmetrics.Metric wrapper (which validates inputs and
+    # accumulates autograd graphs into sum_scores).
+    if use_bf16 and r.is_cuda:
+        with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+            lp_val = lp_net.net(r * 2.0 - 1.0, g * 2.0 - 1.0).mean().float()
+    else:
+        lp_val = lp_net.net(r * 2.0 - 1.0, g * 2.0 - 1.0).mean()
+    return lp_val, crop_l1, r, g
 
 
 # ---------------------------------------------------------------------------
@@ -1234,6 +1250,8 @@ def gram_loss(r, g, device):
 def train(args):
     device = torch.device("cuda:0")
     torch.cuda.set_device(device)
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
 
     # Optional deterministic seed (default None = current stochastic behavior,
     # production unchanged). Used for fair A/B runs. Seeds torch/numpy/random
@@ -1319,14 +1337,16 @@ def train(args):
             gamma=getattr(args, "extra_obs_gamma", 1.0),
         )
 
-    # Optimizers (same LR as gsplat defaults)
+    # Optimizers (same LR as gsplat defaults; fused=True on CUDA cuts optimizer
+    # step time by ~2.2x on 2M-3M Gaussians)
+    use_fused = device.type == "cuda"
     optimizers = {
-        "means": torch.optim.Adam([splats["means"]], lr=1.6e-4, eps=1e-15),
-        "scales": torch.optim.Adam([splats["scales"]], lr=5e-3, eps=1e-15),
-        "quats": torch.optim.Adam([splats["quats"]], lr=1e-3, eps=1e-15),
-        "opacities": torch.optim.Adam([splats["opacities"]], lr=5e-2, eps=1e-15),
-        "sh0": torch.optim.Adam([splats["sh0"]], lr=2.5e-3, eps=1e-15),
-        "shN": torch.optim.Adam([splats["shN"]], lr=1.25e-4, eps=1e-15),
+        "means": torch.optim.Adam([splats["means"]], lr=1.6e-4, eps=1e-15, fused=use_fused),
+        "scales": torch.optim.Adam([splats["scales"]], lr=5e-3, eps=1e-15, fused=use_fused),
+        "quats": torch.optim.Adam([splats["quats"]], lr=1e-3, eps=1e-15, fused=use_fused),
+        "opacities": torch.optim.Adam([splats["opacities"]], lr=5e-2, eps=1e-15, fused=use_fused),
+        "sh0": torch.optim.Adam([splats["sh0"]], lr=2.5e-3, eps=1e-15, fused=use_fused),
+        "shN": torch.optim.Adam([splats["shN"]], lr=1.25e-4, eps=1e-15, fused=use_fused),
     }
 
     # Means LR scheduler (exponential decay from 1.6e-4 to 1.6e-6)
@@ -1344,14 +1364,16 @@ def train(args):
             refine_stop = 25_000 if use_mcmc else 15_000
     refine_stop = min(refine_stop, args.max_steps)
     if use_mcmc:
+        mcmc_noise_lr = float(getattr(args, "mcmc_noise_lr", 5e5))
         strategy = MCMCStrategy(
             cap_max=args.cap_max,
             refine_stop_iter=refine_stop,
+            noise_lr=mcmc_noise_lr,
             verbose=False,
         )
         strategy_state = strategy.initialize_state()
         print(f"[Train] MCMC densification: cap_max={args.cap_max}, "
-              f"refine_stop={refine_stop}")
+              f"refine_stop={refine_stop}, noise_lr={mcmc_noise_lr:g}")
     else:
         strategy = DefaultStrategy(
             refine_stop_iter=refine_stop,
@@ -1651,6 +1673,8 @@ def train(args):
     # Background image prefetch / VRAM preload
     prefetcher = Prefetcher(data_coarse if coarse_until > 0 else data_fine,
                             train_indices, seed=args.seed)
+    if args.lpips_lambda > 0 or args.gram_lambda > 0:
+        get_lpips(device)
     t0 = time.time()
 
     for step in range(1, args.max_steps + 1):
@@ -1867,8 +1891,9 @@ def train(args):
                 and (args.erank_end is None or step <= args.erank_end)):
             erank_term = erank_loss(splats["scales"], w_erank=args.erank_lambda, w_thin=0.0)
             loss = loss + erank_term
-            running_erank = (erank_term.item() if running_erank is None
-                             else 0.95 * running_erank + 0.05 * erank_term.item())
+            erank_d = erank_term.detach()
+            running_erank = (erank_d if running_erank is None
+                             else 0.95 * running_erank + 0.05 * erank_d)
         if unseen_mask is not None:
             loss = loss + args.vis_reg * torch.sigmoid(
                 splats["opacities"][unseen_mask]).mean()
@@ -1922,8 +1947,9 @@ def train(args):
                 w = (float(batch.get("prior_weight", 1.0))
                      if args.mono_depth_use_weight else 1.0)
                 loss = loss + args.mono_depth_lambda * w * mono_term
-                running_mono = (mono_term.item() if running_mono is None
-                                else 0.95 * running_mono + 0.05 * mono_term.item())
+                mono_d = mono_term.detach()
+                running_mono = (mono_d if running_mono is None
+                                else 0.95 * running_mono + 0.05 * mono_d)
 
         # ---- Planar-prior losses (WP-F4, PlanarGS port) ---------------------
         # All operate on the rendered expected-depth; all masked to their
@@ -1954,8 +1980,9 @@ def train(args):
                 w = (float(batch.get("prior_weight", 1.0))
                      if args.mono_depth_use_weight else 1.0)
                 loss = loss + args.prior_depth_lambda * w * prd_term
-                running_prd = (prd_term.item() if running_prd is None
-                               else 0.95 * running_prd + 0.05 * prd_term.item())
+                prd_d = prd_term.detach()
+                running_prd = (prd_d if running_prd is None
+                               else 0.95 * running_prd + 0.05 * prd_d)
 
         # L_p — co-planarity: fit a plane per instance to the rendered depth and
         # pull the rendered depth toward it (masked L1). Faithful PlanarGS keeps
@@ -1979,8 +2006,9 @@ def train(args):
                                 * planar_mask).sum() / pmsum) / sc
                 if torch.isfinite(planar_term):
                     loss = loss + args.planar_lambda * planar_term
-                    running_planar = (planar_term.item() if running_planar is None
-                                      else 0.95 * running_planar + 0.05 * planar_term.item())
+                    planar_d = planar_term.detach()
+                    running_planar = (planar_d if running_planar is None
+                                      else 0.95 * running_planar + 0.05 * planar_d)
 
         # L_rn — prior-normal: normal derived from the rendered depth vs the MoGe
         # cache normal (L1 + (1−cos)), over planar ∩ conf ∩ edge pixels. Uses a
@@ -2004,8 +2032,9 @@ def train(args):
                 prn_term = l1n + l2n
                 if torch.isfinite(prn_term):
                     loss = loss + args.prior_normal_lambda * prn_term
-                    running_prn = (prn_term.item() if running_prn is None
-                                   else 0.95 * running_prn + 0.05 * prn_term.item())
+                    prn_d = prn_term.detach()
+                    running_prn = (prn_d if running_prn is None
+                                   else 0.95 * running_prn + 0.05 * prn_d)
 
         # Edge-aware geometric regularization — flattens textureless surfaces
         # (the "mushy black plastic" fix) without softening textured detail.
@@ -2021,7 +2050,9 @@ def train(args):
         # over-texturing at full 4K).
         if (args.lpips_lambda > 0 or args.gram_lambda > 0) and step >= args.lpips_start:
             lp, crop_l1, r_crop, g_crop = lpips_patch_loss(
-                rendered, gt_window, args.lpips_patch, device)
+                rendered, gt_window, args.lpips_patch, device,
+                use_bf16=bool(getattr(args, "lpips_bf16", False)),
+            )
             # Gram/style term shares the same crop (Difix3D+ texture-baking lever)
             gram = gram_loss(r_crop, g_crop, device) if args.gram_lambda > 0 else 0.0
             lp_scale = extra_lp_scale
@@ -2075,12 +2106,14 @@ def train(args):
         if ppisp_mod is not None:
             ppisp_reg = ppisp_mod.get_regularization_loss()
             loss = loss + ppisp_reg
-            running_ppisp = (ppisp_reg.item() if running_ppisp is None
-                             else 0.95 * running_ppisp + 0.05 * ppisp_reg.item())
+            ppisp_d = ppisp_reg.detach()
+            running_ppisp = (ppisp_d if running_ppisp is None
+                             else 0.95 * running_ppisp + 0.05 * ppisp_d)
 
         # PSNR for logging (over the valid pixels when --loss_mask is on, so the logged
         # number is comparable to the held-out masked PSNR instead of being inflated by
-        # the excluded region)
+        # the excluded region). Accumulated as detached GPU tensors so we never force a
+        # CUDA->CPU synchronization barrier (.item()) before loss.backward().
         with torch.no_grad():
             if loss_mask is not None:
                 w = loss_mask.unsqueeze(-1)
@@ -2088,9 +2121,9 @@ def train(args):
                     w.sum() * rendered.shape[-1] + 1e-8)
             else:
                 mse = F.mse_loss(rendered, gt_image)
-            psnr = 10.0 * math.log10(1.0 / (mse.item() + 1e-10))
-            running_loss = 0.95 * running_loss + 0.05 * loss.item()
-            running_psnr = 0.95 * running_psnr + 0.05 * psnr
+            psnr_t = -10.0 * torch.log10(mse + 1e-10)
+            running_loss = 0.95 * running_loss + 0.05 * loss.detach()
+            running_psnr = 0.95 * running_psnr + 0.05 * psnr_t
 
         # Confidence-gated prior fusion (Phase 1): scale this view's gradient by its
         # per-entry JSON loss weight (1.0 for captured views).
@@ -2156,23 +2189,23 @@ def train(args):
             eta = (args.max_steps - step) / steps_per_sec if steps_per_sec > 0 else 0
             n_gs = splats["means"].shape[0]
             mem = torch.cuda.max_memory_allocated() / 1024**2
-            erank_str = (f" | erank={running_erank:.3e}"
+            erank_str = (f" | erank={float(running_erank):.3e}"
                          if running_erank is not None else "")
-            mono_str = (f" | mono={running_mono:.4f}"
+            mono_str = (f" | mono={float(running_mono):.4f}"
                         if running_mono is not None else "")
-            planar_str = (f" | Lp={running_planar:.4f}"
+            planar_str = (f" | Lp={float(running_planar):.4f}"
                           if running_planar is not None else "")
-            prd_str = (f" | Lrd={running_prd:.4f}"
+            prd_str = (f" | Lrd={float(running_prd):.4f}"
                        if running_prd is not None else "")
-            prn_str = (f" | Lrn={running_prn:.4f}"
+            prn_str = (f" | Lrn={float(running_prn):.4f}"
                        if running_prn is not None else "")
             if running_ppisp is not None:
                 with torch.no_grad():
                     ev = ppisp_mod.exposure_params
-                    prn_str += (f" | ppisp_reg={running_ppisp:.2e} exp_sd={ev.std().item():.3f}"
+                    prn_str += (f" | ppisp_reg={float(running_ppisp):.2e} exp_sd={ev.std().item():.3f}"
                                 f" exp_rng=[{ev.min().item():.2f},{ev.max().item():.2f}]")
             print(
-                f"step={step} | loss={running_loss:.6f} | psnr={running_psnr:.2f} "
+                f"step={step} | loss={float(running_loss):.6f} | psnr={float(running_psnr):.2f} "
                 f"| #GS={n_gs} | mem={mem:.0f}MB | {steps_per_sec:.1f} it/s | eta={eta:.0f}s"
                 f"{erank_str}{mono_str}{planar_str}{prd_str}{prn_str}"
             )
@@ -2349,6 +2382,9 @@ def main():
                         help="MCMC Gaussian budget (VRAM control)")
     parser.add_argument("--refine_stop_iter", type=int, default=0,
                         help="0 = strategy default (MCMC 25000, default 15000)")
+    parser.add_argument("--mcmc_noise_lr", type=float, default=5e5,
+                        help="MCMC positional noise injection multiplier (default 5e5; "
+                             "lower values e.g. 1e5 reduce active-window jitter)")
     parser.add_argument("--opacity_reg", type=float, default=0.0,
                         help="Opacity L1 regularizer weight (opt-in). Default 0 since "
                              "2026-10-17: 0.01 AND 0.001 silently destroy many-view "
@@ -2507,6 +2543,10 @@ def main():
                         default=True,
                         help="Gate LPIPS toward under-resolved (high-error) crops "
                              "so it doesn't over-texture well-resolved regions")
+    parser.add_argument("--lpips_bf16", action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help="Evaluate VGG-LPIPS patch loss under bfloat16 autocast "
+                             "(~30%% faster LPIPS fwd+bwd, 0.988 grad cosine sim)")
     parser.add_argument("--gram_lambda", type=float, default=0.0,
                         help="Weight of VGG Gram/style loss (Difix3D+ texture "
                              "baking; 0 = off; shares LPIPS crop+gate+start)")
