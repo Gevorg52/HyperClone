@@ -555,17 +555,17 @@ def compute_unseen_mask(means: torch.Tensor, data: dict, device) -> torch.Tensor
     return ~seen
 
 
-def load_image(data: dict, index: int) -> dict:
-    """Load a single training image with undistortion."""
+def _load_undistorted_u8(data: dict, index: int) -> tuple[np.ndarray, np.ndarray | None]:
+    """Decode and undistort a single image + optional mask as compact uint8 arrays."""
+    cache = data.get("_u8_cache")
+    if cache is not None and index in cache:
+        return cache[index]
+
     image = imageio.imread(data["image_paths"][index])[..., :3]
     cid = data["camera_ids"][index]
-    K = data["Ks_dict"][cid].copy()
     dist = data["params_dict"][cid]
-    c2w = data["camtoworlds"][index]
 
-    # Object mask (optional) — load + undistort/crop identically to the image so it
-    # stays pixel-aligned. Resize to the (possibly downsampled) image first.
-    mask = None
+    mask_u8 = None
     mpaths = data.get("mask_paths")
     if mpaths is not None and index < len(mpaths) and mpaths[index] and os.path.isfile(mpaths[index]):
         m = imageio.imread(mpaths[index])
@@ -573,29 +573,55 @@ def load_image(data: dict, index: int) -> dict:
             m = m[..., 0]
         if m.shape[:2] != image.shape[:2]:
             m = cv2.resize(m, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
-        mask = (m.astype(np.float32) / 255.0)
+        mask_u8 = np.ascontiguousarray(m, dtype=np.uint8)
 
     if len(dist) > 0 and cid in data["mapx_dict"]:
         image = cv2.remap(image, data["mapx_dict"][cid], data["mapy_dict"][cid], cv2.INTER_LINEAR)
-        if mask is not None:
-            mask = cv2.remap(mask, data["mapx_dict"][cid], data["mapy_dict"][cid], cv2.INTER_LINEAR)
+        if mask_u8 is not None:
+            mask_u8 = cv2.remap(mask_u8, data["mapx_dict"][cid], data["mapy_dict"][cid], cv2.INTER_LINEAR)
         if cid in data["roi_dict"]:
             x, y, w, h = data["roi_dict"][cid]
             if w > 0 and h > 0:
                 image = image[y:y+h, x:x+w]
-                if mask is not None:
-                    mask = mask[y:y+h, x:x+w]
+                if mask_u8 is not None:
+                    mask_u8 = mask_u8[y:y+h, x:x+w]
 
+    image = np.ascontiguousarray(image, dtype=np.uint8)
+    if mask_u8 is not None:
+        mask_u8 = np.ascontiguousarray(mask_u8, dtype=np.uint8)
+    if cache is not None:
+        cache[index] = (image, mask_u8)
+    return image, mask_u8
+
+
+def load_image(data: dict, index: int) -> dict:
+    """Load a single training image with undistortion."""
+    cid = data["camera_ids"][index]
+    K = data["Ks_dict"][cid].copy()
+    c2w = data["camtoworlds"][index]
     lw = data.get("loss_weight")
+
+    gpu_cache = data.get("_gpu_u8_cache")
+    if gpu_cache is not None and index in gpu_cache:
+        img_gpu_u8, mask_gpu_u8 = gpu_cache[index]
+        image_f = img_gpu_u8.to(dtype=torch.float32) * (1.0 / 255.0)
+        mask_f = (mask_gpu_u8.to(dtype=torch.float32) * (1.0 / 255.0)) if mask_gpu_u8 is not None else None
+        img_hw = img_gpu_u8.shape[:2]
+    else:
+        image_u8, mask_u8 = _load_undistorted_u8(data, index)
+        image_f = torch.from_numpy(image_u8).float() * (1.0 / 255.0)
+        mask_f = (torch.from_numpy(mask_u8).float() * (1.0 / 255.0)) if mask_u8 is not None else None
+        img_hw = image_u8.shape[:2]
+
     out = {
-        "image": torch.from_numpy(image).float() / 255.0,
+        "image": image_f,
         "K": torch.from_numpy(K).float(),
         "c2w": torch.from_numpy(c2w).float(),
         "loss_weight": float(lw[index]) if lw is not None else 1.0,
         "is_extra_view": bool(index in data.get("extra_view_indices", ())),
     }
-    if mask is not None:
-        out["mask"] = torch.from_numpy(mask).float()  # (H, W) in [0,1]
+    if mask_f is not None:
+        out["mask"] = mask_f  # (H, W) in [0,1]
 
     # Geometric priors (WP-F1 mono-depth + WP-F4 planar): aligned MoGe-2 maps are
     # stored already in the undistorted+cropped training frame, so they drop in
@@ -609,7 +635,7 @@ def load_image(data: dict, index: int) -> dict:
         ppath = os.path.join(pdir, "depth", stem + ".npy")
         if os.path.isfile(ppath):
             pd = np.load(ppath)
-            if pd.shape[:2] == image.shape[:2]:
+            if pd.shape[:2] == img_hw:
                 out["prior_depth"] = torch.from_numpy(pd.astype(np.float32))
                 rel, dw = data.get("prior_align", {}).get(stem, (False, 0.0))
                 out["prior_reliable"] = bool(rel)
@@ -624,56 +650,95 @@ def load_image(data: dict, index: int) -> dict:
                     mpath = os.path.join(pdir, "plane_mask", stem + ".npy")
                     if os.path.isfile(npath):
                         nrm = np.load(npath)
-                        if nrm.shape[:2] == image.shape[:2]:
+                        if nrm.shape[:2] == img_hw:
                             out["prior_normal"] = torch.from_numpy(nrm.astype(np.float32))
                     if os.path.isfile(cpath):
                         cf = np.load(cpath)
-                        if cf.shape[:2] == image.shape[:2]:
+                        if cf.shape[:2] == img_hw:
                             out["prior_conf"] = torch.from_numpy(cf.astype(np.float32))
                     if os.path.isfile(epath):
                         em = imageio.imread(epath)
                         if em.ndim == 3:
                             em = em[..., 0]
-                        if em.shape[:2] == image.shape[:2]:
+                        if em.shape[:2] == img_hw:
                             # 255 = away-from-edge (supervise) -> weight 1.0
                             out["prior_edge"] = torch.from_numpy(
                                 (em > 0).astype(np.float32))
                     if os.path.isfile(mpath):
                         plm = np.load(mpath)
-                        if plm.shape[:2] == image.shape[:2]:
+                        if plm.shape[:2] == img_hw:
                             out["prior_plane_mask"] = torch.from_numpy(
                                 plm.astype(np.int64))
     return out
 
 
 class Prefetcher:
-    """Background image loader that overlaps disk I/O + decode with GPU work.
+    """Background image loader that pre-caches undistorted uint8 frames in VRAM/RAM
+    and overlaps any remaining I/O with GPU work.
 
-    The training loop samples random views every step, so the order doesn't
-    matter — workers sample random train indices, decode/undistort on CPU
-    threads (cv2/imageio release the GIL during the heavy parts), and push
-    ready batches to a bounded queue.  This keeps the GPU fed instead of
-    blocking on per-step image loads (the cause of ~50% GPU utilization).
+    On high-VRAM GPUs (e.g. RTX PRO 6000 96 GB), all training images and masks are
+    decoded & undistorted ONCE in parallel across CPU threads and resident in VRAM
+    as compact uint8 tensors (~2.7 GB for 327 1080p views), eliminating repeated
+    disk reads, CPU cv2.remap, cudaHostAlloc pin_memory stalls, and PCIe transfers.
     """
 
     def __init__(self, data, train_indices, num_workers=3, queue_size=6,
                  seed=None):
         self.data = data
         self.train_indices = np.asarray(train_indices)
+        self.data.setdefault("_u8_cache", {})
+        self._maybe_preload_vram()
+        self._seed = seed
+        self._rng = (np.random.default_rng() if seed is None
+                     else np.random.default_rng(seed))
+        need_priors = bool(self.data.get("load_priors") or self.data.get("load_planar_priors"))
+        self._direct_gpu = ("_gpu_u8_cache" in self.data) and (not need_priors)
         self.q: queue.Queue = queue.Queue(maxsize=queue_size)
         self._stop = threading.Event()
-        # seed=None -> unseeded per-worker RNGs (current production behavior).
-        # With a seed, each worker gets its own deterministic stream
-        # (seed + worker_id) so the set of sampled views is reproducible.
-        # NOTE: queue interleaving across workers is still OS-scheduling
-        # dependent, so step-level order is only approximately reproducible.
-        self._seed = seed
-        self._threads = [
-            threading.Thread(target=self._worker, args=(wid,), daemon=True)
-            for wid in range(max(1, num_workers))
-        ]
-        for t in self._threads:
-            t.start()
+        self._threads = []
+        if not self._direct_gpu:
+            self._threads = [
+                threading.Thread(target=self._worker, args=(wid,), daemon=True)
+                for wid in range(max(1, num_workers))
+            ]
+            for t in self._threads:
+                t.start()
+
+    def _maybe_preload_vram(self):
+        """Decode+undistort all train_indices in parallel once; if compact uint8
+        tensors fit comfortably in GPU VRAM (<= 20 GB and free VRAM >= 30 GB),
+        keep them resident on GPU so per-step image loading is a sub-0.1ms cast."""
+        if "_gpu_u8_cache" in self.data or not torch.cuda.is_available():
+            return
+        try:
+            from concurrent.futures import ThreadPoolExecutor
+            t_pre = time.time()
+            idxs = [int(i) for i in self.train_indices]
+            with ThreadPoolExecutor(max_workers=min(12, max(1, os.cpu_count() or 4))) as ex:
+                list(ex.map(lambda i: _load_undistorted_u8(self.data, i), idxs))
+            u8_cache = self.data.get("_u8_cache", {})
+            total_bytes = sum(
+                img.nbytes + (msk.nbytes if msk is not None else 0)
+                for img, msk in u8_cache.values()
+            )
+            free_vram, _ = torch.cuda.mem_get_info()
+            if total_bytes > 0 and total_bytes <= 20 * (1024 ** 3) and free_vram >= total_bytes + 24 * (1024 ** 3):
+                gpu_cache = {}
+                dev = torch.device("cuda:0")
+                for k, (img, msk) in u8_cache.items():
+                    gpu_cache[k] = (
+                        torch.from_numpy(img).to(dev, non_blocking=True),
+                        torch.from_numpy(msk).to(dev, non_blocking=True) if msk is not None else None,
+                    )
+                self.data["_gpu_u8_cache"] = gpu_cache
+                self.data["_u8_cache"] = {}  # free duplicate CPU copy
+                print(f"[Cache] Preloaded {len(gpu_cache)} undistorted train views to GPU VRAM "
+                      f"({total_bytes / 1e9:.2f} GB uint8) in {time.time() - t_pre:.2f}s")
+            else:
+                print(f"[Cache] Preloaded {len(u8_cache)} undistorted train views to CPU RAM "
+                      f"({total_bytes / 1e9:.2f} GB uint8) in {time.time() - t_pre:.2f}s")
+        except Exception as e:
+            print(f"[Cache] Preload skipped ({e})")
 
     def _worker(self, worker_id: int = 0):
         rng = (np.random.default_rng() if self._seed is None
@@ -687,10 +752,11 @@ class Prefetcher:
                 continue
             batch["idx"] = idx
             try:
-                batch["image"] = batch["image"].pin_memory()
+                if not batch["image"].is_cuda:
+                    batch["image"] = batch["image"].pin_memory()
                 for k in ("mask", "prior_depth", "prior_normal", "prior_conf",
                           "prior_edge", "prior_plane_mask"):
-                    if k in batch:
+                    if k in batch and not batch[k].is_cuda:
                         batch[k] = batch[k].pin_memory()
             except RuntimeError:
                 pass
@@ -702,6 +768,11 @@ class Prefetcher:
                     continue
 
     def get(self):
+        if self._direct_gpu:
+            idx = int(self.train_indices[self._rng.integers(len(self.train_indices))])
+            batch = load_image(self.data, idx)
+            batch["idx"] = idx
+            return batch
         return self.q.get()
 
     def close(self):
@@ -1097,7 +1168,9 @@ def lpips_patch_loss(rendered, gt_image, patch: int, device):
     r = rendered[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
     g = gt_image[top:top + ph, left:left + pw].permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
     crop_l1 = (r - g).abs().mean().detach()
-    return get_lpips(device)(r, g), crop_l1, r, g
+    lp_net = get_lpips(device)
+    lp_net.reset()
+    return lp_net(r, g), crop_l1, r, g
 
 
 # ---------------------------------------------------------------------------
@@ -1575,11 +1648,10 @@ def train(args):
     running_planar = None   # EMA of L_p co-planarity term (WP-F4)
     running_prd = None      # EMA of L_rd prior-depth term (WP-F4)
     running_prn = None      # EMA of L_rn prior-normal term (WP-F4)
-    t0 = time.time()
-
-    # Background image prefetch (overlaps disk I/O + decode with GPU compute)
+    # Background image prefetch / VRAM preload
     prefetcher = Prefetcher(data_coarse if coarse_until > 0 else data_fine,
                             train_indices, seed=args.seed)
+    t0 = time.time()
 
     for step in range(1, args.max_steps + 1):
         if step == coarse_until + 1 and coarse_until > 0:

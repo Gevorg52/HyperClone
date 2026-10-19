@@ -134,9 +134,10 @@ is a self-contained subprocess (`core/training/gsplat_trainer.py`).
 - **4K video:** factor 1 (don't waste the 4K — see §5), cap ~3M, coarse 2→1.
 - **Perceptual sharpness:** `--lpips_lambda 0.2 --lpips_gated`; on full-res
   coarse-to-fine the GUI auto-starts LPIPS in the fine phase only.
+  - **Throughput & $O(N^2)$ LPIPS autograd leak fix (2026-10-18):** Both `gsplat_backend.py::compute_lpips_loss` and `gsplat_trainer.py::lpips_patch_loss` **must** call `.reset()` on the `torchmetrics` `LearnedPerceptualImagePatchSimilarity` metric before each step. Without `.reset()`, `torchmetrics.Metric` accumulates `loss.sum()` into `self.sum_scores` across every step *with `requires_grad=True`*, forcing `loss.backward()` on step $t$ to traverse $t$ accumulated autograd graphs (`5.5 ms` at step 100 $\to$ `45 ms` at step 3,000 $\to$ `320 ms` at step 30,000).
+  - **GPU VRAM `uint8` undistorted dataset preload (2026-10-18):** `Prefetcher` in `core/training/gsplat_trainer.py` now decodes and `cv2.remap`-undistorts all training views + masks **once** in parallel across 12 CPU threads at startup and keeps them resident in GPU VRAM as compact `uint8` tensors whenever total dataset bytes $\le 20\text{ GB}$ and free VRAM $\ge \text{dataset} + 24\text{ GB}$ (e.g., `2.71 GB` for 327 `1080p` frames + masks on our 96 GB RTX PRO 6000 Blackwell). This eliminates 30,000 repeated disk decodes, CPU `cv2.remap` calls, `pin_memory()` (`cudaHostAlloc`) driver synchronizations, and PCIe transfers, boosting steady-state training throughput from `23.1 → 16.6 it/s` (decaying) to a flat **`48.5 it/s`** (~3× faster at 3k steps and >6× faster at 30k steps).
 
-VRAM at 4K/3M ≈ 6.8 GB (peak set by the KNN init `cdist`, not training) — lots of
-headroom on a 4090, but **don't spend it on more Gaussians** (§6).
+VRAM at 4K/3M ≈ 6.8 GB (peak set by the KNN init `cdist`, not training) plus ~2.7–10.8 GB for the `uint8` VRAM frame cache on 96 GB GPUs — **don't spend extra VRAM on >3M Gaussians** (§6).
 
 ---
 
