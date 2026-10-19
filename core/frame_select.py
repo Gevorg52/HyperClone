@@ -29,7 +29,7 @@ def laplacian_var(gray: np.ndarray) -> float:
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
 
-def _sharpness_of(path: str, max_side: int = 800) -> float:
+def _sharpness_of(path: str, max_side: int = 1200, center_weight: float = 0.7) -> float:
     img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     if img is None:
         return 0.0
@@ -37,7 +37,14 @@ def _sharpness_of(path: str, max_side: int = 800) -> float:
     s = max_side / max(h, w)
     if s < 1:
         img = cv2.resize(img, (int(w * s), int(h * s)))
-    return laplacian_var(img)
+    full_v = laplacian_var(img)
+    ih, iw = img.shape[:2]
+    if center_weight > 0.0 and ih >= 16 and iw >= 16:
+        y0, y1 = int(ih * 0.2), int(ih * 0.8)
+        x0, x1 = int(iw * 0.2), int(iw * 0.8)
+        ctr_v = laplacian_var(img[y0:y1, x0:x1])
+        return float(center_weight * ctr_v + (1.0 - center_weight) * full_v)
+    return full_v
 
 
 def select_indices(sharpness: np.ndarray, window: int = 8, min_gap: int = 3,

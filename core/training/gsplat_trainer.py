@@ -589,6 +589,18 @@ def _load_undistorted_u8(data: dict, index: int) -> tuple[np.ndarray, np.ndarray
     image = np.ascontiguousarray(image, dtype=np.uint8)
     if mask_u8 is not None:
         mask_u8 = np.ascontiguousarray(mask_u8, dtype=np.uint8)
+        bbox_cache = data.setdefault("_mask_bbox_cache", {})
+        if index not in bbox_cache:
+            ys, xs = np.nonzero(mask_u8 > 0)
+            H_m, W_m = mask_u8.shape[:2]
+            if len(ys) > 0:
+                y0 = max(0, int(ys.min()) - 11)
+                y1 = min(H_m, int(ys.max()) + 12)
+                x0 = max(0, int(xs.min()) - 11)
+                x1 = min(W_m, int(xs.max()) + 12)
+                bbox_cache[index] = (y0, y1, x0, x1)
+            else:
+                bbox_cache[index] = (0, H_m, 0, W_m)
     if cache is not None:
         cache[index] = (image, mask_u8)
     return image, mask_u8
@@ -622,6 +634,9 @@ def load_image(data: dict, index: int) -> dict:
     }
     if mask_f is not None:
         out["mask"] = mask_f  # (H, W) in [0,1]
+        bbox_cache = data.get("_mask_bbox_cache")
+        if bbox_cache is not None and index in bbox_cache:
+            out["mask_bbox"] = bbox_cache[index]
 
     # Geometric priors (WP-F1 mono-depth + WP-F4 planar): aligned MoGe-2 maps are
     # stored already in the undistorted+cropped training frame, so they drop in
@@ -911,18 +926,22 @@ def _fspecial_gauss(size: int, sigma: float, device: torch.device,
 
 
 def _fspecial_gauss_1d(size: int, sigma: float, device: torch.device,
-                       dtype: torch.dtype = torch.float32) -> tuple[torch.Tensor, torch.Tensor]:
+                       dtype: torch.dtype = torch.float32) -> tuple[torch.Tensor, ...]:
     key = (size, sigma, device, dtype)
-    pair = _SSIM_SEP_CACHE.get(key)
-    if pair is None:
+    bundle = _SSIM_SEP_CACHE.get(key)
+    if bundle is None:
         coords = torch.arange(size, dtype=dtype, device=device) - size // 2
         g = torch.exp(-(coords ** 2) / (2 * sigma ** 2))
         g = g / g.sum()
         wh = g.view(1, 1, size, 1).expand(3, 1, size, 1).contiguous()
         ww = g.view(1, 1, 1, size).expand(3, 1, 1, size).contiguous()
-        pair = (wh, ww)
-        _SSIM_SEP_CACHE[key] = pair
-    return pair
+        wh6 = wh.repeat(2, 1, 1, 1).contiguous()
+        ww6 = ww.repeat(2, 1, 1, 1).contiguous()
+        wh9 = wh.repeat(3, 1, 1, 1).contiguous()
+        ww9 = ww.repeat(3, 1, 1, 1).contiguous()
+        bundle = (wh, ww, wh6, ww6, wh9, ww9)
+        _SSIM_SEP_CACHE[key] = bundle
+    return bundle
 
 
 def ssim(
@@ -933,24 +952,37 @@ def ssim(
     C2: float = 0.03 ** 2,
     return_map: bool = False,
 ) -> torch.Tensor:
-    """Compute SSIM between two images using separable 1D Gaussian filters. Input: (B, C, H, W) in [0, 1].
+    """Compute SSIM between two images using grouped separable 1D Gaussian filters. Input: (B, C, H, W) in [0, 1].
 
     return_map=True returns the per-pixel SSIM map (B, C, H, W) instead of its mean, so a
     caller can average it over a validity mask (--loss_mask) rather than over the frame.
     """
-    wh, ww = _fspecial_gauss_1d(window_size, 1.5, img1.device, img1.dtype)
+    wh, ww, wh6, ww6, wh9, ww9 = _fspecial_gauss_1d(window_size, 1.5, img1.device, img1.dtype)
     pad = window_size // 2
 
-    mu1 = F.conv2d(F.conv2d(img1, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3)
-    mu2 = F.conv2d(F.conv2d(img2, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3)
-
-    mu1_sq = mu1 * mu1
-    mu2_sq = mu2 * mu2
-    mu1_mu2 = mu1 * mu2
-
-    sigma1_sq = F.conv2d(F.conv2d(img1 * img1, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3) - mu1_sq
-    sigma2_sq = F.conv2d(F.conv2d(img2 * img2, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3) - mu2_sq
-    sigma12 = F.conv2d(F.conv2d(img1 * img2, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3) - mu1_mu2
+    if img1.shape[1] == 3 and not img2.requires_grad:
+        with torch.no_grad():
+            x2 = torch.cat([img2, img2 * img2], dim=1)
+            y2 = F.conv2d(F.conv2d(x2, wh6, padding=(pad, 0), groups=6), ww6, padding=(0, pad), groups=6)
+            mu2, s2_raw = y2[:, :3], y2[:, 3:]
+            mu2_sq = mu2 * mu2
+            sigma2_sq = s2_raw - mu2_sq
+        x1 = torch.cat([img1, img1 * img1, img1 * img2], dim=1)
+        y1 = F.conv2d(F.conv2d(x1, wh9, padding=(pad, 0), groups=9), ww9, padding=(0, pad), groups=9)
+        mu1, s1_raw, s12_raw = y1[:, :3], y1[:, 3:6], y1[:, 6:]
+        mu1_sq = mu1 * mu1
+        mu1_mu2 = mu1 * mu2
+        sigma1_sq = s1_raw - mu1_sq
+        sigma12 = s12_raw - mu1_mu2
+    else:
+        mu1 = F.conv2d(F.conv2d(img1, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3)
+        mu2 = F.conv2d(F.conv2d(img2, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3)
+        mu1_sq = mu1 * mu1
+        mu2_sq = mu2 * mu2
+        mu1_mu2 = mu1 * mu2
+        sigma1_sq = F.conv2d(F.conv2d(img1 * img1, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3) - mu1_sq
+        sigma2_sq = F.conv2d(F.conv2d(img2 * img2, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3) - mu2_sq
+        sigma12 = F.conv2d(F.conv2d(img1 * img2, wh, padding=(pad, 0), groups=3), ww, padding=(0, pad), groups=3) - mu1_mu2
 
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / (
         (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2)
@@ -1406,14 +1438,27 @@ def train(args):
     # Optional camera pose refinement
     pose_module = None
     pose_optimizer = None
+    pose_scheduler = None
+    pose_train_idx_t = None
     if args.pose_opt:
         pose_module = CameraOptModule(len(data_fine["image_names"])).to(device)
+        if args.init_ckpt and isinstance(ckpt, dict) and "pose_embeds" in ckpt:
+            pe = ckpt["pose_embeds"].to(device)
+            if pe.shape == pose_module.embeds.weight.shape:
+                pose_module.embeds.weight.data.copy_(pe)
+                print(f"[Init] Restored {pe.shape[0]} camera pose embeddings from checkpoint")
         pose_optimizer = torch.optim.Adam(
             pose_module.parameters(),
             lr=args.pose_opt_lr,
             weight_decay=args.pose_opt_reg,
         )
-        print(f"[Train] Pose refinement: lr={args.pose_opt_lr}, reg={args.pose_opt_reg}")
+        pose_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+            pose_optimizer, gamma=(1e-2) ** (1.0 / max(args.max_steps, 1)),
+        )
+        pose_train_idx_t = torch.tensor(
+            [int(i) for i in data_fine["train_indices"]], dtype=torch.long, device=device,
+        )
+        print(f"[Train] Pose refinement: lr={args.pose_opt_lr}, reg={args.pose_opt_reg} (zero-mean gauge anchored)")
 
     # Output dirs
     result_dir = Path(args.result_dir)
@@ -1885,9 +1930,16 @@ def train(args):
                 smap = ssim(rendered_bchw, gt_bchw, return_map=True)[0]      # (C,H,W)
                 ssim_val = ((smap * loss_mask).sum()
                             / (loss_mask.sum() * smap.shape[0] + 1e-8))
+                ssim_term = 1.0 - ssim_val
+            elif args.rgb_object_masked and "mask_bbox" in batch and extra_anchor is None:
+                y0, y1, x0, x1 = batch["mask_bbox"]
+                roi_frac = float((y1 - y0) * (x1 - x0)) / float(max(1, H * W))
+                ssim_roi = ssim(rendered_bchw[:, :, y0:y1, x0:x1], gt_bchw[:, :, y0:y1, x0:x1])
+                ssim_term = roi_frac * (1.0 - ssim_roi)
             else:
                 ssim_val = ssim(rendered_bchw, gt_bchw)
-            loss = (1.0 - ssim_lambda) * l1_loss + ssim_lambda * (1.0 - ssim_val)
+                ssim_term = 1.0 - ssim_val
+            loss = (1.0 - ssim_lambda) * l1_loss + ssim_lambda * ssim_term
         else:
             loss = l1_loss
 
@@ -1898,10 +1950,19 @@ def train(args):
         if (args.alpha_loss_lambda > 0 or args.alpha_obj_lambda > 0) and "mask" in batch:
             m = batch["mask"].to(device, non_blocking=True)        # (H, W) in [0,1]
             a = alphas[0, ..., 0]                                  # (H, W) rendered alpha
-            if args.alpha_loss_lambda > 0:
-                loss = loss + args.alpha_loss_lambda * (a * (1.0 - m)).mean()
-            if args.alpha_obj_lambda > 0:
-                loss = loss + args.alpha_obj_lambda * ((1.0 - a) * m).mean()
+            if args.alpha_loss_lambda > 0 and args.alpha_obj_lambda > 0:
+                # Quadratic boundary weights: prevents conflicting pulls on the 1px
+                # anti-aliased silhouette rim (m ~ 0.5) while driving m=0 -> a=0 and m=1 -> a=1.
+                w_bg = (1.0 - m).square()
+                w_fg = m.square()
+                loss = (loss
+                        + args.alpha_loss_lambda * (a * w_bg).mean()
+                        + args.alpha_obj_lambda * ((1.0 - a) * w_fg).mean())
+            else:
+                if args.alpha_loss_lambda > 0:
+                    loss = loss + args.alpha_loss_lambda * (a * (1.0 - m)).mean()
+                if args.alpha_obj_lambda > 0:
+                    loss = loss + args.alpha_obj_lambda * ((1.0 - a) * m).mean()
 
         # Opacity/scale regularization (essential for MCMC, harmless otherwise)
         if args.opacity_reg > 0:
@@ -2177,6 +2238,14 @@ def train(args):
         if pose_optimizer is not None:
             pose_optimizer.step()
             pose_optimizer.zero_grad(set_to_none=True)
+            if pose_scheduler is not None:
+                pose_scheduler.step()
+            if pose_train_idx_t is not None and pose_module is not None:
+                with torch.no_grad():
+                    w_tr = pose_module.embeds.weight.data.index_select(0, pose_train_idx_t)
+                    pose_module.embeds.weight.data.index_add_(
+                        0, pose_train_idx_t, -w_tr.mean(dim=0, keepdim=True).expand_as(w_tr),
+                    )
         if bil_opt is not None:
             bil_opt.step()
             bil_opt.zero_grad(set_to_none=True)

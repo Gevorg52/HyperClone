@@ -398,6 +398,8 @@ def run_splat_transform(in_ply: str, out_path: str, actions: list[str],
 def self_refit(reduced_ckpt: str, data_dir: str, result_dir: str, *, factor: int,
                steps: int, sh_degree: int, cap_max: int, python: str,
                object_masked: bool, alpha_loss_lambda: float,
+               alpha_obj_lambda: float = 0.25, pose_opt: bool = False,
+               refine_stop_iter: int = 1,
                lpips_lambda: float = 0.2, erank_lambda: float = 0.01,
                scale_reg: float = 0.01, seed: int = 0) -> str:
     """Run a short self-refit; return the refit PLY path (point_cloud_{steps-1}.ply)."""
@@ -412,6 +414,7 @@ def self_refit(reduced_ckpt: str, data_dir: str, result_dir: str, *, factor: int
            "--sh_degree", str(sh_degree),
            "--strategy", "mcmc",
            "--cap_max", str(cap_max),
+           "--refine_stop_iter", str(max(1, int(refine_stop_iter))),
            "--coarse_factor", "0",
            "--opacity_reg", "0.0",
            "--init_ckpt", reduced_ckpt,
@@ -424,10 +427,14 @@ def self_refit(reduced_ckpt: str, data_dir: str, result_dir: str, *, factor: int
         lp_patch = 768 if int(factor) == 1 else 512
         cmd += ["--lpips_lambda", str(lpips_lambda), "--lpips_gated",
                 "--lpips_start", "1", "--lpips_patch", str(lp_patch), "--lpips_bf16"]
+    if pose_opt:
+        cmd += ["--pose_opt", "--pose_opt_lr", "1e-5", "--pose_opt_reg", "1e-6"]
     if object_masked:
         cmd += ["--rgb_object_masked"]
         if alpha_loss_lambda > 0:
             cmd += ["--alpha_loss_lambda", str(alpha_loss_lambda)]
+        if alpha_obj_lambda > 0:
+            cmd += ["--alpha_obj_lambda", str(alpha_obj_lambda)]
     print("  [refit] " + " ".join(cmd[1:]), flush=True)
     env = dict(os.environ)
     env.pop("APEX_HOLDOUT", None)
@@ -737,6 +744,12 @@ def main():
                          "the LPIPS-tuned master — unfaithful). Override explicitly.")
     ap.add_argument("--alpha_loss_lambda", type=float, default=0.5,
                     help="object-refit background-alpha killer (extract mode, default 0.5)")
+    ap.add_argument("--alpha_obj_lambda", type=float, default=0.0,
+                    help="object-refit foreground-alpha completeness weight (extract mode, default 0.0)")
+    ap.add_argument("--refit_pose_opt", action=argparse.BooleanOptionalAction, default=False,
+                    help="enable zero-mean gauge-anchored sub-pixel SE(3) pose refinement during self_refit")
+    ap.add_argument("--refit_relocate_steps", type=int, default=0,
+                    help="MCMC relocation stop step during self_refit (0 = no relocation)")
     ap.add_argument("--sog_iterations", type=int, default=15, help="SOG SH compression iters")
     # SPZ v4 (WP-D2) — default OFF
     ap.add_argument("--spz", action="store_true",
@@ -911,7 +924,10 @@ def main():
             steps=args.refit_steps, sh_degree=sh_reduced,
             cap_max=max(n_reduced, 1000), python=args.python,
             object_masked=args.extract_object,
-            alpha_loss_lambda=args.alpha_loss_lambda)
+            alpha_loss_lambda=args.alpha_loss_lambda,
+            alpha_obj_lambda=(args.alpha_obj_lambda if args.extract_object else 0.0),
+            pose_opt=args.refit_pose_opt,
+            refine_stop_iter=max(1, args.refit_relocate_steps))
         pre_delivery_ply = refit_ply
         refit_splats = load_splats(refit_ply, device)
         sh_pre = sh_degree_of(refit_splats)
@@ -921,29 +937,31 @@ def main():
                                   "object_masked": args.extract_object,
                                   "alpha_loss_lambda": (args.alpha_loss_lambda
                                                         if args.extract_object else 0.0),
+                                  "alpha_obj_lambda": (args.alpha_obj_lambda
+                                                       if args.extract_object else 0.0),
+                                  "pose_opt": bool(args.refit_pose_opt),
                                   "seconds": round(time.time()-t_ref, 1)}
-        if do_prune_tidi and tidi_dir:
-            from tools.prune_tidi import TidiConfig, prune_ckpt_tidi
-            tidi_cfg_post = TidiConfig.from_preset(args.tidi_mode)
-            refit_ckpt_pt = os.path.join(refit_dir, "ckpts", f"ckpt_{args.refit_steps - 1}_rank0.pt")
-            post_src = refit_ckpt_pt if os.path.isfile(refit_ckpt_pt) else refit_ply
-            kept_post, post_reasons, _ = prune_ckpt_tidi(
-                source_path=post_src,
-                data_dir=tidi_dir,
-                factor=args.tidi_data_factor,
-                cfg=tidi_cfg_post,
-                device=device,
-            )
-            post_ply = str(work / "refit_tidi.ply")
-            export_ply({k: v.to(device) for k, v in kept_post.items()}, post_ply)
-            pre_delivery_ply = post_ply
-            print(f"[prune_tidi post-refit] ({args.tidi_mode}) "
-                  f"{int(refit_splats['means'].shape[0]):,} -> {post_reasons['kept']:,} "
-                  f"(dropped {post_reasons['dropped_total']:,}: "
-                  f"low_op={post_reasons['dropped_low_opacity']:,}, "
-                  f"low_ev={post_reasons['dropped_low_crossview_evidence']:,}, "
-                  f"iso3d={post_reasons['dropped_3d_isolated_floater']:,})")
-            rec["stages"]["prune_tidi_post_refit"] = post_reasons
+        # Post-refit dead-splat cleanup: remove only Gaussians killed by alpha_loss_lambda
+        # (sigmoid(opacity) < 0.005) and any stray radial outlier beyond 0.45x scene scale.
+        cleaned_post, post_stats = prune_dict(
+            refit_splats, opacity_min=0.005, sor_k=0, sor_std=0.0, device=device,
+        )
+        if args.extract_object and rscale > 0:
+            oc_t = torch.tensor(ocenter, dtype=torch.float32, device=device)
+            rad_over = torch.linalg.norm(cleaned_post["means"] - oc_t, dim=-1) / float(rscale)
+            keep_rad = rad_over <= 0.45
+            n_rad_drop = int((~keep_rad).sum().item())
+            if n_rad_drop > 0:
+                cleaned_post = apply_keep(cleaned_post, keep_rad)
+                post_stats["removed_outliers"] = n_rad_drop
+                post_stats["n_after"] = int(keep_rad.sum().item())
+        post_ply = str(work / "refit_clean.ply")
+        export_ply(cleaned_post, post_ply)
+        pre_delivery_ply = post_ply
+        print(f"[post-refit prune] {post_stats['n_before']:,} -> {post_stats['n_after']:,} "
+              f"(removed {post_stats['removed_low_opacity']:,} dead op<0.005, "
+              f"{post_stats['removed_outliers']:,} radial outliers)")
+        rec["stages"]["post_refit_prune"] = post_stats
 
     # ---- final export: harmonics + morton -> delivered PLY, then SOG ---------
     # Per-mode default SH: 3 for objects (keep specular — SH2 is the whole LPIPS

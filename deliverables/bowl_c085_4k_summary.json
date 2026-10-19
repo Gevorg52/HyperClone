@@ -2,6 +2,12 @@
   "scene": "BOWL_C085",
   "source_video": "C:\\Users\\gevor\\Downloads\\A001_03201343_C085.mov",
   "resolution_trained": "3840x2160 (native 4K, factor=1)",
+  "throughput_4k_self_refit_it_per_sec": {
+    "before_bbox_grouped_ssim": 20.7,
+    "after_bbox_grouped_ssim": 26.8,
+    "speedup_pct": 29.5,
+    "wall_seconds_3000_steps_4k": 117.8
+  },
   "baseline_1080p_deliverable": {
     "n_gaussians": 402759,
     "sh_degree": 3,
@@ -13,24 +19,17 @@
       "max_bg_bleed_alpha": 0.0182
     }
   },
-  "maximized_4k_sh3_deliverable": {
-    "ply": "deliverables/bowl_c085_object.ply",
-    "sog": "deliverables/bowl_c085_object.sog",
-    "spz": "deliverables/bowl_c085_object.spz",
+  "previous_4k_post_tidi_deliverable": {
     "n_gaussians": 459653,
     "sh_degree": 3,
     "qa_at_4k_factor1": {
       "obj_masked_psnr": 24.5736,
       "obj_masked_ssim": 0.8716,
       "obj_masked_lpips": 0.1944,
-      "delta_obj_lpips_vs_4k_master": -0.0048,
       "mean_bg_bleed_alpha": 0.0028,
-      "max_bg_bleed_alpha": 0.0085,
-      "within_0_3_scale_pct": 100.0,
-      "within_0_5_scale_pct": 100.0,
-      "beyond_0_5_scale_count": 0
+      "max_bg_bleed_alpha": 0.0085
     },
-    "qa_at_1080p_factor2_apples_to_apples": {
+    "qa_at_1080p_factor2": {
       "obj_masked_psnr": 25.0425,
       "obj_masked_ssim": 0.8678,
       "obj_masked_lpips": 0.1364,
@@ -38,26 +37,74 @@
       "max_bg_bleed_alpha": 0.0093
     }
   },
-  "maximized_4k_sh4_deliverable": {
-    "ply": "deliverables/bowl_c085_object_sh4.ply",
-    "spz": "deliverables/bowl_c085_object_sh4.spz",
-    "n_gaussians": 437209,
-    "sh_degree": 4,
-    "spz_bytes": 22401283,
-    "spz_log_scale_clip_frac": 0.01343,
+  "winning_4k_sh3_deliverable": {
+    "ply": "deliverables/bowl_c085_object.ply",
+    "sog": "deliverables/bowl_c085_object.sog",
+    "spz": "deliverables/bowl_c085_object.spz",
+    "n_gaussians": 542153,
+    "sh_degree": 3,
     "qa_at_4k_factor1": {
-      "obj_masked_psnr": 24.6539,
-      "obj_masked_ssim": 0.8717,
-      "obj_masked_lpips": 0.1958,
+      "obj_masked_psnr": 24.6624,
+      "obj_masked_ssim": 0.8725,
+      "obj_masked_lpips": 0.1939,
+      "delta_obj_lpips_vs_4k_master": -0.0053,
       "mean_bg_bleed_alpha": 0.0028,
-      "max_bg_bleed_alpha": 0.0094
+      "max_bg_bleed_alpha": 0.0085,
+      "within_0_3_scale_pct": 100.0,
+      "within_0_5_scale_pct": 100.0,
+      "beyond_0_5_scale_count": 0,
+      "radial_over_scale_max": 0.2129
     },
     "qa_at_1080p_factor2_apples_to_apples": {
-      "obj_masked_psnr": 25.0503,
-      "obj_masked_ssim": 0.8668,
-      "obj_masked_lpips": 0.1384,
+      "obj_masked_psnr": 25.0552,
+      "obj_masked_ssim": 0.8681,
+      "obj_masked_lpips": 0.1360,
+      "mean_bg_bleed_alpha": 0.0029,
+      "max_bg_bleed_alpha": 0.0093
+    }
+  },
+  "winning_4k_sh4_deliverable": {
+    "ply": "deliverables/bowl_c085_object_sh4.ply",
+    "spz": "deliverables/bowl_c085_object_sh4.spz",
+    "n_gaussians": 535439,
+    "sh_degree": 4,
+    "qa_at_4k_factor1": {
+      "obj_masked_psnr": 24.6649,
+      "obj_masked_ssim": 0.8719,
+      "obj_masked_lpips": 0.1953,
+      "mean_bg_bleed_alpha": 0.0028,
+      "max_bg_bleed_alpha": 0.0095,
+      "within_0_3_scale_pct": 100.0,
+      "within_0_5_scale_pct": 100.0,
+      "beyond_0_5_scale_count": 0,
+      "radial_over_scale_max": 0.2130
+    },
+    "qa_at_1080p_factor2_apples_to_apples": {
+      "obj_masked_psnr": 25.0607,
+      "obj_masked_ssim": 0.8671,
+      "obj_masked_lpips": 0.1379,
       "mean_bg_bleed_alpha": 0.0029,
       "max_bg_bleed_alpha": 0.0096
+    }
+  },
+  "ablation_arms": {
+    "V2_relocate1500_alphaObj025": {
+      "n_gaussians": 610543,
+      "qa_4k": {"psnr": 24.4855, "ssim": 0.8736, "lpips": 0.1931, "bg_bleed": 0.0032},
+      "qa_1080p": {"psnr": 24.8535, "ssim": 0.8692, "lpips": 0.1371, "bg_bleed": 0.0033},
+      "finding": "Highest SSIM (0.8736) and lowest 4K LPIPS (0.1931), +0.44 dB on 10px rim band, but MCMC Brownian noise during refit cost -0.18 dB interior PSNR."
+    },
+    "V3_poseOpt_alphaObj025": {
+      "n_gaussians": 542589,
+      "qa_4k": {"psnr": 24.6077, "ssim": 0.8710, "lpips": 0.1947, "bg_bleed": 0.0031},
+      "qa_1080p": {"psnr": 24.9961, "ssim": 0.8662, "lpips": 0.1366, "bg_bleed": 0.0032},
+      "finding": "Training-only SE(3) pose refinement shifts local training poses slightly away from un-optimized held-out test views (-0.05 dB vs pose_opt=False); keep --refit_pose_opt default OFF."
+    },
+    "V4_noPoseOpt_alphaObj025": {
+      "n_gaussians": 542542,
+      "qa_4k": {"psnr": 24.6197, "ssim": 0.8715, "lpips": 0.1948, "bg_bleed": 0.0031},
+      "qa_1080p": {"psnr": 25.0136, "ssim": 0.8667, "lpips": 0.1366, "bg_bleed": 0.0032},
+      "finding": "Forcing alpha->1 on the 1-2px binary mask border slightly increases border bleed (0.0028->0.0031); keep --alpha_obj_lambda default 0.0."
     }
   }
 }
