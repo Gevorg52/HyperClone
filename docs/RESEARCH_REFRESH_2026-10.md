@@ -193,6 +193,7 @@ binary).
 | 5b | **WP-C4: orbit-fill backbone bake-off** (ArtiFixer / LTX-2.5 inpaint / VACE / H3 probe), §5b | 3–4 d | Beat no-fill control on unobserved split; observed no-regress; cheating + flicker checks |
 | 5c | ✅ **Spirula Studio recon** (`_infusion/wpb1_spirula_recon.md`) | 0.5 d | RECON CLOSED 2026-10-18: headless CLI (`spirula train`) confirmed on Vulkan/CUDA (GPL-3.0, SH3 max) |
 | 10 | Fallback pose tier: MapAnything / VGGT-Ω-reproduce / VGGT-Long (WSL) | 2–3 d | Only for captures COLMAP fails |
+| 11 | ✅ **WP-Perf1 + 4K Object Pipeline (`BOWL_C085`)** (`deliverables/bowl_c085_4k_summary.json`) | 1 d | CLOSED 2026-10-18 (`PASS`): GPU `uint8` VRAM preload + auto coarse-free, stateless `bfloat16` LPIPS, `fused=True` CUDA Adam (`2.23×`), separable 1D SSIM, zero per-step `.item()` syncs (`1.2 → 35.6 it/s` at 1080p, `20.7 it/s` at 4K), cosine MCMC noise decay, 2-stage horizon visual-hull carving (`--vote_horizon_frac 0.85`), pre+post-refit TIDI (`+0.25 dB` PSNR, `-12.7%` LPIPS, `2.4×` lower bg bleed vs 1080p) |
 
 Deprioritized: G1-phase2 ASG (can't export to standard PLY without baking — revisit only if SH4
 fails on glossy), UBS/new kernels, FlashVSR, Lyra, HY-Pano, PBR export, 3DGS-LM.

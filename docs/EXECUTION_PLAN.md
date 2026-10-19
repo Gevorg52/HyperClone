@@ -1129,6 +1129,47 @@ Open: (1) UE plugin round-trip of the SPZ and the 72-f_rest PLY (frame + SH sign
 >   ships Windows/Linux/macOS binaries with a headless CLI (`spirula train --help`) on Vulkan (primary)
 >   and CUDA, supporting 360 equirectangular, fisheye, LoMa, and PPISP-style appearance, capped at SH3.
 
+═══════════════════════════════════════════════════════════════════════
+### WP-Perf1 & Native 4K Object Pipeline (`BOWL_C085`) — ✅ CLOSED 2026-10-18 (`PASS`, Promoted to Defaults)
+═══════════════════════════════════════════════════════════════════════
+> **STATUS: GATE PASSED & PROMOTED TO PRODUCTION DEFAULTS (`d164eca`, `60054cb`).**
+> Evidence: `deliverables/bowl_c085_4k_summary.json`, `deliverables/bowl_c085_object_delivery.json`,
+> `_infusion/train_bowl_4k_max.py`, `core/training/gsplat_trainer.py`, `core/delivery.py`.
+
+- **Hot-Path Training Performance Upgrades (`core/training/gsplat_trainer.py`):**
+  1. **Stateless + `bfloat16` VGG-LPIPS (`lpips_patch_loss`, `--lpips_bf16` default `True`):** Bypassed
+     `torchmetrics.Metric.__call__` (which accumulated the autograd graph into `self.sum_scores`,
+     causing an $O(N^2)$ slowdown from `18 it/s` down to `1.2 it/s`) and added `torch.amp.autocast("cuda", dtype=torch.bfloat16)` (`1.58 ms/step`).
+  2. **GPU VRAM `uint8` Frame Preload + Auto Coarse-Release (`Prefetcher`):** Preloads all undistorted
+     training views into GPU VRAM once as `uint8` (`3.09 GB` at 1080p, `10.84 GB` at 4K) and automatically
+     frees the coarse cache (`free_vram=True`) at `coarse_until`.
+  3. **Multi-Tensor Fused CUDA Adam (`fused=True`):** Cuts 6-parameter-group optimizer step time at `2.5M`
+     Gaussians by **`2.23×` (`7.01 ms → 3.14 ms`)**.
+  4. **Separable 1D Gaussian SSIM (`_fspecial_gauss_1d` + `ssim`):** Replaces the `11×11` 2D kernel (`121`
+     ops/px) with cached `11×1` + `1×11` depthwise 1D convolutions (`22` ops/px, bit-exact `1.6e-7`),
+     saving `2.2 ms/step` at 4K and `0.7 ms/step` at 1080p.
+  5. **Zero Per-Step `.item()` Sync Barriers:** Replaces per-step `.item()` calls before `loss.backward()`
+     with 0-dim GPU tensor EMAs, syncing only every 100 steps for logging.
+  6. **Throughput:** Steady **`35.6 it/s`** (`1080p`, `2.5M` GS), **`51.2 it/s`** (`1080p`, `543k` GS),
+     and **`20.7 it/s`** (**native `4K` `3840×2160`**, `543k` GS).
+- **Quality & Object-Extraction Upgrades (`core/training/gsplat_trainer.py`, `core/delivery.py`):**
+  1. **Cosine-Decayed MCMC Noise (`--mcmc_noise_decay`, default `True`):** Cosine-decays `strategy.noise_lr`
+     from `5e5` to `2.5e4` over the last two-thirds of densification so fine surface Gaussians settle
+     without Brownian jitter.
+  2. **Two-Stage Horizon-Stratified Visual-Hull Carving (`--vote_horizon_frac 0.85`, default `0.85`):**
+     Automatically runs a second visual-hull pass across the lowest-elevation 10% horizontal views to
+     carve away pedestals/books/tables beneath concave objects.
+  3. **Pre- and Post-Refit TIDI Pruning + No-Decimate Object Defaults:** Enabled `--prune_tidi` (pre+post
+     refit), `--alpha_loss_lambda 0.5`, no redundant 60% decimation on `--extract_object`, and `768×768`
+     LPIPS patch at `factor=1` (`4K`).
+- **`BOWL_C085` Native `4K` vs `1080p` Gate (47 held-out views):**
+  - Apples-to-apples at `1080p` (`factor=2`): `obj_masked_psnr` **`24.80 → 25.04 dB` (`SH3`) / `25.05 dB` (`SH4`)**,
+    `obj_masked_ssim` **`0.8588 → 0.8678`**, `obj_masked_lpips` **`0.1563 → 0.1364` (`-12.7 %`)**,
+    `mean_bg_bleed_alpha` **`0.0068 → 0.0029` (`2.34×` cleaner)**.
+  - Native `4K` (`factor=1`): `24.57 dB` PSNR (`SH3`, `459,653` GS) / `24.65 dB` PSNR (`SH4`, `437,209` GS),
+    `0.8717` SSIM, `0.1944` LPIPS (`-0.0048` sharper than the 4K master), `0.0028` bg bleed, `100.0 %`
+    within `0.3×` scene scale (`0` outliers), and SPZ v4 log-scale clipping reduced from `18.37 % → 1.34 %`.
+
 ## Annex A — H100 causal-ArtiFixer probe (optional, ~$1, not excluded)
 Rent an H100 spot (sm_90: stock FA2/FA3 works). Steps: clone nv-tlabs/artifixer + weights
 (67.6 GB — provision download time or use HF cache on the box), copy one prepared scene
