@@ -344,7 +344,8 @@ def run_splat_transform(in_ply: str, out_path: str, actions: list[str],
 def self_refit(reduced_ckpt: str, data_dir: str, result_dir: str, *, factor: int,
                steps: int, sh_degree: int, cap_max: int, python: str,
                object_masked: bool, alpha_loss_lambda: float,
-               seed: int = 0) -> str:
+               lpips_lambda: float = 0.2, erank_lambda: float = 0.01,
+               scale_reg: float = 0.01, seed: int = 0) -> str:
     """Run a short self-refit; return the refit PLY path (point_cloud_{steps-1}.ply)."""
     trainer = os.path.join(_REPO, "core", "training", "gsplat_trainer.py")
     cmd = [python, trainer,
@@ -358,8 +359,15 @@ def self_refit(reduced_ckpt: str, data_dir: str, result_dir: str, *, factor: int
            "--strategy", "mcmc",
            "--cap_max", str(cap_max),
            "--coarse_factor", "0",
+           "--opacity_reg", "0.0",
            "--init_ckpt", reduced_ckpt,
            "--seed", str(seed)]
+    if scale_reg > 0:
+        cmd += ["--scale_reg", str(scale_reg)]
+    if erank_lambda > 0:
+        cmd += ["--erank_lambda", str(erank_lambda), "--erank_start", "1"]
+    if lpips_lambda > 0:
+        cmd += ["--lpips_lambda", str(lpips_lambda), "--lpips_gated", "--lpips_start", "1"]
     if object_masked:
         cmd += ["--rgb_object_masked"]
         if alpha_loss_lambda > 0:
@@ -842,6 +850,28 @@ def main():
                                   "alpha_loss_lambda": (args.alpha_loss_lambda
                                                         if args.extract_object else 0.0),
                                   "seconds": round(time.time()-t_ref, 1)}
+        if args.prune_tidi and tidi_dir:
+            from tools.prune_tidi import TidiConfig, prune_ckpt_tidi
+            tidi_cfg_post = TidiConfig.from_preset(args.tidi_mode)
+            refit_ckpt_pt = os.path.join(refit_dir, "ckpts", f"ckpt_{args.refit_steps - 1}_rank0.pt")
+            post_src = refit_ckpt_pt if os.path.isfile(refit_ckpt_pt) else refit_ply
+            kept_post, post_reasons, _ = prune_ckpt_tidi(
+                source_path=post_src,
+                data_dir=tidi_dir,
+                factor=args.tidi_data_factor,
+                cfg=tidi_cfg_post,
+                device=device,
+            )
+            post_ply = str(work / "refit_tidi.ply")
+            export_ply({k: v.to(device) for k, v in kept_post.items()}, post_ply)
+            pre_delivery_ply = post_ply
+            print(f"[prune_tidi post-refit] ({args.tidi_mode}) "
+                  f"{int(refit_splats['means'].shape[0]):,} -> {post_reasons['kept']:,} "
+                  f"(dropped {post_reasons['dropped_total']:,}: "
+                  f"low_op={post_reasons['dropped_low_opacity']:,}, "
+                  f"low_ev={post_reasons['dropped_low_crossview_evidence']:,}, "
+                  f"iso3d={post_reasons['dropped_3d_isolated_floater']:,})")
+            rec["stages"]["prune_tidi_post_refit"] = post_reasons
 
     # ---- final export: harmonics + morton -> delivered PLY, then SOG ---------
     # Per-mode default SH: 3 for objects (keep specular — SH2 is the whole LPIPS

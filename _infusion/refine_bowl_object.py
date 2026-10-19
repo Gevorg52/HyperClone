@@ -89,120 +89,183 @@ def main():
     else:
         print(f"[2/5] Reusing {len(imgs)} BiRefNet('high-res SOD') masks in {masks_hrsod_dir}", flush=True)
 
-    # 3. Compose elevation-aware 2D masks (general on side views, max(general, hrsod) on overhead views)
-    # and clear any cached masks_2 directory so load_colmap_data reads fresh masks.
-    if masks_2_dir.is_dir():
-        shutil.rmtree(masks_2_dir)
-    for p in sorted(masks_gen_dir.glob("*.png")):
-        mg = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
-        mh = cv2.imread(str(masks_hrsod_dir / p.name), cv2.IMREAD_GRAYSCALE)
-        if (mg > 127).mean() < 0.22:
-            m_out = mg
-        else:
-            m_out = np.maximum(mg, mh)
-        cv2.imwrite(str(masks_dir / p.name), m_out)
+    if not hull_ckpt.is_file():
+        # 3. Compose elevation-aware 2D masks (general on side views, max(general, hrsod) on overhead views)
+        # and clear any cached masks_2 directory so load_colmap_data reads fresh masks.
+        if masks_2_dir.is_dir():
+            shutil.rmtree(masks_2_dir)
+        for p in sorted(masks_gen_dir.glob("*.png")):
+            mg = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
+            mh = cv2.imread(str(masks_hrsod_dir / p.name), cv2.IMREAD_GRAYSCALE)
+            if (mg > 127).mean() < 0.22:
+                m_out = mg
+            else:
+                m_out = np.maximum(mg, mh)
+            cv2.imwrite(str(masks_dir / p.name), m_out)
 
-    # 4. Two-stage 3D visual-hull carving (`keep_all & keep_side`)
-    print("[3/5] Running two-stage 3D visual-hull carving (keep_all & keep_side) ...", flush=True)
-    splats = load_splats(str(master_ckpt), device)
-    data = load_colmap_data(str(EXPORT_DIR), factor=2, normalize=True)
+        # 4. Two-stage 3D visual-hull carving (`keep_all & keep_side`)
+        print("[3/5] Running two-stage 3D visual-hull carving (keep_all & keep_side) ...", flush=True)
+        splats = load_splats(str(master_ckpt), device)
+        data = load_colmap_data(str(EXPORT_DIR), factor=2, normalize=True)
 
-    keep_all, st_all = vote_object(
-        splats, data, device, mask_thresh=0.5, vote_frac=0.60, min_views=10, stride=1
-    )
-    horiz_idxs = []
-    for idx in data["train_indices"]:
-        stem = os.path.splitext(data["image_names"][idx])[0]
-        mg = cv2.imread(str(masks_gen_dir / f"{stem}.png"), cv2.IMREAD_GRAYSCALE)
-        if (mg > 127).mean() < 0.135:
-            horiz_idxs.append(idx)
-    data_side = dict(data)
-    data_side["train_indices"] = np.array(horiz_idxs, dtype=np.int64)
-    keep_side, st_side = vote_object(
-        splats, data_side, device, mask_thresh=0.5, vote_frac=0.85, min_views=4, stride=1
-    )
-    keep_hull = keep_all & keep_side
-    print(
-        f"  [hull] keep_all={int(keep_all.sum()):,} & keep_side={int(keep_side.sum()):,} "
-        f"({len(horiz_idxs)} horizontal views) -> keep_hull={int(keep_hull.sum()):,}",
-        flush=True,
-    )
+        keep_all, st_all = vote_object(
+            splats, data, device, mask_thresh=0.5, vote_frac=0.60, min_views=10, stride=1
+        )
+        horiz_idxs = []
+        for idx in data["train_indices"]:
+            stem = os.path.splitext(data["image_names"][idx])[0]
+            mg = cv2.imread(str(masks_gen_dir / f"{stem}.png"), cv2.IMREAD_GRAYSCALE)
+            if (mg > 127).mean() < 0.135:
+                horiz_idxs.append(idx)
+        data_side = dict(data)
+        data_side["train_indices"] = np.array(horiz_idxs, dtype=np.int64)
+        keep_side, st_side = vote_object(
+            splats, data_side, device, mask_thresh=0.5, vote_frac=0.85, min_views=4, stride=1
+        )
+        keep_hull = keep_all & keep_side
+        print(
+            f"  [hull] keep_all={int(keep_all.sum()):,} & keep_side={int(keep_side.sum()):,} "
+            f"({len(horiz_idxs)} horizontal views) -> keep_hull={int(keep_hull.sum()):,}",
+            flush=True,
+        )
 
-    hull_splats = apply_keep({k: v.to(device) for k, v in splats.items()}, keep_hull.to(device))
-    torch.save({"step": 29999, "splats": {k: v.detach().cpu() for k, v in hull_splats.items()}}, str(hull_ckpt))
-    print(f"  [hull] Saved pre-carved checkpoint -> {hull_ckpt}", flush=True)
+        hull_splats = apply_keep({k: v.to(device) for k, v in splats.items()}, keep_hull.to(device))
+        torch.save({"step": 29999, "splats": {k: v.detach().cpu() for k, v in hull_splats.items()}}, str(hull_ckpt))
+        print(f"  [hull] Saved pre-carved checkpoint -> {hull_ckpt}", flush=True)
 
-    # Also gate the 2D masks by the clean 3D bowl silhouette so refit never sees book pixels
-    # on any oblique view where hrsod touched the book corner
-    clean_sub, _ = prune_dict(hull_splats, opacity_min=0.05, sor_k=12, sor_std=2.0, device=device)
-    print("[4/5] Gating 2D masks with 3D visual-hull projection to remove any oblique book corners ...", flush=True)
-    bg = torch.zeros(3, device=device)
-    for idx in range(len(data["image_names"])):
-        cid = data["camera_ids"][idx]
-        K = torch.from_numpy(np.asarray(data["Ks_dict"][cid])).float().to(device)
-        W, H = data["imsize_dict"][cid]
-        vm = torch.linalg.inv(torch.from_numpy(data["camtoworlds"][idx]).float().to(device))
-        with torch.no_grad():
-            _, alphas, _ = render_splats(
-                clean_sub, vm, K, int(W), int(H), 0, bg, rasterize_mode="antialiased"
-            )
-        alpha_np = alphas[0, ..., 0].detach().cpu().numpy()
-        stem = os.path.splitext(data["image_names"][idx])[0]
-        m_cur = cv2.imread(str(masks_dir / f"{stem}.png"), cv2.IMREAD_GRAYSCALE)
-        orig_h, orig_w = m_cur.shape[:2]
-        alpha_full = cv2.resize(alpha_np, (orig_w, orig_h), interpolation=cv2.INTER_LINEAR)
-        sil_u8 = ((alpha_full > 0.15) * 255).astype(np.uint8)
-        sil_dil = cv2.dilate(sil_u8, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25)))
-        # Intersect 2D mask with dilated 3D hull silhouette, and fill interior holes where hull alpha > 0.65
-        m_gated = np.where(
-            sil_dil > 0,
-            np.maximum(m_cur, ((alpha_full > 0.65) * 255).astype(np.uint8)),
-            0,
-        ).astype(np.uint8)
-        cv2.imwrite(str(masks_dir / f"{stem}.png"), clean_bowl_mask(m_gated))
+        # Also gate the 2D masks by the clean 3D bowl silhouette so refit never sees book pixels
+        # on any oblique view where hrsod touched the book corner
+        clean_sub, _ = prune_dict(hull_splats, opacity_min=0.05, sor_k=12, sor_std=2.0, device=device)
+        print("[4/5] Gating 2D masks with 3D visual-hull projection to remove any oblique book corners ...", flush=True)
+        bg = torch.zeros(3, device=device)
+        for idx in range(len(data["image_names"])):
+            cid = data["camera_ids"][idx]
+            K = torch.from_numpy(np.asarray(data["Ks_dict"][cid])).float().to(device)
+            W, H = data["imsize_dict"][cid]
+            vm = torch.linalg.inv(torch.from_numpy(data["camtoworlds"][idx]).float().to(device))
+            with torch.no_grad():
+                _, alphas, _ = render_splats(
+                    clean_sub, vm, K, int(W), int(H), 0, bg, rasterize_mode="antialiased"
+                )
+            alpha_np = alphas[0, ..., 0].detach().cpu().numpy()
+            stem = os.path.splitext(data["image_names"][idx])[0]
+            m_cur = cv2.imread(str(masks_dir / f"{stem}.png"), cv2.IMREAD_GRAYSCALE)
+            orig_h, orig_w = m_cur.shape[:2]
+            alpha_full = cv2.resize(alpha_np, (orig_w, orig_h), interpolation=cv2.INTER_LINEAR)
+            sil_u8 = ((alpha_full > 0.15) * 255).astype(np.uint8)
+            sil_dil = cv2.dilate(sil_u8, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25)))
+            # Intersect 2D mask with dilated 3D hull silhouette, and fill interior holes where hull alpha > 0.65
+            m_gated = np.where(
+                sil_dil > 0,
+                np.maximum(m_cur, ((alpha_full > 0.65) * 255).astype(np.uint8)),
+                0,
+            ).astype(np.uint8)
+            cv2.imwrite(str(masks_dir / f"{stem}.png"), clean_bowl_mask(m_gated))
+    else:
+        print(f"[3-4/5] Reusing visual-hull checkpoint {hull_ckpt} and gated 2D masks in {masks_dir}", flush=True)
 
     # 5. Re-run Stage 10 core.delivery on the visual-hull checkpoint + undecimated TIDI PLY
-    print("[5/5] Running Stage 10 core.delivery on visual-hull checkpoint ...", flush=True)
     work_dir = DELIV_DIR / "_work" / "bowl_c085_object"
-    if work_dir.is_dir():
-        shutil.rmtree(work_dir)
-    if masks_2_dir.is_dir():
-        shutil.rmtree(masks_2_dir)
+    post_tidi_ply = work_dir / "refit_tidi.ply"
+    if not post_tidi_ply.is_file():
+        print("[5/5] Running Stage 10 core.delivery on visual-hull checkpoint ...", flush=True)
+        if work_dir.is_dir():
+            shutil.rmtree(work_dir)
+        if masks_2_dir.is_dir():
+            shutil.rmtree(masks_2_dir)
 
-    cmd = [
-        sys.executable, "-m", "core.delivery",
-        "--ckpt", str(hull_ckpt),
-        "--data_dir", str(EXPORT_DIR),
-        "--name", "bowl_c085",
-        "--factor", "2",
-        "--extract_object",
-        "--mask_dir", str(masks_dir),
-        "--vote_frac", "0.60",
-        "--decimate", "75%",
-        "--refit_steps", "3000",
-        "--filter_harmonics", "3",
-        "--prune_tidi",
-        "--tidi_data_dir", str(EXPORT_DIR),
-        "--tidi_data_factor", "4",
-        "--tidi_mode", "moderate",
-        "--spz",
-        "--out", str(DELIV_DIR),
-    ]
-    subprocess.run(cmd, check=True)
-
-    refit_ckpt = work_dir / "refit" / "ckpts" / "ckpt_2999_rank0.pt"
-    if refit_ckpt.is_file():
-        full_obj_ply = DELIV_DIR / "bowl_c085_object_undecimated.ply"
-        cmd_tidi = [
-            sys.executable, str(REPO_ROOT / "tools" / "prune_tidi.py"),
-            "--ckpt", str(refit_ckpt),
+        cmd = [
+            sys.executable, "-m", "core.delivery",
+            "--ckpt", str(hull_ckpt),
             "--data_dir", str(EXPORT_DIR),
-            "--factor", "4",
-            "--preset", "moderate",
-            "--out", str(full_obj_ply),
+            "--name", "bowl_c085",
+            "--factor", "2",
+            "--extract_object",
+            "--mask_dir", str(masks_dir),
+            "--vote_frac", "0.60",
+            "--no_decimate",
+            "--refit_steps", "3000",
+            "--filter_harmonics", "3",
+            "--prune_tidi",
+            "--tidi_data_dir", str(EXPORT_DIR),
+            "--tidi_data_factor", "4",
+            "--tidi_mode", "moderate",
+            "--spz",
+            "--out", str(DELIV_DIR),
         ]
-        subprocess.run(cmd_tidi, check=True)
-        print(f"[done] Exported TIDI-cleaned object PLY -> {full_obj_ply}", flush=True)
+        subprocess.run(cmd, check=True)
+    else:
+        print(f"[5/5] Reusing completed post-refit TIDI delivery at {post_tidi_ply}", flush=True)
+
+    # Copy the undecimated post-refit TIDI-cleaned PLY to bowl_c085_object_undecimated.ply for convenience
+    deliv_ply = DELIV_DIR / "bowl_c085_object.ply"
+    full_obj_ply = DELIV_DIR / "bowl_c085_object_undecimated.ply"
+    if deliv_ply.is_file():
+        shutil.copy2(deliv_ply, full_obj_ply)
+
+    # 6. WP-SH4 + WP-D2: 2,000-step SH degree 4 specular warm-start refinement from the
+    # post-refit TIDI-cleaned object model -> bowl_c085_object_sh4.ply + bowl_c085_object_sh4.spz
+    if post_tidi_ply.is_file():
+        print("[6/6] Running WP-SH4 degree-4 specular warm-start (2,000 steps) + SPZ v4 export ...", flush=True)
+        from core.delivery import save_ckpt, export_ply
+        from core.spz_io import write_spz
+        sh3_clean = load_splats(str(post_tidi_ply), device)
+        sh3_clean_ckpt = work_dir / "refit_tidi_ckpt.pt"
+        save_ckpt(sh3_clean, str(sh3_clean_ckpt))
+        n_clean = int(sh3_clean["means"].shape[0])
+        sh4_dir = work_dir / "refit_sh4"
+        if sh4_dir.is_dir():
+            shutil.rmtree(sh4_dir)
+        cmd_sh4 = [
+            sys.executable, str(REPO_ROOT / "core" / "training" / "gsplat_trainer.py"),
+            "--data_dir", str(EXPORT_DIR),
+            "--result_dir", str(sh4_dir),
+            "--data_factor", "2",
+            "--max_steps", "2000",
+            "--save_steps", "2000",
+            "--test_every", "8",
+            "--sh_degree", "4",
+            "--strategy", "mcmc",
+            "--cap_max", str(n_clean),
+            "--coarse_factor", "0",
+            "--opacity_reg", "0.0",
+            "--scale_reg", "0.01",
+            "--erank_lambda", "0.01",
+            "--erank_start", "1",
+            "--lpips_lambda", "0.2",
+            "--lpips_gated",
+            "--lpips_start", "1",
+            "--rgb_object_masked",
+            "--alpha_loss_lambda", "0.1",
+            "--init_ckpt", str(sh3_clean_ckpt),
+            "--seed", "0",
+        ]
+        subprocess.run(cmd_sh4, check=True)
+        sh4_ckpt = sh4_dir / "ckpts" / "ckpt_1999_rank0.pt"
+        if sh4_ckpt.is_file():
+            from tools.prune_tidi import TidiConfig, prune_ckpt_tidi
+            kept_sh4, sh4_reasons, _ = prune_ckpt_tidi(
+                source_path=str(sh4_ckpt),
+                data_dir=str(EXPORT_DIR),
+                factor=4,
+                cfg=TidiConfig.from_preset("moderate"),
+                device=device,
+            )
+            sh4_ply = DELIV_DIR / "bowl_c085_object_sh4.ply"
+            sh4_spz = DELIV_DIR / "bowl_c085_object_sh4.spz"
+            export_ply({k: v.to(device) for k, v in kept_sh4.items()}, str(sh4_ply))
+            spz_info = write_spz(
+                {k: v.to(device) for k, v in kept_sh4.items()},
+                str(sh4_spz),
+                sh_degree=4,
+                sh1_bits=8,
+                sh_rest_bits=8,
+            )
+            print(
+                f"[done] WP-SH4 degree-4 object -> {sh4_ply} ({sh4_reasons['kept']:,} GS) "
+                f"& {sh4_spz} ({round(spz_info['bytes']/1e6, 2)} MB)",
+                flush=True,
+            )
 
     print(f"COMPLETE in {(time.time() - t0) / 60:.1f} min", flush=True)
 
